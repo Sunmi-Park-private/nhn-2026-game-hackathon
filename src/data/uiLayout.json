@@ -151,7 +151,26 @@
           "x": 115,
           "y": 28,
           "w": 220,
-          "h": 40
+          "h": 41,
+          "asset": "ui.stageBar"
+        },
+        {
+          "id": "stageTitle",
+          "label": "스테이지 이름",
+          "x": 131,
+          "y": 38,
+          "w": 96,
+          "h": 22,
+          "fontSize": 15
+        },
+        {
+          "id": "stageCounter",
+          "label": "구출 카운터",
+          "x": 247,
+          "y": 38,
+          "w": 70,
+          "h": 22,
+          "fontSize": 15
         },
         {
           "id": "shots",

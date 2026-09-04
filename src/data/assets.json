@@ -31,6 +31,7 @@
   },
   "ui": {
     "_note": "공용 UI 슬롯. 파일이 없으면 코드가 그린 도형으로 폴백한다.",
+    "stageBar": "assets/ui/stage-bar.png",
     "settingsPanel": "assets/ui/settings-panel.webp",
     "settingsClose": "assets/ui/settings-close.webp",
     "toggleOn": "assets/ui/toggle-on.webp",

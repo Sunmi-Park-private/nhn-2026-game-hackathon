@@ -30,7 +30,11 @@ export interface StageOutcome {
 }
 
 /** 세팅 모달과 톱니 버튼이 쓰는 슬롯. 스테이지 화면은 내용을 모르고 넘기기만 한다. */
-export type StageUiTextures = SettingsTextures & { settingsButton?: import("pixi.js").Texture };
+export type StageUiTextures = SettingsTextures & {
+  settingsButton?: import("pixi.js").Texture;
+  /** 상단 스테이지 바 판 */
+  stageBar?: import("pixi.js").Texture;
+};
 
 export interface StageTextures {
   tiles: Array<Texture | null>;
@@ -105,7 +109,7 @@ export async function runStageScreen(
     open: textures.cageOpen,
     animals: textures.animals,
   });
-  const hud = createHudView(stageIndex);
+  const hud = createHudView(stageIndex, { stageBar: ui.stageBar });
   const launcher = createLauncher(textures.horse);
 
   // 케이지는 타일보다 뒤에 둬서 타일이 케이지를 파묻게 하고, 발사대·HUD는 맨 앞에 둔다

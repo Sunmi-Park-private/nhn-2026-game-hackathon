@@ -1,10 +1,16 @@
 // ui/hex/hudView.ts — 상단 스테이지·목표 카운터, 우측 NEXT·부스터.
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Text, type Texture } from "pixi.js";
 
 import { slot } from "../../data/uiLayout";
+import { fitSprite } from "../skin";
 import { editable, clearEditable } from "../layoutEditor";
 import { TIER_COLORS, drawTileFallback } from "./tileArt";
 import type { RunState } from "../../engine/hex/types";
+
+/** HUD가 쓰는 아트. 없으면 코드가 그린 판으로 대신한다. */
+export interface HudTextures {
+  stageBar?: Texture;
+}
 
 export interface HudView {
   root: Container;
@@ -32,32 +38,59 @@ function groupFor(root: Container, b: { id: string; label: string; x: number; y:
   return g;
 }
 
-export function createHudView(stageIndex: number): HudView {
+/** 상자 한가운데에 놓는 글자. 슬롯이 크기·색을 들고 있으면 그 값을 쓴다. */
+function centered(
+  b: { x: number; y: number; w: number; h: number; fontSize?: number; color?: string },
+  text: string,
+  size: number,
+  color: number,
+): Text {
+  const t = new Text({
+    text,
+    style: {
+      fontSize: b.fontSize ?? size,
+      fill: b.color ?? color,
+      fontWeight: "bold",
+      // 나뭇결 위에서도 읽히게 — 판이 아트로 바뀌어도 대비가 유지된다
+      stroke: { color: 0x2a1a0c, width: 3 },
+    },
+  });
+  t.anchor.set(0.5);
+  t.x = b.x + b.w / 2;
+  t.y = b.y + b.h / 2;
+  return t;
+}
+
+export function createHudView(stageIndex: number, tex: HudTextures = {}): HudView {
   const root = new Container();
 
   // 배치는 data/uiLayout.json이 들고 있다 — /ui.html 에디터의 「인게임」 탭에서 조정한다.
   // 여기 하드코딩된 숫자는 슬롯이 지워졌을 때만 쓰이는 기본값이다.
-  const bar = box("stageBar", 115, 28, 220, 40);
-  const top = panel(bar.w, bar.h);
-  top.x = bar.x;
-  top.y = bar.y;
+  //
+  // 스테이지 바는 아트 한 장이 판을 그리고 코드는 글자만 얹는다. 이름과 카운터는
+  // 각자 슬롯이라 아트의 나무 자리·어두운 홈에 맞춰 따로 끌어 옮긴다.
+  const bar = box("stageBar", 115, 28, 220, 41);
+  let plate: Container;
+  if (tex.stageBar) {
+    const spr = fitSprite(tex.stageBar, bar.w, bar.h);
+    spr.x = bar.x + bar.w / 2;
+    spr.y = bar.y + bar.h / 2;
+    plate = spr;
+  } else {
+    const top = panel(bar.w, bar.h);
+    top.x = bar.x;
+    top.y = bar.y;
+    plate = top;
+  }
+  groupFor(root, bar, plate);
 
-  const title = new Text({
-    text: `STAGE ${stageIndex + 1}`,
-    style: { fontSize: 17, fill: 0xffffff, fontWeight: "bold" },
-  });
-  title.anchor.set(0, 0.5);
-  title.x = bar.x + 15;
-  title.y = bar.y + bar.h / 2;
+  const titleBox = box("stageTitle", bar.x + 16, bar.y + 10, 96, 22);
+  const title = centered(titleBox, `STAGE ${stageIndex + 1}`, 15, 0xffffff);
+  groupFor(root, titleBox, title);
 
-  const counter = new Text({
-    text: "0/0",
-    style: { fontSize: 17, fill: 0xffd76a, fontWeight: "bold" },
-  });
-  counter.anchor.set(1, 0.5);
-  counter.x = bar.x + bar.w - 15;
-  counter.y = bar.y + bar.h / 2;
-  groupFor(root, bar, top, title, counter);
+  const counterBox = box("stageCounter", bar.x + 132, bar.y + 10, 70, 22);
+  const counter = centered(counterBox, "0/0", 15, 0xffd76a);
+  groupFor(root, counterBox, counter);
 
   // 샷 잔량
   const shotsBox = box("shots", 155, 72, 140, 20);

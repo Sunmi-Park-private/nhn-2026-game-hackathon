@@ -61,7 +61,7 @@ export const hexAssetPaths: HexAssetPaths = parse(manifestJson);
 // 아트가 없으면 코드가 그린 기본 도형으로 폴백한다. 슬롯을 늘려도 화면은 안 깨진다.
 
 export const UI_SLOT_IDS = [
-  "settingsPanel", "settingsClose", "toggleOn", "toggleOff", "btnResume", "btnHome", "gear",
+  "settingsPanel", "settingsClose", "toggleOn", "toggleOff", "btnResume", "btnHome", "gear", "stageBar",
 ] as const;
 export type UiSlotId = (typeof UI_SLOT_IDS)[number];
 

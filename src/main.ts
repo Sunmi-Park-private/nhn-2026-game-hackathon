@@ -83,6 +83,7 @@ async function main(): Promise<void> {
     resume: uiSlots.btnResume,
     home: uiSlots.btnHome,
     settingsButton: uiSlots.gear,
+    stageBar: uiSlots.stageBar,
   };
   const lobbyTextures = {
     bg: lobbySlots.bg,
