@@ -8,6 +8,12 @@ import type { BoardGeom } from "../../engine/hex/shot";
  *  프레임을 조금 넓히거나 좁히면 여기만 고치면 되고, 육각 크기는 자동으로 따라온다. */
 export const FIELD_INSET = 10;
 
+/** 우측 HUD 레일(NEXT·부스터)이 차지하는 폭. 판은 이 자리를 침범하지 않는다 —
+ *  겹치면 그 칸에 붙은 타일이 HUD 뒤로 숨으면서도 발사를 막고 합체에는 참여한다. */
+export const RAIL_W = 56;
+export const RAIL_MARGIN = 12;
+const RAIL_RESERVE = RAIL_W + RAIL_MARGIN * 2; // 80
+
 export const COLS = 7;
 export const ROWS = 10;
 
@@ -16,17 +22,18 @@ export const ROWS = 10;
 export const CENTER_W = 450;
 export const CENTER_H = 800;
 
-/** 판 폭. 중앙 컬럼에서 좌우 여백을 뺀 값. */
-const FIELD_W = CENTER_W - FIELD_INSET * 2; // 430
+/** 판 폭 = 컬럼 − 좌측 여백 − 우측 레일 예약분 */
+const FIELD_W = CENTER_W - FIELD_INSET - RAIL_RESERVE; // 360
 
-/** 셀 폭은 프레임 안쪽 폭을 열 수로 나눈 값이다 — 아트가 크기를 정한다. */
-export const CELL_W = FIELD_W / COLS; // ≈ 61.4
+/** pointy-top 스태거 격자는 홀수 행이 반 칸 밀리므로 실제 폭이 COLS + 0.5칸이다.
+ *  COLS로 나누면 마지막 홀수 행이 판 밖으로 넘치고 반사벽도 화면 밖에 놓인다. */
+export const CELL_W = FIELD_W / (COLS + 0.5); // ≈ 48.00
 
 /** 육각 반지름은 셀 폭에서 역산한다. 셀 폭 = √3 × 반지름. */
-export const HEX_SIZE = CELL_W / Math.sqrt(3); // ≈ 35.5
+export const HEX_SIZE = CELL_W / Math.sqrt(3); // ≈ 27.71
 
 /** 행 간격. pointy-top 육각은 1.5 × 반지름씩 내려간다. */
-export const ROW_H = HEX_SIZE * 1.5; // ≈ 53.2
+export const ROW_H = HEX_SIZE * 1.5; // ≈ 41.57
 
 export const BOARD: BoardGeom = { size: HEX_SIZE, cols: COLS, rows: ROWS };
 

@@ -4,7 +4,7 @@ import { Application, Container, Graphics, type FederatedPointerEvent, type Text
 import { createRun, fireAt, isCleared, isFailed } from "../../engine/hex/stageRun";
 import { simulateShot } from "../../engine/hex/shot";
 import type { RunState, StageDef } from "../../engine/hex/types";
-import { fullRect } from "../stage";
+import { fullRect, BASE_W, BASE_H } from "../stage";
 import { BOARD, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
 import { createCageView } from "./cageView";
@@ -61,7 +61,7 @@ export async function runStageScreen(
   redraw(); // 아직 아무것도 구출되지 않았으므로 전체 갱신으로 시작한다
 
   // 입력 — 화면 전체를 히트 영역으로 잡는다
-  const input = new Graphics().rect(0, 0, 430, 800).fill({ color: 0x000000, alpha: 0 });
+  const input = new Graphics().rect(0, 0, BASE_W, BASE_H).fill({ color: 0x000000, alpha: 0 });
   input.eventMode = "static";
   layer.addChild(input);
 
@@ -74,8 +74,8 @@ export async function runStageScreen(
       if (finished) return;
       finished = true;
       input.off("pointermove", onMove);
-      input.off("pointerup", onUp);
-      input.off("pointerupoutside", onUp);
+      input.off("pointerup", onUpWrapped);
+      input.off("pointerupoutside", onUpWrapped);
       launcher.destroy();
       hud.destroy();
       cages.destroy();
@@ -86,12 +86,16 @@ export async function runStageScreen(
 
     function onMove(e: FederatedPointerEvent): void {
       if (busy) return;
-      launcher.aimAt(e.global.x, e.global.y, state.cells);
+      // e.global은 렌더러(화면) 좌표계다 — app.stage.x가 0이 아닌 넓은 화면에서는
+      // 그대로 쓰면 발사대 기준점이 수백 px 어긋난다. layer 로컬 좌표로 변환해야 한다.
+      const p = e.getLocalPosition(layer);
+      launcher.aimAt(p.x, p.y, state.cells);
     }
 
     async function onUp(e: FederatedPointerEvent): Promise<void> {
       if (busy || finished) return;
-      launcher.aimAt(e.global.x, e.global.y, state.cells);
+      const p = e.getLocalPosition(layer);
+      launcher.aimAt(p.x, p.y, state.cells);
       const angle = launcher.angle();
       launcher.clearAim();
 
@@ -123,8 +127,11 @@ export async function runStageScreen(
       }
     }
 
+    // finish()의 .off는 동일 참조여야 실제로 제거된다 — 익명 래퍼를 그때그때 만들면
+    // EventEmitter는 참조가 달라 지우지 못한다(Container.destroy가 가려줄 뿐 무동작이었다).
+    const onUpWrapped = (e: FederatedPointerEvent): void => void onUp(e);
     input.on("pointermove", onMove);
-    input.on("pointerup", (e) => void onUp(e));
-    input.on("pointerupoutside", (e) => void onUp(e));
+    input.on("pointerup", onUpWrapped);
+    input.on("pointerupoutside", onUpWrapped);
   });
 }

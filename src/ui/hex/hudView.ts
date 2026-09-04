@@ -1,6 +1,6 @@
 // ui/hex/hudView.ts — 상단 스테이지·목표 카운터, 우측 NEXT·부스터.
 import { Container, Graphics, Text } from "pixi.js";
-import { CENTER_W } from "./geom";
+import { CENTER_W, RAIL_W, RAIL_MARGIN } from "./geom";
 import { TIER_COLORS, drawTileFallback } from "./tileArt";
 import type { RunState } from "../../engine/hex/types";
 
@@ -55,8 +55,8 @@ export function createHudView(stageIndex: number): HudView {
   root.addChild(shots);
 
   // 우측 레일 — NEXT 슬롯과 부스터가 같은 세로선에 정렬된다
-  const RAIL_W = 56;
-  const RAIL_MARGIN = 12;
+  // RAIL_W·RAIL_MARGIN은 geom.ts에서 가져온다 — 판 폭 계산이 같은 상수를 쓰지 않으면
+  // 둘이 어긋나 판이 레일 밑으로 파고들 수 있다.
   const RAIL_X = CENTER_W - RAIL_MARGIN - RAIL_W; // 382
   const RAIL_CX = RAIL_X + RAIL_W / 2; // 410
 

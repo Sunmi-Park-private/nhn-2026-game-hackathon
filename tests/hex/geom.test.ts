@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   HEX_SIZE, CELL_W, COLS, ROWS, BOARD, ORIGIN, FIELD_INSET, CENTER_W, CENTER_H,
+  RAIL_W, RAIL_MARGIN,
   cellToScreen, launchOrigin, launchOriginLocal,
 } from "../../src/ui/hex/geom";
 import { fromPixel } from "../../src/engine/hex/coords";
@@ -36,10 +37,14 @@ describe("나무 프레임 안쪽에 들어간다", () => {
     expect(right).toBeLessThanOrEqual(CENTER_W - FIELD_INSET + 0.001);
   });
 
-  it("좌우 여백이 대칭이다", () => {
+  it("좌측 여백은 FIELD_INSET, 우측 여백은 HUD 레일 예약분 + 스태거 반 칸만큼 — 더 이상 대칭이 아니다", () => {
+    // 우측에 HUD 레일(NEXT·부스터)을 예약하면서 판이 좌우 대칭으로 놓이지 않게 됐다.
+    // 짝수 행(스태거 없음)은 홀수 행이 밀고 들어올 반 칸 자리를 아직 안 쓰므로,
+    // 그만큼(CELL_W/2)이 레일 예약분(RAIL_W + 2*RAIL_MARGIN) 위에 더 남는다.
     const left = cellToScreen({ q: 0, r: 0 }).x - CELL_W / 2;
     const right = CENTER_W - (cellToScreen({ q: COLS - 1, r: 0 }).x + CELL_W / 2);
-    expect(left).toBeCloseTo(right, 5);
+    expect(left).toBeCloseTo(FIELD_INSET, 5);
+    expect(right).toBeCloseTo(RAIL_W + RAIL_MARGIN * 2 + CELL_W / 2, 5);
   });
 });
 
@@ -89,5 +94,20 @@ describe("launchOriginLocal", () => {
     const col = a.q + Math.floor(a.r / 2);
     expect(col).toBeGreaterThanOrEqual(0);
     expect(col).toBeLessThan(COLS);
+  });
+});
+
+describe("홀수 행 스태거 — 반 칸 밀림", () => {
+  it("홀수 행 마지막 셀도 컬럼 안에 들어온다", () => {
+    // pointy-top 스태거에서 홀수 행은 반 칸 오른쪽으로 밀린다.
+    // 짝수 행만 검사하면 이 넘침을 놓친다.
+    const right = cellToScreen({ q: COLS - 1, r: 1 }).x + CELL_W / 2;
+    expect(right).toBeLessThanOrEqual(CENTER_W - RAIL_MARGIN - RAIL_W + 0.001);
+  });
+
+  it("판이 우측 HUD 레일을 침범하지 않는다", () => {
+    const boardRight = cellToScreen({ q: COLS - 1, r: 1 }).x + CELL_W / 2;
+    const railLeft = CENTER_W - RAIL_MARGIN - RAIL_W;
+    expect(boardRight).toBeLessThanOrEqual(railLeft + 0.001);
   });
 });

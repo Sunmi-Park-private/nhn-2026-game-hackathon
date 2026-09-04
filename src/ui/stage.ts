@@ -37,3 +37,15 @@ export function coverBg(tex: Texture): Sprite {
   spr.y = stageTop() + (stageHeight() - tex.height * s) / 2;
   return spr;
 }
+
+/** 콘텐츠 박스(450×800)만 덮는 배경. 세로 아트(1080×2400)를 쓰는 부트 화면용이다 —
+ *  coverBg는 16:9 캔버스 전체를 덮으므로 세로 아트를 쓰면 가운데 띠만 보인다.
+ *  좌우 패널 자리는 뒤에 깔린 단색이 그대로 보인다. */
+export function coverBox(tex: Texture): Sprite {
+  const spr = new Sprite(tex);
+  const s = Math.max(BASE_W / tex.width, BASE_H / tex.height);
+  spr.scale.set(s);
+  spr.x = (BASE_W - tex.width * s) / 2;
+  spr.y = (BASE_H - tex.height * s) / 2;
+  return spr;
+}

@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { parseStage } from "../../src/engine/hex/stageLoader";
 import { stages } from "../../src/data/stages";
+import { COLS, ROWS } from "../../src/ui/hex/geom";
 
 const good = {
   id: "s1",
@@ -105,5 +106,14 @@ describe("stages 데이터", () => {
   it("id가 중복되지 않는다", () => {
     const ids = stages.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("스테이지의 cols/rows가 geom의 상수와 일치한다", () => {
+    // simulateShot은 geom.BOARD를, parseStage는 스테이지 자신의 rows/cols를 쓴다.
+    // 둘이 어긋나면 경계 판정이 두 갈래로 갈린다.
+    for (const s of stages) {
+      expect(s.cols).toBe(COLS);
+      expect(s.rows).toBe(ROWS);
+    }
   });
 });
