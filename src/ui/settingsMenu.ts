@@ -11,6 +11,8 @@ import { fitSprite } from "./skin";
 import { slot } from "../data/uiLayout";
 import { settings, toggle, buzz, type Settings } from "./settings";
 import { playSfx } from "./audio";
+import { hotspot, plate } from "./panelBits";
+import { openConfirm } from "./confirmDialog";
 import { editable, clearEditable } from "./layoutEditor";
 
 export interface SettingsTextures {
@@ -47,77 +49,12 @@ function box(id: keyof typeof FALLBACK): { x: number; y: number; w: number; h: n
   return s ? { ...s } : { ...FALLBACK[id], id, label: id };
 }
 
-/** 누를 수 있는 영역. 아트가 있으면 그 위에 투명하게 얹고, 없으면 형태를 그려 준다. */
-function hotspot(
-  b: { x: number; y: number; w: number; h: number; id?: string; label?: string },
-  onTap: () => void,
-  draw?: (g: Graphics) => void,
-): Container {
-  const c = new Container();
-  c.x = b.x;
-  c.y = b.y;
-  const g = new Graphics();
-  if (draw) draw(g);
-  // 투명이어도 히트 판정을 받으려면 실제로 채워야 한다(alpha 0)
-  g.rect(0, 0, b.w, b.h).fill({ color: 0xffffff, alpha: 0 });
-  c.addChild(g);
-  if (b.id) editable(AREA, { id: b.id, label: b.label ?? b.id, x: b.x, y: b.y, w: b.w, h: b.h }, c);
-  c.eventMode = "static";
-  c.cursor = "pointer";
-  c.on("pointertap", () => { buzz(); playSfx("audio.sfxTap"); onTap(); });
-  c.on("pointerdown", () => { c.alpha = 0.75; });
-  const up = (): void => { c.alpha = 1; };
-  c.on("pointerup", up);
-  c.on("pointerupoutside", up);
-  return c;
-}
-
 function label(text: string, size: number, x: number, y: number): Text {
   const t = new Text({ text, style: { fontSize: size, fill: 0xfff3dc, fontWeight: "bold" } });
   t.anchor.set(0, 0.5);
   t.x = x;
   t.y = y;
   return t;
-}
-
-/** 버튼 한 장. 아트가 있으면 그걸 그리고, 없으면 색과 글자로 대신한다.
- *  글자 크기는 상자에서 뽑는다 — 좌우 배치로 상자가 좁아져도 글자가 넘치지 않게. */
-function plate(
-  b: { x: number; y: number; w: number; h: number },
-  tex: Texture | undefined,
-  fill: number,
-  text: string,
-  round = false,
-): Container {
-  const c = new Container();
-  const cx = b.x + b.w / 2;
-  const cy = b.y + b.h / 2;
-  if (tex) {
-    const s = fitSprite(tex, b.w, b.h);
-    s.x = cx;
-    s.y = cy;
-    c.addChild(s);
-    return c;
-  }
-  const g = new Graphics();
-  if (round) g.circle(cx, cy, b.w / 2).fill({ color: fill }).stroke({ width: 3, color: 0x8f9bab });
-  else g.roundRect(b.x, b.y, b.w, b.h, 10).fill({ color: fill });
-  c.addChild(g);
-  const t = new Text({
-    text,
-    style: {
-      // 상자를 아주 좁게 줄여도 0이나 음수가 되지 않게 하한을 둔다 —
-      // 에디터는 크기에 하한이 없고, 음수 fontSize는 Pixi에서 글자가 깨진다
-      fontSize: Math.max(8, Math.min(b.h * 0.42, (b.w - 12) / Math.max(1, [...text].length * 0.62))),
-      fill: 0xfff3dc,
-      fontWeight: "bold",
-    },
-  });
-  t.anchor.set(0.5);
-  t.x = cx;
-  t.y = cy;
-  c.addChild(t);
-  return c;
 }
 
 /**
@@ -217,7 +154,7 @@ export function openSettings(parent: Container, tex: SettingsTextures): Promise<
       // 말굽의 히트 영역을 mark 안에 두어야 에디터에서 말굽을 줄 밖으로 옮겨도
       // 같이 따라간다 — 별도 노드로 두면 그림만 움직이고 누를 자리는 제자리에 남는다.
       const flip = (): void => paint(toggle(row.key));
-      root.addChild(hotspot(b, flip));
+      root.addChild(hotspot(AREA, b, flip));
       mark.eventMode = "static";
       mark.cursor = "pointer";
       mark.on("pointertap", () => { buzz(); playSfx("audio.sfxTap"); flip(); });
@@ -227,13 +164,24 @@ export function openSettings(parent: Container, tex: SettingsTextures): Promise<
     // ── 계속하기 · 홈으로 · 닫기 ──────────────────
     // 셋 다 「아트가 있으면 그것, 없으면 폴백」이 전부다 — 세 번 반복하지 않는다.
     root.addChild(plate(box("resume"), tex.resume, 0x3faa48, "▶ 계속하기"));
-    root.addChild(hotspot(box("resume"), () => finish("resume")));
+    root.addChild(hotspot(AREA, box("resume"), () => finish("resume")));
 
+    // 홈으로는 한 번 묻는다 — 판을 나가면 그 판의 진행이 사라진다.
+    // asking 가드가 없으면 확인창이 뜬 채로 홈 버튼을 또 눌러 창이 겹친다.
+    let asking = false;
     root.addChild(plate(box("home"), tex.home, 0x53341c, "🏠 홈으로"));
-    root.addChild(hotspot(box("home"), () => finish("lobby")));
+    root.addChild(hotspot(AREA, box("home"), () => {
+      if (asking) return;
+      asking = true;
+      void openConfirm(root, { message: "판을 나가면 지금 진행은 사라집니다.\n로비로 나갈까요?" })
+        .then((ok) => {
+          asking = false;
+          if (ok) finish("lobby");
+        });
+    }));
 
     root.addChild(plate(box("close"), tex.close, 0xd23b30, "✕", true));
-    root.addChild(hotspot(box("close"), () => finish("resume")));
+    root.addChild(hotspot(AREA, box("close"), () => finish("resume")));
 
     veil.on("pointertap", () => finish("resume"));
   });
