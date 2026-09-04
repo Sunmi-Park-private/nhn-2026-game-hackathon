@@ -12,6 +12,7 @@
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { cellToScreen, HEX_SIZE, CENTER_H } from "./geom";
 import type { Cage, RunState } from "../../engine/hex/types";
+import { cageProgress } from "../../engine/hex/cageFaces";
 
 export interface CageTextures {
   closed: Texture | null;
@@ -44,6 +45,40 @@ const ANIMAL_COUNT = 6;       // 우루루 — 한 케이지에서 쏟아지는 
 const ANIMAL_SCALE_NEAR = 0.5; // 출발(멀다)
 const ANIMAL_SCALE_FAR = 1.8;  // 바닥(가깝다)
 const FLOOR_Y = CENTER_H - 40; // 동물이 사라지는 높이
+
+/** 금 색. 잠금이 버티고 있다는 표시라 창살과 같은 계열로 둔다. */
+const CRACK_COLOR = 0xf2f6fb;
+
+/** 금이 뻗어 나가는 방향. 면이 하나 열릴 때마다 앞에서부터 한 줄씩 늘어난다.
+ *  고정 배열이라 다시 그려도 금이 춤추지 않는다 — 매번 난수로 뽑으면
+ *  발사할 때마다 금 모양이 바뀌어 「깨지는 중」이 아니라 노이즈로 보인다. */
+const CRACK_RAYS: ReadonlyArray<{ a: number; len: number }> = [
+  { a: -1.9, len: 0.85 },
+  { a: 0.5, len: 0.95 },
+  { a: 2.4, len: 0.8 },
+  { a: -0.4, len: 0.7 },
+  { a: 1.5, len: 0.9 },
+];
+
+/** 상단 면 타일에 금을 긋는다. level은 열린 면 수(0…5). */
+function drawCracks(g: Graphics, cells: Array<{ x: number; y: number }>, level: number): void {
+  g.clear();
+  if (level <= 0) return;
+  const r = HEX_SIZE * 0.9;
+  for (const p of cells) {
+    for (let i = 0; i < Math.min(level, CRACK_RAYS.length); i += 1) {
+      const ray = CRACK_RAYS[i]!;
+      const len = r * ray.len;
+      // 한 번 꺾어 그린다 — 곧은 선은 금이 아니라 빗금으로 보인다
+      const midX = p.x + Math.cos(ray.a) * len * 0.55;
+      const midY = p.y + Math.sin(ray.a) * len * 0.55;
+      g.moveTo(p.x, p.y)
+        .lineTo(midX, midY)
+        .lineTo(p.x + Math.cos(ray.a + 0.5) * len, p.y + Math.sin(ray.a + 0.5) * len)
+        .stroke({ width: 1.4, color: CRACK_COLOR, alpha: 0.35 + 0.13 * level });
+    }
+  }
+}
 
 /** 케이지가 점유한 셀들의 중심점. */
 function cageCenter(cage: Cage): { x: number; y: number } {
@@ -206,12 +241,24 @@ export function createCageView(textures: CageTextures): CageView {
   /** 낙하하는 동물이 사는 층. 케이지 몸체보다 위에 둔다 — 창살 앞으로 쏟아져 나온다. */
   const fallLayer = new Container();
   const bodyLayer = new Container();
-  root.addChild(bodyLayer, fallLayer);
+  /** 상단 면 타일 위에 얹는 금. 타일보다는 위, 케이지 몸체보다는 아래. */
+  const crackLayer = new Container();
+  root.addChild(crackLayer, bodyLayer, fallLayer);
 
-  interface Entry { body: CageBody; baseY: number; phase: number }
+  interface Entry { body: CageBody; baseY: number; phase: number; crack: Graphics; crackLevel: number }
   const bodies = new Map<string, Entry>();
   const animating = new Set<string>();
   let idleRaf = 0;
+
+  /** 상단 면의 금을 진행도에 맞춘다. 값이 그대로면 다시 그리지 않는다. */
+  function syncCracks(state: RunState, cage: Cage, entry: Entry): void {
+    const p = cageProgress(state.cells, cage);
+    // 6면 구조가 없는 케이지는 상단 면도 없다 — 금을 그릴 자리가 없다
+    const level = p.fallback ? 0 : p.opened;
+    if (level === entry.crackLevel || entry.crack.destroyed) return;
+    entry.crackLevel = level;
+    drawCracks(entry.crack, p.topFace.map(cellToScreen), level);
+  }
 
   /** 잠김 idle — 아트가 오면 이 자리가 idle 시퀀스로 바뀐다.
    *  지금은 아주 가벼운 상하 흔들림 목업이다. 연출 중인 케이지는 건드리지 않는다. */
@@ -325,19 +372,32 @@ export function createCageView(textures: CageTextures): CageView {
           if (animating.has(cage.id)) continue;
           if (existing) {
             existing.body.box.destroy({ children: true });
+            existing.crack.destroy();
             bodies.delete(cage.id);
           }
           continue;
         }
-        if (existing) continue;
+        if (existing) {
+          syncCracks(state, cage, existing);
+          continue;
+        }
 
         const body = makeCageBody(cage, textures);
         const p = cageCenter(cage);
         body.box.x = p.x;
         body.box.y = p.y;
         bodyLayer.addChild(body.box);
+        // 금은 몸체의 자식이 아니다 — 몸체는 idle로 흔들리는데 금은 타일 위에
+        // 붙어 있어야 하므로 같이 흔들리면 안 된다.
+        const crack = new Graphics();
+        crackLayer.addChild(crack);
         // 케이지마다 위상을 어긋내 여러 개가 한 몸처럼 흔들리지 않게 한다
-        bodies.set(cage.id, { body, baseY: p.y, phase: bodies.size * 1.7 });
+        bodies.set(cage.id, { body, baseY: p.y, phase: bodies.size * 1.7, crack, crackLevel: -1 });
+      }
+      // 새로 만든 케이지의 금도 한 번 맞춘다
+      for (const cage of state.stage.cages) {
+        const e = bodies.get(cage.id);
+        if (e) syncCracks(state, cage, e);
       }
       if (bodies.size > 0) startIdle();
     },
@@ -354,6 +414,7 @@ export function createCageView(textures: CageTextures): CageView {
         // 연출이 끝났으니 스스로 치운다 — 이후 sync가 다시 그리지 않는다
         animating.delete(cage.id);
         if (!entry.body.box.destroyed) entry.body.box.destroy({ children: true });
+        if (!entry.crack.destroyed) entry.crack.destroy();
         bodies.delete(cage.id);
         if (bodies.size === 0) stopIdle();
       }
@@ -364,6 +425,7 @@ export function createCageView(textures: CageTextures): CageView {
       animating.clear();
       for (const e of bodies.values()) {
         if (!e.body.box.destroyed) e.body.box.destroy({ children: true });
+        if (!e.crack.destroyed) e.crack.destroy();
       }
       bodies.clear();
       root.destroy({ children: true });

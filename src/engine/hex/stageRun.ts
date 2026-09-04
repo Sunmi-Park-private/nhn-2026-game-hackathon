@@ -5,6 +5,7 @@ import { resolvePops, type PopStep } from "./pop";
 import { findFloating } from "./gravity";
 import { simulateShot, type BoardGeom } from "./shot";
 import { pickNext } from "./nextTile";
+import { cageProgress, isUnlocked } from "./cageFaces";
 import type { Axial, Cage, RunState, StageDef } from "./types";
 
 /** 스테이지 정의로 새 런을 만든다.
@@ -24,14 +25,26 @@ export function createRun(stage: StageDef, rng: () => number = Math.random): Run
   };
 }
 
-/** 인접이 모두 비었고 아직 구출하지 않은 케이지. */
+/** 잠금이 풀렸고 아직 구출하지 않은 케이지.
+ *
+ *  둘레 6면 중 **상단을 뺀 5면**이 비면 열린다. 상단을 빼는 이유는 조준으로
+ *  닿지 않기 때문이다 — 발사대가 판 아래에 있어서 케이지 위쪽 칸에 가려면
+ *  케이지를 통과해야 하는데, 케이지가 발사체를 막는다(cageFaces.ts 참조).
+ *
+ *  6면 구조를 만들 수 없는 케이지(한 칸짜리·일자형)는 예전 규칙 그대로
+ *  **둘레가 전부 비어야** 열린다. */
 export function pendingRescues(state: RunState): Cage[] {
   const out: Cage[] = [];
   for (const cage of state.stage.cages) {
     // 이미 셀 맵에서 사라진(=구출된) 케이지는 건너뛴다
     if (!cage.cells.some((c) => isOccupied(state.cells, c))) continue;
-    const blocked = cageNeighbors(cage).some((n) => isOccupied(state.cells, n));
-    if (!blocked) out.push(cage);
+
+    if (cageProgress(state.cells, cage).fallback) {
+      const blocked = cageNeighbors(cage).some((n) => isOccupied(state.cells, n));
+      if (!blocked) out.push(cage);
+      continue;
+    }
+    if (isUnlocked(state.cells, cage)) out.push(cage);
   }
   return out;
 }
@@ -78,6 +91,14 @@ export function fireAt(
   state.horseshoes += shoes;
 
   const rescued = applyRescues(state);
+  if (rescued.length > 0) {
+    // 케이지는 앵커다. 사라지면 그 앵커에만 매달려 있던 타일 —
+    // 규칙에서 빠져 있던 상단 면이 대표적이다 — 이 받침을 잃는다.
+    // 다음 발사까지 공중에 떠 있지 않도록 지금 떨군다.
+    const after = collectDrops(state);
+    dropped.push(...after.dropped);
+    state.horseshoes += after.shoes;
+  }
 
   state.loaded = state.next;
   // 합체·낙하가 모두 끝난 뒤의 판에서 뽑는다 — 방금 사라진 색이 장전되지 않게
