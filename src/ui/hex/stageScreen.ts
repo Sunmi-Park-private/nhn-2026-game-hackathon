@@ -53,6 +53,13 @@ function buildBackground(bg: StageTextures["bg"]): Container {
     if (bg.panelRight) layer.addChild(sidePanel(bg.panelRight, BASE_W, panelW, layer));
   }
   if (bg.board) layer.addChild(coverBox(bg.board));
+  // 플레이 영역 테두리 — 배경 아트가 없으면 좌우 여백과 판이 같은 갈색이라 경계가 안 보인다.
+  // 발사체가 튕기는 벽이 정확히 이 선이므로, 아트가 들어와도 남겨 두는 편이 읽기 좋다.
+  layer.addChild(
+    new Graphics()
+      .rect(0.5, stageTop() + 0.5, BASE_W - 1, stageHeight() - 1)
+      .stroke({ width: 2, color: 0xc98a3c, alignment: 0 }),
+  );
   return layer;
 }
 
