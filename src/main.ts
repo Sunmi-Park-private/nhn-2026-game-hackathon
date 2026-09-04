@@ -4,9 +4,8 @@
 // 접속자가 1분 가까이 다른 화면을 본 뒤에야 게임에 도착했다.
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
 import { Application, VideoSource } from "pixi.js";
-import { loadHexAssets } from "./ui/assets";
-import { isDevMode } from "./ui/devMode";
-import { initCheatMenu } from "./ui/cheatMenu";
+import { loadHexAssets } from "./ui/hex/hexAssets";
+import { hexAssetPaths } from "./data/hexAssets";
 import { initAudioUnlock } from "./ui/audio";
 import { setStageExtra, setStageExtraX } from "./ui/stage";
 import { stages } from "./data/stages";
@@ -56,7 +55,6 @@ async function main(): Promise<void> {
   el.style.cssText = "display:flex;align-items:center;justify-content:center;width:100vw;height:100vh;overflow:hidden";
   fit();
   window.addEventListener("resize", fit);
-  if (isDevMode()) initCheatMenu();
   initAudioUnlock(); // 첫 제스처에서 재생 언락 (자동재생 정책)
 
   // E2E 테스트용 씬 마커 — 현재 단계 노출 (게임 로직에선 미사용)
@@ -64,7 +62,7 @@ async function main(): Promise<void> {
 
   // 스테이지 연속 플레이 — 클리어하면 다음 스테이지, 실패하면 같은 스테이지 재도전
   mark("game");
-  const hexTextures = await loadHexAssets(); // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
+  const hexTextures = await loadHexAssets(hexAssetPaths); // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
   let stageIndex = 0;
   for (;;) {
     const stage = stages[stageIndex];

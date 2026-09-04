@@ -25,7 +25,7 @@
 
 ```bash
 npm install
-npm run dev      # localhost:5173  · /editor.html 에디터 허브
+npm run dev      # localhost:5173
 npm run build    # tsc --noEmit + vite build
 npm test         # vitest — 150개
 ```

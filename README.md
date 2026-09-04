@@ -95,8 +95,7 @@ src/data/stages/*.json  →  src/engine/hex/  →  src/ui/hex/
 아직 도착하지 않은 슬롯은 색 육각·창살 프레임 같은 폴백으로 그려지므로,
 아트가 하나도 없어도 게임이 성립하고 일부만 도착해도 정상 동작합니다.
 
-제작 사양은 `docs/ART_SPEC.md`에 있습니다. 배치는 브라우저 에디터(`/editor.html`)로
-직접 조정합니다.
+제작 사양은 `docs/ART_SPEC.md`에 있습니다.
 
 ## 문서
 
