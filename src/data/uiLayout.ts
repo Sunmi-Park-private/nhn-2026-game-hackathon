@@ -13,6 +13,16 @@ export interface UiSlot {
   h: number;
   /** assets.json 안의 위치(점 경로). 아트가 없는 슬롯은 비어 있다. */
   asset?: string;
+
+  // ── 표시 속성 — 레이아웃 에디터에서 지정했을 때만 존재한다 ──
+  /** 이미지·컨테이너 배율 (1 = 원본) */
+  scale?: number;
+  /** 안에 든 텍스트의 크기(px) */
+  fontSize?: number;
+  /** 안에 든 텍스트의 색 "#rrggbb" */
+  color?: string;
+  /** 화면에서 끄기 — 배경 아트가 이미 그린 폴백을 지울 때 */
+  hidden?: boolean;
 }
 
 /** 위치 개념이 없는 업로드 전용 항목 — 타일·동물·배경처럼 자리가 코드에 고정된 것들. */
@@ -47,6 +57,10 @@ function parseAreas(raw: unknown): UiArea[] {
           label: String(t.label ?? t.id ?? ""),
           x: num(t.x, 0), y: num(t.y, 0), w: num(t.w, 40), h: num(t.h, 40),
           asset: typeof t.asset === "string" ? t.asset : undefined,
+          scale: typeof t.scale === "number" ? t.scale : undefined,
+          fontSize: typeof t.fontSize === "number" ? t.fontSize : undefined,
+          color: typeof t.color === "string" ? t.color : undefined,
+          hidden: t.hidden === true ? true : undefined,
         };
       }),
     };
