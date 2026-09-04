@@ -35,8 +35,12 @@ export interface StageTextures {
   tiles: Array<Texture | null>;
   horseshoe: Texture | null;
   cageClosed: Texture | null;
-  cageOpen: Texture | null;
-  animals: Record<string, Texture | null>;
+  /** 잠금 해제 시퀀스. 비면 스틸 교체 없이 폴백 연출만 돈다 */
+  cageOpen: Texture[];
+  /** 동물마다 시퀀스 */
+  animals: Record<string, Texture[]>;
+  /** 화면 하단 붉은말 — 시퀀스 */
+  horse: Texture[];
   bg: { board: Texture | null; panelLeft: Texture | null; panelRight: Texture | null };
 }
 
@@ -100,7 +104,7 @@ export async function runStageScreen(
     animals: textures.animals,
   });
   const hud = createHudView(stageIndex);
-  const launcher = createLauncher();
+  const launcher = createLauncher(textures.horse);
 
   // 케이지는 타일보다 뒤에 둬서 타일이 케이지를 파묻게 하고, 발사대·HUD는 맨 앞에 둔다
   // 순서 = z. 케이지를 타일보다 **위**에 둔다 — 큰 창살이 둘레 타일의 가장자리를

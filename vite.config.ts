@@ -114,11 +114,15 @@ function assetUploadPlugin(): Plugin {
           try {
             const manifest = readJson(ASSETS_FILE)
             const current = getPath(manifest, dotted)
-            if (typeof current !== 'string') throw new Error(`매니페스트에 없는 경로: ${dotted}`)
-            const abs = path.resolve(PUBLIC_DIR, current)
-            if (!abs.startsWith(PUBLIC_DIR + path.sep)) throw new Error('경로가 public 밖입니다')
-            if (fs.existsSync(abs)) fs.unlinkSync(abs)
-            server?.ws.send({ type: 'custom', event: 'asset-updated', data: { asset: dotted, file: current } })
+            const files = Array.isArray(current) ? current.filter((v): v is string => typeof v === 'string')
+              : typeof current === 'string' ? [current] : []
+            if (files.length === 0) throw new Error(`매니페스트에 없는 경로: ${dotted}`)
+            for (const f of files) {
+              const abs = path.resolve(PUBLIC_DIR, f)
+              if (!abs.startsWith(PUBLIC_DIR + path.sep)) throw new Error('경로가 public 밖입니다')
+              if (fs.existsSync(abs)) fs.unlinkSync(abs)
+            }
+            server?.ws.send({ type: 'custom', event: 'asset-updated', data: { asset: dotted, file: files[0] } })
             res.statusCode = 200
             res.end('ok')
           } catch (err) { res.statusCode = 400; res.end(String(err)) }
@@ -132,11 +136,21 @@ function assetUploadPlugin(): Plugin {
           if (buf.length === 0) throw new Error('빈 파일입니다')
 
           const manifest = readJson(ASSETS_FILE)
-          const current = getPath(manifest, dotted)
+          const raw = getPath(manifest, dotted)
+          // 시퀀스로 바뀐 슬롯은 배열이다 — 첫 프레임을 기준 경로로 삼는다
+          const current = Array.isArray(raw) ? (raw.find((v) => typeof v === 'string') as string | undefined) : raw
           if (typeof current !== 'string') throw new Error(`매니페스트에 없는 경로: ${dotted}`)
 
-          // 매니페스트가 가리키는 자리에 그대로 쓴다. 확장자만 업로드한 것으로 바꾼다.
-          const rel = current.replace(/\.[^./]+$/, '') + '.' + ext
+          // 시퀀스 업로드 — 프레임마다 한 번씩 온다. 마지막 프레임에서 매니페스트를 배열로 바꾼다.
+          const seqIndex = Number(url.searchParams.get('seq') ?? '-1')
+          const seqTotal = Number(url.searchParams.get('total') ?? '0')
+          const isSeq = seqIndex >= 0 && seqTotal > 0
+
+          // 매니페스트가 가리키는 자리를 기준으로 쓴다. 확장자는 업로드한 것으로 바꾼다.
+          const base = current.replace(/(_f\d+)?\.[^./]+$/, '')
+          const rel = isSeq
+            ? `${base}_f${String(seqIndex).padStart(3, '0')}.${ext}`
+            : `${base}.${ext}`
           const abs = path.resolve(PUBLIC_DIR, rel)
           // public 밖으로 빠져나가는 경로는 거부한다
           if (!abs.startsWith(PUBLIC_DIR + path.sep)) throw new Error('경로가 public 밖입니다')
@@ -144,7 +158,17 @@ function assetUploadPlugin(): Plugin {
           fs.mkdirSync(path.dirname(abs), { recursive: true })
           fs.writeFileSync(abs, buf)
 
-          if (rel !== current) {
+          if (isSeq) {
+            // 프레임이 다 올라온 뒤에 한 번만 쓴다 — 중간에 쓰면 게임이 반쪽 시퀀스를 읽는다
+            if (seqIndex === seqTotal - 1) {
+              const list = Array.from({ length: seqTotal }, (_, i) => `${base}_f${String(i).padStart(3, '0')}.${ext}`)
+              setPath(manifest, dotted, list as unknown as string)
+              fs.writeFileSync(ASSETS_FILE, JSON.stringify(manifest, null, 2) + '\n')
+              // 예전에 스틸로 올렸던 파일이 남아 있으면 지운다 — 안 쓰는데 리포에 남는다
+              const stale = path.resolve(PUBLIC_DIR, `${base}.${ext}`)
+              if (stale.startsWith(PUBLIC_DIR + path.sep) && fs.existsSync(stale)) fs.unlinkSync(stale)
+            }
+          } else if (rel !== current) {
             setPath(manifest, dotted, rel)
             fs.writeFileSync(ASSETS_FILE, JSON.stringify(manifest, null, 2) + '\n')
           }

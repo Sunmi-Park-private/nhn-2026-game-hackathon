@@ -8,14 +8,26 @@ export interface HexAssetPaths {
   /** tier 0~5 순서 고정 — 배열 길이는 항상 6 */
   tiles: Array<string | undefined>;
   horseshoe?: string;
+  /** 잠긴 우리 — 스틸 한 장 */
   cageClosed?: string;
-  cageOpen?: string;
-  animals: Record<string, string>;
+  /** 잠금이 풀리는 순간 — **이미지 시퀀스**. 한 장만 넣으면 스틸로 동작한다 */
+  cageOpen: string[];
+  /** 동물마다 시퀀스. 한 장만 넣으면 스틸로 동작한다 */
+  animals: Record<string, string[]>;
+  /** 화면 하단 붉은말(발사대) — 시퀀스 */
+  horse: string[];
   bg: { board?: string; panelLeft?: string; panelRight?: string };
 }
 
 function str(v: unknown): string | undefined {
   return typeof v === "string" && v.length > 0 ? v : undefined;
+}
+
+/** 문자열 하나든 배열이든 프레임 목록으로 받는다 — 한 장짜리는 스틸이 된다. */
+function frames(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map(str).filter((x): x is string => x !== undefined);
+  const one = str(v);
+  return one ? [one] : [];
 }
 
 function parse(raw: unknown): HexAssetPaths {
@@ -24,11 +36,11 @@ function parse(raw: unknown): HexAssetPaths {
   // 길이 6 고정 — StageTextures[tier] 인덱싱이 항상 안전해야 한다
   const tiles = Array.from({ length: 6 }, (_, i) => str(tilesRaw[i]));
 
-  const animals: Record<string, string> = {};
+  const animals: Record<string, string[]> = {};
   const animalsRaw = (hex.animals ?? {}) as Record<string, unknown>;
   for (const [id, file] of Object.entries(animalsRaw)) {
-    const f = str(file);
-    if (f) animals[id] = f;
+    const f = frames(file);
+    if (f.length > 0) animals[id] = f;
   }
 
   const bgRaw = (hex.bg ?? {}) as Record<string, unknown>;
@@ -36,7 +48,8 @@ function parse(raw: unknown): HexAssetPaths {
     tiles,
     horseshoe: str(hex.horseshoe),
     cageClosed: str(hex.cageClosed),
-    cageOpen: str(hex.cageOpen),
+    cageOpen: frames(hex.cageOpen),
+    horse: frames(hex.horse),
     animals,
     bg: { board: str(bgRaw.board), panelLeft: str(bgRaw.panelLeft), panelRight: str(bgRaw.panelRight) },
   };

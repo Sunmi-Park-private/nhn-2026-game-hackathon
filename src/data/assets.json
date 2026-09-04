@@ -15,8 +15,14 @@
     "animals": {
       "sheep": "assets/hex/animal-sheep.png",
       "zebra": "assets/hex/animal-zebra.png",
-      "deer": "assets/hex/animal-deer.png"
+      "deer": "assets/hex/animal-deer.png",
+      "elephant": "assets/hex/animal-elephant.png",
+      "penguin": "assets/hex/animal-penguin.png",
+      "rabbit": "assets/hex/animal-rabbit.png",
+      "monkey": "assets/hex/animal-monkey.png"
     },
+    "_note": "문자열=스틸 한 장, 배열=이미지 시퀀스. 에디터가 시퀀스를 올리면 배열로 바뀐다.",
+    "horse": "assets/hex/horse-idle.png",
     "bg": {
       "board": "assets/hex/bg-board.png",
       "panelLeft": "assets/hex/bg-panel-left.png",

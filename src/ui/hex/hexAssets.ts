@@ -11,6 +11,12 @@ import type { HexAssetPaths } from "../../data/hexAssets";
  *  에셋 한 장이 게임 전체를 막게 두지 않는다. */
 const LOAD_TIMEOUT_MS = 4000;
 
+/** 프레임 목록을 텍스처 배열로. 없는 파일은 걸러 낸다 — 중간이 비어도 재생은 이어진다. */
+async function loadFrames(urls: readonly string[]): Promise<Texture[]> {
+  const out = await Promise.all(urls.map(load));
+  return out.filter((t): t is Texture => t !== null);
+}
+
 async function load(url: string | undefined): Promise<Texture | null> {
   if (!url) return null;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -30,20 +36,22 @@ async function load(url: string | undefined): Promise<Texture | null> {
 /** 매니페스트 경로를 텍스처로 바꾼다. 없는 파일은 null — 화면이 폴백으로 그린다. */
 export async function loadHexAssets(paths: HexAssetPaths): Promise<StageTextures> {
   const animalIds = Object.keys(paths.animals);
-  const [tiles, animalTextures, horseshoe, cageClosed, cageOpen, board, panelLeft, panelRight] =
+  const [tiles, animalTextures, horseshoe, cageClosed, openFrames, board, panelLeft, panelRight] =
     await Promise.all([
       Promise.all(paths.tiles.map(load)),
-      Promise.all(animalIds.map((id) => load(paths.animals[id]))),
+      Promise.all(animalIds.map((id) => loadFrames(paths.animals[id] ?? []))),
       load(paths.horseshoe),
       load(paths.cageClosed),
-      load(paths.cageOpen),
+      loadFrames(paths.cageOpen),
       load(paths.bg.board),
       load(paths.bg.panelLeft),
       load(paths.bg.panelRight),
     ]);
+  const cageOpen = openFrames;
+  const horse = await loadFrames(paths.horse);
 
-  const animals: Record<string, Texture | null> = {};
-  animalIds.forEach((id, i) => { animals[id] = animalTextures[i] ?? null; });
+  const animals: Record<string, Texture[]> = {};
+  animalIds.forEach((id, i) => { animals[id] = animalTextures[i] ?? []; });
 
-  return { tiles, horseshoe, cageClosed, cageOpen, animals, bg: { board, panelLeft, panelRight } };
+  return { tiles, horseshoe, cageClosed, cageOpen, animals, horse, bg: { board, panelLeft, panelRight } };
 }

@@ -21,8 +21,8 @@ export interface LobbyTextures {
   gear?: Texture;
   /** 우측 레일·하단 내비 아이콘 — 없으면 라벨로 대신한다 */
   icons: Record<string, Texture | null>;
-  /** 도감에 쓰는 동물 아트 */
-  animals: Record<string, Texture | null>;
+  /** 도감에 쓰는 동물 아트 — 시퀀스 */
+  animals: Record<string, readonly Texture[]>;
   ui: SettingsTextures;
 }
 

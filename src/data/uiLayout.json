@@ -246,6 +246,11 @@
   ],
   "uploads": [
     {
+      "label": "붉은말(발사대) — 시퀀스",
+      "asset": "hex.horse",
+      "seq": true
+    },
+    {
       "label": "타일 빨강",
       "asset": "hex.tiles.0"
     },
@@ -278,20 +283,24 @@
       "asset": "hex.cageClosed"
     },
     {
-      "label": "우리(열림)",
-      "asset": "hex.cageOpen"
+      "label": "우리(열림) — 시퀀스",
+      "asset": "hex.cageOpen",
+      "seq": true
     },
     {
-      "label": "동물 · 양",
-      "asset": "hex.animals.sheep"
+      "label": "동물 · 양 — 시퀀스",
+      "asset": "hex.animals.sheep",
+      "seq": true
     },
     {
-      "label": "동물 · 얼룩말",
-      "asset": "hex.animals.zebra"
+      "label": "동물 · 얼룩말 — 시퀀스",
+      "asset": "hex.animals.zebra",
+      "seq": true
     },
     {
-      "label": "동물 · 사슴",
-      "asset": "hex.animals.deer"
+      "label": "동물 · 사슴 — 시퀀스",
+      "asset": "hex.animals.deer",
+      "seq": true
     },
     {
       "label": "게임판 배경",
@@ -312,6 +321,26 @@
     {
       "label": "토글 꺼짐",
       "asset": "ui.toggleOff"
+    },
+    {
+      "label": "동물 · 코끼리 — 시퀀스",
+      "asset": "hex.animals.elephant",
+      "seq": true
+    },
+    {
+      "label": "동물 · 펭귄 — 시퀀스",
+      "asset": "hex.animals.penguin",
+      "seq": true
+    },
+    {
+      "label": "동물 · 토끼 — 시퀀스",
+      "asset": "hex.animals.rabbit",
+      "seq": true
+    },
+    {
+      "label": "동물 · 원숭이 — 시퀀스",
+      "asset": "hex.animals.monkey",
+      "seq": true
     }
   ]
 }

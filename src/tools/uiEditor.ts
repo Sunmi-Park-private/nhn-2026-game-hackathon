@@ -51,14 +51,26 @@ const $ = (tag: string, style: string, text = ""): HTMLElement => {
 };
 
 // ── 매니페스트 읽기·쓰기 ─────────────────────
-function assetPath(dotted: string): string | null {
-  const v = dotted.split(".").reduce<unknown>((acc, k) => {
+function assetValue(dotted: string): unknown {
+  return dotted.split(".").reduce<unknown>((acc, k) => {
     if (acc === null || typeof acc !== "object") return undefined;
     return (acc as Record<string, unknown>)[k];
   }, state.manifest as unknown);
+}
+
+/** 대표 경로 — 시퀀스면 첫 프레임. 미리보기와 스테이지 배경에 쓴다. */
+function assetPath(dotted: string): string | null {
+  const v = assetValue(dotted);
+  if (Array.isArray(v)) return typeof v[0] === "string" ? v[0] : null;
   return typeof v === "string" ? v : null;
 }
-function setAssetPath(dotted: string, value: string): void {
+
+/** 시퀀스면 프레임 수, 스틸이면 1. */
+function frameCount(dotted: string): number {
+  const v = assetValue(dotted);
+  return Array.isArray(v) ? v.length : 1;
+}
+function setAssetPath(dotted: string, value: string | string[]): void {
   const keys = dotted.split(".");
   let cur = state.manifest;
   for (const k of keys.slice(0, -1)) {
@@ -112,7 +124,7 @@ const markDirty = (): void => {
 // ── 업로드 카드 ─────────────────────────────
 /** 슬롯 하나의 카드. 미리보기 + 클릭/드롭 업로드 + 삭제.
  *  업로드 성공 뒤에도 파일 쓰기가 끝나기 전 요청이 갈 수 있으므로 몇 번 재시도한다. */
-function card(label: string, dotted: string, onChanged?: () => void): HTMLElement {
+function card(label: string, dotted: string, onChanged?: () => void, seq = false): HTMLElement {
   const cell = $("div", "background:#241a10;border:2px solid #4a3320;border-radius:12px;overflow:hidden;cursor:pointer");
   const stage = $("div", `position:relative;height:140px;${CHECKER};display:flex;align-items:center;justify-content:center`);
   const img = document.createElement("img");
@@ -122,7 +134,7 @@ function card(label: string, dotted: string, onChanged?: () => void): HTMLElemen
   stage.append(img, empty, del);
 
   const info = $("div", "padding:9px 12px");
-  const name = $("div", "font-weight:800;font-size:13px", label);
+  const name = $("div", "font-weight:800;font-size:13px", seq ? `${label}  🎞` : label);
   const meta = $("div", "font-size:11px;color:#a8987c;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap");
   info.append(name, meta);
   cell.append(stage, info);
@@ -140,7 +152,8 @@ function card(label: string, dotted: string, onChanged?: () => void): HTMLElemen
 
   const paint = (): void => {
     const rel = assetPath(dotted);
-    meta.textContent = rel ?? "(매니페스트에 없음)";
+    const n = frameCount(dotted);
+    meta.textContent = rel ? (seq && n > 1 ? `${n}프레임 · ${rel}` : rel) : "(매니페스트에 없음)";
     meta.style.color = "#a8987c";
     if (!rel) { img.style.display = "none"; empty.style.display = "block"; return; }
     if (isVideo(rel)) { showVideo(`${rel}?v=${Date.now()}`); return; }
@@ -162,22 +175,32 @@ function card(label: string, dotted: string, onChanged?: () => void): HTMLElemen
     empty.style.display = "block";
   };
 
-  const upload = async (file: File): Promise<void> => {
-    const raw = (file.name.split(".").pop() ?? "").toLowerCase();
-    const ext = raw === "jpeg" ? "jpg" : raw;
+  const upload = async (files: File[]): Promise<void> => {
+    if (files.length === 0) return;
+    // 시퀀스는 **파일 이름 순**으로 재생된다 — 고른 순서는 브라우저마다 다르다
+    const list = seq ? [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })) : [files[0]!];
     cell.style.opacity = "0.5";
     try {
-      const res = await fetch(`/__upload?asset=${encodeURIComponent(dotted)}&ext=${encodeURIComponent(ext)}`, {
-        method: "POST", headers: { "content-type": "application/octet-stream" }, body: await file.arrayBuffer(),
-      });
-      const text = await res.text();
-      if (!res.ok) throw new Error(text);
-      const out = JSON.parse(text) as { file: string; bytes: number };
-      // 서버가 최종 경로를 돌려준다 — 후처리로 확장자가 바뀌므로 추측하면 어긋난다
-      setAssetPath(dotted, out.file);
+      const written: string[] = [];
+      for (let i = 0; i < list.length; i += 1) {
+        const f = list[i]!;
+        const raw = (f.name.split(".").pop() ?? "").toLowerCase();
+        const ext = raw === "jpeg" ? "jpg" : raw;
+        const q = seq ? `&seq=${i}&total=${list.length}` : "";
+        meta.textContent = seq ? `올리는 중… ${i + 1}/${list.length}` : "올리는 중…";
+        meta.style.color = "#a8987c";
+        const res = await fetch(`/__upload?asset=${encodeURIComponent(dotted)}&ext=${encodeURIComponent(ext)}${q}`, {
+          method: "POST", headers: { "content-type": "application/octet-stream" }, body: await f.arrayBuffer(),
+        });
+        const text = await res.text();
+        if (!res.ok) throw new Error(text);
+        // 서버가 최종 경로를 돌려준다 — 후처리로 확장자가 바뀌므로 추측하면 어긋난다
+        written.push((JSON.parse(text) as { file: string }).file);
+      }
+      setAssetPath(dotted, seq ? written : written[0]!);
       img.dataset["retries"] = "6"; // 업로드 성공 = 파일 존재 보장 → 폴링으로 반드시 표시
       paint();
-      meta.textContent = `${out.file} · ${Math.round(out.bytes / 1024)}KB`;
+      meta.textContent = seq ? `${written.length}프레임 · ${written[0]}` : written[0]!;
       meta.style.color = "#8fdc8f";
       onChanged?.();
     } catch (err) {
@@ -190,8 +213,9 @@ function card(label: string, dotted: string, onChanged?: () => void): HTMLElemen
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,audio/*";
+  input.multiple = seq; // 시퀀스 슬롯은 여러 장을 한 번에 받는다
   input.style.display = "none";
-  input.onchange = (): void => { const f = input.files?.[0]; if (f) void upload(f); input.value = ""; };
+  input.onchange = (): void => { void upload([...(input.files ?? [])]); input.value = ""; };
   cell.appendChild(input);
   cell.onclick = (): void => input.click();
   cell.ondragover = (e): void => { e.preventDefault(); cell.style.borderColor = "#f0c96a"; };
@@ -199,8 +223,7 @@ function card(label: string, dotted: string, onChanged?: () => void): HTMLElemen
   cell.ondrop = (e): void => {
     e.preventDefault();
     cell.style.borderColor = "#4a3320";
-    const f = e.dataTransfer?.files?.[0];
-    if (f) void upload(f);
+    void upload([...(e.dataTransfer?.files ?? [])]);
   };
   del.onclick = async (e): Promise<void> => {
     e.stopPropagation();
@@ -318,11 +341,11 @@ function renderAssets(): void {
   const head2 = $("div", "margin-bottom:8px");
   head2.append(
     $("div", "font-weight:800", "게임 에셋"),
-    $("div", "color:#a8987c;font-size:11px", "자리가 코드에 고정된 것들입니다. 올리면 게임 탭이 바로 갱신됩니다."),
+    $("div", "color:#a8987c;font-size:11px", "자리가 코드에 고정된 것들입니다. 올리면 게임 탭이 바로 갱신됩니다. 🎞 표시는 여러 장을 한 번에 고르면 시퀀스가 됩니다 — 파일 이름 순으로 재생합니다."),
   );
   detail.appendChild(head2);
   const grid = $("div", "display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px");
-  for (const u of state.uploads) grid.appendChild(card(u.label, u.asset));
+  for (const u of state.uploads) grid.appendChild(card(u.label, u.asset, undefined, u.seq === true));
   detail.appendChild(grid);
   side.style.maxWidth = "1100px";
   side.style.flexBasis = "100%";

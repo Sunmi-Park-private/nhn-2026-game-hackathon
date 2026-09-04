@@ -3,21 +3,24 @@
 // 이 뷰는 stage.cages(고정 목록)와 state.rescued를 대조해 그린다.
 //
 // 구출은 세 박자다:
-//   ① 잠김  — 창살이 살아 있는 동안 계속 도는 idle. 지금은 목업(가벼운 상하 흔들림)이고,
-//             아트가 오면 여기가 **idle 시퀀스** 자리다.
-//   ② 해제  — 자물쇠가 떨어지고 창살이 열린다. **스틸 한 장**으로 끝낸다(tex.open).
+//   ① 잠김  — 창살 스틸(tex.closed) + 가벼운 상하 흔들림. 흔들림은 코드가 만든다.
+//   ② 해제  — 자물쇠가 떨어지고 창살이 열린다. **이미지 시퀀스**(tex.open)를 한 번 재생한다.
 //   ③ 낙하  — 동물이 우루루 쏟아진다. 바닥에 가까워질수록 **커진다** —
 //             카메라 쪽으로 다가온다는 뜻이다. 지금은 한 장을 여러 마리로 쓰는 목업이고,
 //             아트가 오면 여기가 **동물 시퀀스 묶음** 자리다.
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
+import { makeSequence, type SequenceView } from "../sequence";
 import { cellToScreen, HEX_SIZE, CENTER_H } from "./geom";
 import type { Cage, RunState } from "../../engine/hex/types";
 import { cageProgress } from "../../engine/hex/cageFaces";
 
 export interface CageTextures {
+  /** 잠긴 우리 — 스틸 한 장 */
   closed: Texture | null;
-  open: Texture | null;
-  animals: Record<string, Texture | null>;
+  /** 잠금이 풀리는 순간 — 이미지 시퀀스. 한 장만 넣으면 스틸로 동작한다 */
+  open: readonly Texture[];
+  /** 동물마다 시퀀스. 한 장이면 스틸 */
+  animals: Record<string, readonly Texture[]>;
 }
 
 export interface CageView {
@@ -149,19 +152,20 @@ interface CageBody {
   /** 열림 연출에서 사라지는 부분 — 창살과 자물쇠 */
   bars: Container | null;
   lock: Container | null;
-  /** 아트가 있을 때만: 열림 스틸로 갈아끼울 스프라이트 */
+  /** 아트가 있을 때만: 잠긴 우리 스프라이트. 해제 때 이 자리를 시퀀스가 덮는다 */
   closedSprite: Sprite | null;
   size: number;
 }
 
 function makeAnimalView(cage: Cage, tex: CageTextures, w: number, h: number): Container {
-  const animalTex = tex.animals[cage.animalId] ?? null;
-  if (animalTex) {
-    const a = new Sprite(animalTex);
-    a.anchor.set(0.5);
-    a.width = w;
-    a.height = h;
-    return a;
+  const frames = tex.animals[cage.animalId] ?? [];
+  if (frames.length > 0) {
+    // 동물은 갇혀 있는 동안에도 살아 있어야 한다 — 시퀀스를 계속 돌린다
+    const seq = makeSequence(frames, w, h);
+    if (seq) {
+      void seq.play({ fps: 12, loop: true });
+      return seq.root;
+    }
   }
   // 폴백 — 아트가 오기 전까지 쓰는 목업. 동그란 몸통에 이름표.
   const g = new Container();
@@ -281,13 +285,23 @@ export function createCageView(textures: CageTextures): CageView {
     idleRaf = 0;
   }
 
-  /** ② 해제 — 자물쇠가 떨어지고 창살이 열린다. 스틸 한 장으로 끝낸다. */
+  /** ② 해제 — 자물쇠가 떨어지고 창살이 열린다. 열림 시퀀스를 한 번 재생한다. */
   async function playUnlock(entry: Entry): Promise<void> {
-    const { box, bars, lock, closedSprite } = entry.body;
-    // 아트가 있으면 열림 스틸로 갈아끼운다 — 이게 「스틸 이미지」 자리다
-    if (closedSprite && textures.open && !closedSprite.destroyed) {
-      closedSprite.texture = textures.open;
+    const { box, bars, lock, closedSprite, size } = entry.body;
+
+    // 열림 시퀀스가 있으면 잠긴 우리를 덮고 그 자리에서 재생한다.
+    // 잠긴 스프라이트를 지우지 않고 덮는 이유는, 시퀀스 첫 프레임이 자리를 잡기 전
+    // 한 프레임이라도 빈 칸이 보이면 우리가 사라진 것처럼 깜빡이기 때문이다.
+    let seq: SequenceView | null = null;
+    if (textures.open.length > 0 && !box.destroyed) {
+      seq = makeSequence(textures.open, 2 * size, Math.sqrt(3) * size);
+      if (seq) {
+        box.addChild(seq.root);
+        void seq.play({ fps: Math.max(8, Math.round((textures.open.length * 1000) / UNLOCK_MS)) });
+      }
     }
+    if (closedSprite && seq && !closedSprite.destroyed) closedSprite.visible = false;
+
     const lockFromY = lock?.y ?? 0;
     await animate(UNLOCK_MS, (t) => {
       if (box.destroyed) return false;

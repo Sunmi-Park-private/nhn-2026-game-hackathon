@@ -29,6 +29,8 @@ export interface UiSlot {
 export interface UiUpload {
   label: string;
   asset: string;
+  /** 이미지 시퀀스 슬롯 — 에디터가 여러 장을 한 번에 받는다 */
+  seq?: boolean;
 }
 
 export interface UiArea {
@@ -75,7 +77,7 @@ export const uiUploads: UiUpload[] = (() => {
   return raw
     .map((u) => u as Record<string, unknown>)
     .filter((u) => typeof u.asset === "string")
-    .map((u) => ({ label: String(u.label ?? u.asset), asset: String(u.asset) }));
+    .map((u) => ({ label: String(u.label ?? u.asset), asset: String(u.asset), seq: u.seq === true }));
 })();
 
 /** 영역 안의 슬롯. 없으면 null — 호출부가 기본값으로 간다. */

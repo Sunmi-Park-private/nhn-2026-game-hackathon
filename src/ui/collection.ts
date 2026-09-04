@@ -13,7 +13,7 @@ const CELL_H = 128;
 export function openCollection(
   parent: Container,
   rescued: readonly string[],
-  animalTextures: Record<string, Texture | null>,
+  animalTextures: Record<string, readonly Texture[]>,
 ): Promise<void> {
   return new Promise<void>((resolve) => {
     const root = new Container();
@@ -56,7 +56,8 @@ export function openCollection(
       card.stroke({ width: 2, color: got ? 0xc98a3c : 0x3d2513 });
       root.addChild(card);
 
-      const tex = animalTextures[a.id] ?? null;
+      // 도감은 정지 그림이면 충분하다 — 시퀀스의 첫 프레임을 쓴다
+      const tex = animalTextures[a.id]?.[0] ?? null;
       if (got && tex) {
         const s = fitSprite(tex, 64, 64);
         s.x = cx;

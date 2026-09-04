@@ -1,10 +1,11 @@
 // ui/hex/launcher.ts — 조준선, 장전 표시, 발사 비행 연출.
 // 입력 처리는 stageScreen이 맡고 여기는 그리기와 각도 계산만 한다.
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, type Texture } from "pixi.js";
 import { simulateShot } from "../../engine/hex/shot";
 import type { Cell, Tier } from "../../engine/hex/types";
 import { BOARD, ORIGIN, launchOrigin, launchOriginLocal } from "./geom";
 import { TIER_COLORS, drawTileFallback } from "./tileArt";
+import { makeSequence } from "../sequence";
 
 /** 조준 각도 한계 — 수평 근처로 쏘면 판이 성립하지 않는다. */
 const MAX_ANGLE = 1.25; // 약 72°
@@ -33,13 +34,28 @@ export interface Launcher {
   destroy(): void;
 }
 
-export function createLauncher(): Launcher {
+/** 발사대에 선 붉은말의 크기. 셀 폭이 아니라 화면 기준으로 잡는다 —
+ *  격자가 촘촘해져도 캐릭터가 같이 작아지면 안 된다. */
+const HORSE_W = 190;
+const HORSE_H = 190;
+
+export function createLauncher(horseFrames: readonly Texture[] = []): Launcher {
   const root = new Container();
   const guide = new Graphics();
   root.addChild(guide);
 
-  const loadedSlot = new Container();
+  // 붉은말 — 발사 지점 뒤에 선다. 장전된 타일이 앞발 위에 놓이도록 조금 아래로 내린다.
+  // 시퀀스가 없으면 아무것도 그리지 않는다 — 폴백 그림을 두면 아트가 왔을 때 겹친다.
   const origin = launchOrigin();
+  const horse = makeSequence(horseFrames, HORSE_W, HORSE_H);
+  if (horse) {
+    horse.root.x = origin.x;
+    horse.root.y = origin.y + HORSE_H * 0.28;
+    root.addChild(horse.root);
+    void horse.play({ fps: 12, loop: true });
+  }
+
+  const loadedSlot = new Container();
   loadedSlot.x = origin.x;
   loadedSlot.y = origin.y;
   root.addChild(loadedSlot);
