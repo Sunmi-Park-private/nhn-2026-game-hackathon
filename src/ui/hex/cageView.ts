@@ -3,7 +3,6 @@
 // 이 뷰는 stage.cages(고정 목록)와 state.rescued를 대조해 그린다.
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { cellToScreen, HEX_SIZE } from "./geom";
-import { hexPoints } from "./tileArt";
 import type { Cage, RunState } from "../../engine/hex/types";
 
 export interface CageTextures {
@@ -40,52 +39,59 @@ function cageCenter(cage: Cage): { x: number; y: number } {
   return { x: sx / cage.cells.length, y: sy / cage.cells.length };
 }
 
-/** 육각형 꼭짓점을 (dx, dy)만큼 옮긴 좌표 배열. */
-function hexAt(size: number, dx: number, dy: number): number[] {
-  const pts = hexPoints(size);
-  const out: number[] = [];
-  for (let i = 0; i < pts.length; i += 2) out.push(pts[i]! + dx, pts[i + 1]! + dy);
-  return out;
+/** flat-top 육각형 꼭짓점 6개. **위아래가 수평**이고 좌우가 뾰족하다.
+ *  타일(pointy-top)을 30° 돌린 방향이다 — 창살이 타일과 다른 방향으로 서서
+ *  「타일 무리 안에 놓인 다른 물건」으로 읽힌다. */
+function flatHexPoints(size: number): number[] {
+  const pts: number[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    const angle = (Math.PI / 180) * (60 * i);
+    pts.push(size * Math.cos(angle), size * Math.sin(angle));
+  }
+  return pts;
 }
 
-/** 케이지가 차지한 덩어리를 덮는 큰 육각 하나의 반지름.
+/** 케이지가 차지한 덩어리를 덮는 flat-top 육각 하나의 반지름.
  *
  *  케이지는 칸 하나가 아니라 육각 덩어리(반지름 1이면 7칸)를 차지하고,
- *  그 둘레를 1칸짜리 타일이 감싼다. 그래서 창살은 칸마다 그리지 않고
- *  덩어리 전체를 덮는 **큰 육각 한 장**으로 그린다.
+ *  그 둘레를 1칸짜리 타일이 감싼다. 창살은 칸마다 그리지 않고 덩어리 전체를
+ *  덮는 **큰 육각 한 장**이다.
  *
- *  세로로 가장 먼 칸의 중심까지 거리에 육각 반지름을 더하면 그 칸의 바깥
- *  꼭짓점에 정확히 닿는다. pointy-top 육각은 세로가 가로보다 길어서(2 : √3)
- *  이 값을 쓰면 가로로는 저절로 덩어리 안에 들어온다 — 둘레 타일을 침범하지 않는다.
- *  한 칸짜리 케이지면 dy가 0이라 그냥 육각 한 장이 된다. */
+ *  가로로 가장 먼 칸의 중심까지 거리에 셀 반폭을 더하면 그 칸의 바깥 변에 닿는다.
+ *  flat-top 육각은 가로가 세로보다 길어서(2 : √3) 이 값을 쓰면 세로로는 저절로
+ *  덩어리 안에 들어온다 — 둘레 타일을 침범하지 않는다.
+ *  한 칸짜리 케이지면 dx가 0이라 딱 한 칸 폭의 육각이 된다. */
 function cageHexSize(offsets: Array<{ dx: number; dy: number }>): number {
-  let maxDy = 0;
-  for (const o of offsets) maxDy = Math.max(maxDy, Math.abs(o.dy));
-  return maxDy + HEX_SIZE;
+  const cellW = Math.sqrt(3) * HEX_SIZE;
+  let maxDx = 0;
+  for (const o of offsets) maxDx = Math.max(maxDx, Math.abs(o.dx));
+  return maxDx + cellW / 2;
 }
 
-/** pointy-top 육각형 안에서, 중심으로부터 x만큼 떨어진 세로선의 반높이.
- *  꼭짓점이 (0, ±size)와 (±√3·size/2, ±size/2)이므로 위아래 빗변은
- *  |x|가 커질수록 y가 √3분의 1씩 줄어든다. 이 식으로 창살을 육각 안에 딱 맞춘다.
- *  마스크를 쓰지 않으므로 케이지마다 렌더 타겟이 늘지 않는다. */
+/** flat-top 육각형 안에서, 중심으로부터 x만큼 떨어진 세로선의 반높이.
+ *  꼭짓점이 (±size, 0)과 (±size/2, ±√3·size/2)이므로 가운데 절반 구간은
+ *  높이가 일정하고(수평인 윗변·아랫변), 바깥 절반에서만 빗변을 따라 줄어든다.
+ *  이 식으로 창살을 육각 안에 딱 맞춘다 — 마스크를 쓰지 않으므로
+ *  케이지마다 렌더 타겟이 늘지 않는다. */
 function barHalfHeight(size: number, x: number): number {
-  return size - Math.abs(x) / Math.sqrt(3);
+  const ax = Math.abs(x);
+  const h = (Math.sqrt(3) / 2) * size;
+  return ax <= size / 2 ? h : Math.sqrt(3) * (size - ax);
 }
 
-/** 창살. 큰 육각 하나의 윤곽과, 그 안을 채우는 세로 창살을 그린다.
+/** 창살. 큰 육각의 윤곽과, 그 안을 채우는 세로 창살을 그린다.
  *  창살 간격은 육각 크기에 비례시켜 케이지가 커져도 밀도가 유지된다. */
 function drawBars(g: Graphics, size: number, color: number): void {
-  const w = Math.sqrt(3) * size;
-  const count = Math.max(3, Math.round(size / HEX_SIZE) * 2 + 1);
+  const cellW = Math.sqrt(3) * HEX_SIZE;
+  const count = Math.max(3, Math.round((size * 2) / cellW) * 2 + 1);
   for (let i = 0; i < count; i += 1) {
     // -0.5 ~ +0.5 구간에 균등 배치. 양 끝은 윤곽선에 묻히므로 조금 안쪽으로 들인다
-    const t = (i / (count - 1) - 0.5) * 0.86;
-    const x = w * t;
+    const x = (i / (count - 1) - 0.5) * 2 * size * 0.88;
     const half = barHalfHeight(size - 3, x) - 2;
     if (half <= 0) continue;
     g.moveTo(x, -half).lineTo(x, half).stroke({ width: 2.5, color });
   }
-  g.poly(hexPoints(size - 1)).stroke({ width: 3.5, color });
+  g.poly(flatHexPoints(size - 1)).stroke({ width: 3.5, color });
 }
 
 const BAR_COLOR = 0xb9c4d2;   // 쇠창살
@@ -99,18 +105,18 @@ function makeCageBody(cage: Cage, tex: CageTextures): Container {
     return { dx: p.x - center.x, dy: p.y - center.y };
   });
   const size = cageHexSize(offsets);
-  const w = Math.sqrt(3) * size;
-  const h = 2 * size;
+  const w = 2 * size;                      // flat-top: 가로가 꼭짓점 사이
+  const h = Math.sqrt(3) * size;            // 세로가 수평 변 사이
 
   if (tex.closed) {
-    // 아트도 덩어리 전체를 덮는 큰 육각 한 장이다 — 타일과 같은 √3 : 2 비율
+    // 아트도 덩어리 전체를 덮는 큰 flat-top 육각 한 장이다 — 가로:세로 = 2 : √3
     const s = new Sprite(tex.closed);
     s.anchor.set(0.5);
     s.width = w;
     s.height = h;
     box.addChild(s);
   } else {
-    box.addChild(new Graphics().poly(hexPoints(size - 1)).fill(CAGE_DARK));
+    box.addChild(new Graphics().poly(flatHexPoints(size - 1)).fill(CAGE_DARK));
   }
 
   const animalTex = tex.animals[cage.animalId] ?? null;
@@ -126,7 +132,7 @@ function makeCageBody(cage: Cage, tex: CageTextures): Container {
       style: { fontSize: 11, fill: 0xffffff, fontWeight: "bold" },
     });
     label.anchor.set(0.5);
-    label.y = -size * 0.12;
+    label.y = -h * 0.1;
     box.addChild(label);
   }
 
@@ -134,8 +140,8 @@ function makeCageBody(cage: Cage, tex: CageTextures): Container {
     // 창살은 동물보다 위에 그린다 — 그래야 「갇혀 있다」로 읽힌다
     const bars = new Graphics();
     drawBars(bars, size, BAR_COLOR);
-    bars.roundRect(-9, size - 17, 18, 13, 3).fill({ color: 0xe4ebf3 });
-    bars.circle(0, size - 11, 3).fill({ color: CAGE_DARK });
+    bars.roundRect(-9, h / 2 - 17, 18, 13, 3).fill({ color: 0xe4ebf3 });
+    bars.circle(0, h / 2 - 11, 3).fill({ color: CAGE_DARK });
     box.addChild(bars);
   }
 
