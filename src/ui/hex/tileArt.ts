@@ -17,7 +17,7 @@ export const TIER_COLORS: readonly number[] = [
 export const HORSESHOE_COLOR = 0x8a5a2b;
 
 /** pointy-top 육각형 꼭짓점 6개. 위아래가 뾰족하고 좌우가 수직 변이다. */
-function hexPoints(size: number): number[] {
+export function hexPoints(size: number): number[] {
   const pts: number[] = [];
   for (let i = 0; i < 6; i++) {
     const angle = (Math.PI / 180) * (60 * i - 90);
