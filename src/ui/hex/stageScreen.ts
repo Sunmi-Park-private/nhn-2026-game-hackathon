@@ -14,7 +14,8 @@ import { makeButton } from "../skin";
 import { openSettings, type SettingsTextures } from "../settingsMenu";
 import { slot } from "../../data/uiLayout";
 import { editable } from "../layoutEditor";
-import { playBgm, playSfx } from "../audio";
+import { playBgm, playSfx, pauseBgm, resumeBgm } from "../audio";
+import { buzz } from "../settings";
 
 /** 스테이지가 끝난 이유. 호출자(main)가 다음 화면을 정한다. */
 export type StageResult = "cleared" | "failed" | "lobby";
@@ -194,6 +195,7 @@ export async function runStageScreen(
         const firedTier = state.loaded;
         const { path } = simulateShot(state.cells, BOARD, launchOriginLocal(), angle);
         playSfx("audio.sfxShot");
+        buzz();
         await launcher.playFlight(path, firedTier);
 
         const outcome = fireAt(state, BOARD, launchOriginLocal(), angle);
@@ -231,8 +233,24 @@ export async function runStageScreen(
       label: "⚙", w: gearBox.w, h: gearBox.h, tex: ui.settingsButton, fill: 0x4a3320,
       onTap: () => {
         if (busy || finished) return;
-        void openSettings(layer, ui).then((r) => {
-          if (r === "lobby") finish("lobby");
+        buzz();
+        // 진짜 멈춘다 — 막이 입력을 먹는 것만으로는 케이지 흔들림과 조준선이 계속 돈다.
+        // 「멈춘 게임」 위에서 뒤 배경만 살아 움직이면 설정창이 겹쳐 뜬 것으로만 읽힌다.
+        cages.pause();
+        launcher.pause();
+        pauseBgm();
+        void openSettings(layer, ui, { confirmHome: true }).then((r) => {
+          // BGM은 어느 쪽으로 나가든 되살린다. pauseBgm이 세우는 userPaused는
+          // 뷰가 아니라 audio 모듈의 전역이고 이걸 푸는 곳이 resumeBgm뿐이라,
+          // 로비로 나가는 길에서 건너뛰면 그 뒤로 판이든 로비든 영영 무음이 된다.
+          resumeBgm();
+          if (r === "lobby") {
+            finish("lobby");
+            return;
+          }
+          // 뷰는 finish 뒤에 되살리지 않는다 — 이미 파괴된 것을 만지게 된다
+          cages.resume();
+          launcher.resume();
         });
       },
     });
