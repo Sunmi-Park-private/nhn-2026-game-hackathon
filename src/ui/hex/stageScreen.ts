@@ -1,10 +1,10 @@
 // ui/hex/stageScreen.ts — 한 스테이지의 화면. 입력 → 엔진 → 렌더를 배선한다.
 // 상태는 RunState 하나로 모으고 모듈 전역에 두지 않는다(규약 4조).
-import { Application, Container, Graphics, type FederatedPointerEvent, type Texture } from "pixi.js";
+import { Application, Container, Graphics, Sprite, type FederatedPointerEvent, type Texture } from "pixi.js";
 import { createRun, fireAt, isCleared, isFailed } from "../../engine/hex/stageRun";
 import { simulateShot } from "../../engine/hex/shot";
 import type { RunState, StageDef } from "../../engine/hex/types";
-import { fullRect, BASE_W, BASE_H } from "../stage";
+import { fullRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
 import { BOARD, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
 import { createCageView } from "./cageView";
@@ -19,6 +19,41 @@ export interface StageTextures {
   cageClosed: Texture | null;
   cageOpen: Texture | null;
   animals: Record<string, Texture | null>;
+  bg: { board: Texture | null; panelLeft: Texture | null; panelRight: Texture | null };
+}
+
+/** 좌우 패널 배치. 콘텐츠 박스 바깥 영역을 아트로 채운다.
+ *  좁은 세로 뷰포트에서는 이 영역이 0폭이라 아무것도 그리지 않는다 —
+ *  그래서 게임에 필요한 것은 절대 여기 두지 않는다(장식 전용). */
+function sidePanel(tex: Texture, x: number, w: number, parent: Container): Sprite {
+  const spr = new Sprite(tex);
+  const s = Math.max(w / tex.width, stageHeight() / tex.height);
+  spr.scale.set(s);
+  spr.x = x + (w - tex.width * s) / 2;
+  spr.y = stageTop() + (stageHeight() - tex.height * s) / 2;
+  // 패널 영역 밖으로 넘치지 않게 자른다 — 넘치면 판 위로 올라온다.
+  // 마스크 좌표는 스프라이트가 아니라 layer(parent)와 같은 좌표계여야 하므로
+  // 마스크는 spr의 자식이 아니라 parent의 자식으로 붙인다(자식이면 spr의 scale까지 먹는다).
+  // Pixi는 마스크 노드가 씬 그래프에 포함돼야 world transform을 갱신하므로 반드시 addChild한다.
+  const mask = new Graphics().rect(x, stageTop(), w, stageHeight()).fill(0xffffff);
+  parent.addChild(mask);
+  spr.mask = mask;
+  return spr;
+}
+
+/** 배경 레이어 — 단색 베이스 위에 좌·중앙·우 아트를 순서대로 얹는다.
+ *  세 슬롯 모두 null이어도 베이스색만 남아 기존 화면과 동일해야 한다. */
+function buildBackground(bg: StageTextures["bg"]): Container {
+  const layer = new Container();
+  layer.addChild(fullRect(0x241a10)); // 항상 먼저 — 캔버스가 절대 투명해지지 않게
+  const left = stageLeft();
+  const panelW = -left; // 콘텐츠 박스 좌우 대칭이라 폭이 같다
+  if (left < 0) {
+    if (bg.panelLeft) layer.addChild(sidePanel(bg.panelLeft, left, panelW, layer));
+    if (bg.panelRight) layer.addChild(sidePanel(bg.panelRight, BASE_W, panelW, layer));
+  }
+  if (bg.board) layer.addChild(coverBox(bg.board));
+  return layer;
 }
 
 export async function runStageScreen(
@@ -30,7 +65,7 @@ export async function runStageScreen(
   const state: RunState = createRun(stage);
 
   const layer = new Container();
-  layer.addChild(fullRect(0x241a10));
+  layer.addChild(buildBackground(textures.bg));
 
   const board = createBoardView({ tiles: textures.tiles, horseshoe: textures.horseshoe });
   const cages = createCageView({

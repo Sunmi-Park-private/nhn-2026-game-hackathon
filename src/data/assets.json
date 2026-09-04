@@ -37,6 +37,11 @@
       "sheep": "assets/hex/animal-sheep.png",
       "zebra": "assets/hex/animal-zebra.png",
       "deer": "assets/hex/animal-deer.png"
+    },
+    "bg": {
+      "board": "assets/hex/bg-board.png",
+      "panelLeft": "assets/hex/bg-panel-left.png",
+      "panelRight": "assets/hex/bg-panel-right.png"
     }
   }
 }

@@ -161,6 +161,18 @@
 (`src/ui/hex/geom.ts`의 `FIELD_INSET`, 논리폭 450 기준). 시안과 다르면 그 숫자 하나만
 고치면 타일 크기가 자동으로 따라온다 — **아트를 다시 그릴 필요는 없다.**
 
+### 파일을 놓을 위치
+
+아래 경로에 파일만 드롭하면 게임 화면 배경에 자동 반영된다(위 §0 참고):
+
+```
+public/assets/hex/bg-board.png         중앙 게임판  (9:16)
+public/assets/hex/bg-panel-left.png    좌 패널      (175:288)
+public/assets/hex/bg-panel-right.png   우 패널      (175:288)
+```
+
+세 파일 모두 미업로드 상태(placeholder)에서는 화면이 단색으로 보이며, 이는 정상이다.
+
 ---
 
 ## 8. HUD
