@@ -83,6 +83,30 @@ function hotspot(
   return c;
 }
 
+/** 아트 위에 얹는 숫자 하나. 칸의 배경은 아트가 그리므로 여기서는 글자만 그린다.
+ *  글자 크기·색은 슬롯이 들고 있으면 그 값을 쓴다(에디터에서 조정). */
+function counter(b: UiSlot, value: number): Container {
+  const c = new Container();
+  c.x = b.x;
+  c.y = b.y;
+  const t = new Text({
+    text: String(value),
+    style: {
+      fontSize: b.fontSize ?? 15,
+      fill: b.color ?? 0xfff3dc,
+      fontWeight: "bold",
+      // 아트의 밝은 부분 위에서도 읽히게 — 아트가 아직 없을 때도 배경과 구분된다
+      stroke: { color: 0x1a1108, width: 3 },
+    },
+  });
+  t.anchor.set(0.5);
+  t.x = b.w / 2;
+  t.y = b.h / 2;
+  c.addChild(t);
+  editable(AREA, b, c);
+  return c;
+}
+
 /** 로비를 띄우고 PLAY를 누를 때까지 기다린다. */
 export function runLobby(app: Application, profile: Profile, tex: LobbyTextures): Promise<void> {
   return new Promise<void>((resolve) => {
@@ -98,17 +122,19 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     );
 
     // ── 상단 재화 바 ─────────────────────────────
-    const stats = box("topStats", { x: 30, y: 12, w: 300, h: 34 });
-    layer.addChild(new Graphics().roundRect(stats.x, stats.y, stats.w, stats.h, 17).fill({ color: 0x2b1d10, alpha: 0.85 }));
-    const statText = new Text({
-      // 코인·젬은 아직 재화 시스템이 없어 0으로 둔다 — 말굽만 실제 값이다
-      text: `🪙 0    💎 0    🐴 ${profile.horseshoes}`,
-      style: { fontSize: 14, fill: 0xfff3dc, fontWeight: "bold" },
-    });
-    statText.anchor.set(0.5);
-    statText.x = stats.x + stats.w / 2;
-    statText.y = stats.y + stats.h / 2;
-    layer.addChild(statText);
+    // 세 칸을 아트 한 장(투명 png)이 그린다. 코드가 얹는 것은 숫자뿐이다.
+    // 숫자마다 슬롯이 따로 있어 에디터에서 각자 끌어 맞춘다 — 아트의 칸 간격이
+    // 바뀌어도 코드는 그대로고 uiLayout.json만 움직인다.
+    const stats = box("topStats", { x: 14, y: 6, w: 340, h: 113 });
+    layer.addChild(hotspot(stats, tex.icons.topStats, null));
+
+    // 코인·젬은 아직 재화 시스템이 없어 0으로 둔다 — 말굽만 실제 값이다
+    const counters: Array<[string, { x: number; y: number; w: number; h: number }, number]> = [
+      ["statCoin", { x: 66, y: 49, w: 60, h: 22 }, 0],
+      ["statGem", { x: 179, y: 49, w: 60, h: 22 }, 0],
+      ["statHorseshoe", { x: 292, y: 49, w: 60, h: 22 }, profile.horseshoes],
+    ];
+    for (const [id, fb, value] of counters) layer.addChild(counter(box(id, fb), value));
 
     // ── PLAY ────────────────────────────────────
     const play = box("play", { x: 138, y: 646, w: 174, h: 54 });

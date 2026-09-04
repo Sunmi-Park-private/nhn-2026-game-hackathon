@@ -88,6 +88,7 @@ async function main(): Promise<void> {
     play: lobbySlots.play,
     gear: uiSlots.gear,
     icons: {
+      topStats: lobbySlots.topStats ?? null,
       navHome: lobbySlots.navHome ?? null,
       navAnimals: lobbySlots.navAnimals ?? null,
       navEvents: lobbySlots.navEvents ?? null,
