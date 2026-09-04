@@ -1,8 +1,16 @@
 // ui/hex/cageView.ts — 케이지 렌더와 구출 연출.
 // 케이지는 셀 맵에서 사라지는 것으로 "구출됨"을 표현하므로,
 // 이 뷰는 stage.cages(고정 목록)와 state.rescued를 대조해 그린다.
+//
+// 구출은 세 박자다:
+//   ① 잠김  — 창살이 살아 있는 동안 계속 도는 idle. 지금은 목업(가벼운 상하 흔들림)이고,
+//             아트가 오면 여기가 **idle 시퀀스** 자리다.
+//   ② 해제  — 자물쇠가 떨어지고 창살이 열린다. **스틸 한 장**으로 끝낸다(tex.open).
+//   ③ 낙하  — 동물이 우루루 쏟아진다. 바닥에 가까워질수록 **커진다** —
+//             카메라 쪽으로 다가온다는 뜻이다. 지금은 한 장을 여러 마리로 쓰는 목업이고,
+//             아트가 오면 여기가 **동물 시퀀스 묶음** 자리다.
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
-import { cellToScreen, HEX_SIZE } from "./geom";
+import { cellToScreen, HEX_SIZE, CENTER_H } from "./geom";
 import type { Cage, RunState } from "../../engine/hex/types";
 
 export interface CageTextures {
@@ -19,7 +27,7 @@ export interface CageView {
    *  (연출 중인 케이지는 animating 가드가 지켜주지만, 연출이 시작조차 안 했으면
    *   지켜줄 것이 없다.) */
   sync(state: RunState): void;
-  /** 구출 연출을 재생하고, 끝나면 몸체를 스스로 치운다.
+  /** 구출 연출(해제 → 낙하)을 재생하고, 끝나면 몸체를 스스로 치운다.
    *  연출이 끝날 때 resolve된다 — 호출자가 순차로 await할 수 있다.
    *  **sync가 이미 그 케이지를 지웠다면 아무 일도 하지 않고 즉시 resolve한다** —
    *  이 경우 연출은 보이지 않는다. 위 sync의 순서 계약 참조. */
@@ -27,7 +35,17 @@ export interface CageView {
   destroy(): void;
 }
 
-/** 케이지가 점유한 셀들의 중심점. 가로 2셀이면 두 셀의 중간이다. */
+// ── 연출 상수 — 한곳에 모아 둔다 ──────────────────────────────
+const IDLE_BOB_PX = 1.6;      // 잠김 idle 진폭
+const IDLE_BOB_HZ = 0.35;
+const UNLOCK_MS = 320;        // 자물쇠가 떨어지고 창살이 열리기까지
+const FALL_MS = 900;          // 동물이 바닥에 닿기까지
+const ANIMAL_COUNT = 6;       // 우루루 — 한 케이지에서 쏟아지는 마릿수
+const ANIMAL_SCALE_NEAR = 0.5; // 출발(멀다)
+const ANIMAL_SCALE_FAR = 1.8;  // 바닥(가깝다)
+const FLOOR_Y = CENTER_H - 40; // 동물이 사라지는 높이
+
+/** 케이지가 점유한 셀들의 중심점. */
 function cageCenter(cage: Cage): { x: number; y: number } {
   let sx = 0;
   let sy = 0;
@@ -53,10 +71,6 @@ function flatHexPoints(size: number): number[] {
 
 /** 케이지가 차지한 덩어리를 덮는 flat-top 육각 하나의 반지름.
  *
- *  케이지는 칸 하나가 아니라 육각 덩어리(반지름 1이면 7칸)를 차지하고,
- *  그 둘레를 1칸짜리 타일이 감싼다. 창살은 칸마다 그리지 않고 덩어리 전체를
- *  덮는 **큰 육각 한 장**이다.
- *
  *  가로로 가장 먼 칸의 중심까지 거리에 셀 반폭을 더하면 그 칸의 바깥 변에 닿는다.
  *  flat-top 육각은 가로가 세로보다 길어서(2 : √3) 이 값을 쓰면 세로로는 저절로
  *  덩어리 안에 들어온다 — 둘레 타일을 침범하지 않는다.
@@ -79,13 +93,10 @@ function barHalfHeight(size: number, x: number): number {
   return ax <= size / 2 ? h : Math.sqrt(3) * (size - ax);
 }
 
-/** 창살. 큰 육각의 윤곽과, 그 안을 채우는 세로 창살을 그린다.
- *  창살 간격은 육각 크기에 비례시켜 케이지가 커져도 밀도가 유지된다. */
 function drawBars(g: Graphics, size: number, color: number): void {
   const cellW = Math.sqrt(3) * HEX_SIZE;
   const count = Math.max(3, Math.round((size * 2) / cellW) * 2 + 1);
   for (let i = 0; i < count; i += 1) {
-    // -0.5 ~ +0.5 구간에 균등 배치. 양 끝은 윤곽선에 묻히므로 조금 안쪽으로 들인다
     const x = (i / (count - 1) - 0.5) * 2 * size * 0.88;
     const half = barHalfHeight(size - 3, x) - 2;
     if (half <= 0) continue;
@@ -97,7 +108,39 @@ function drawBars(g: Graphics, size: number, color: number): void {
 const BAR_COLOR = 0xb9c4d2;   // 쇠창살
 const CAGE_DARK = 0x1b2430;   // 창살 안쪽 그늘
 
-function makeCageBody(cage: Cage, tex: CageTextures): Container {
+/** 케이지 몸체. 연출이 부위별로 손대야 해서 조각을 들고 나온다. */
+interface CageBody {
+  box: Container;
+  /** 열림 연출에서 사라지는 부분 — 창살과 자물쇠 */
+  bars: Container | null;
+  lock: Container | null;
+  /** 아트가 있을 때만: 열림 스틸로 갈아끼울 스프라이트 */
+  closedSprite: Sprite | null;
+  size: number;
+}
+
+function makeAnimalView(cage: Cage, tex: CageTextures, w: number, h: number): Container {
+  const animalTex = tex.animals[cage.animalId] ?? null;
+  if (animalTex) {
+    const a = new Sprite(animalTex);
+    a.anchor.set(0.5);
+    a.width = w;
+    a.height = h;
+    return a;
+  }
+  // 폴백 — 아트가 오기 전까지 쓰는 목업. 동그란 몸통에 이름표.
+  const g = new Container();
+  g.addChild(new Graphics().circle(0, 0, Math.min(w, h) / 2).fill({ color: 0xf3e2c0 }));
+  const label = new Text({
+    text: cage.animalId,
+    style: { fontSize: 9, fill: 0x4a3a24, fontWeight: "bold" },
+  });
+  label.anchor.set(0.5);
+  g.addChild(label);
+  return g;
+}
+
+function makeCageBody(cage: Cage, tex: CageTextures): CageBody {
   const box = new Container();
   const center = cageCenter(cage);
   const offsets = cage.cells.map((c) => {
@@ -105,53 +148,169 @@ function makeCageBody(cage: Cage, tex: CageTextures): Container {
     return { dx: p.x - center.x, dy: p.y - center.y };
   });
   const size = cageHexSize(offsets);
-  const w = 2 * size;                      // flat-top: 가로가 꼭짓점 사이
-  const h = Math.sqrt(3) * size;            // 세로가 수평 변 사이
+  const w = 2 * size;                    // flat-top: 가로가 꼭짓점 사이
+  const h = Math.sqrt(3) * size;          // 세로가 수평 변 사이
 
+  let closedSprite: Sprite | null = null;
   if (tex.closed) {
     // 아트도 덩어리 전체를 덮는 큰 flat-top 육각 한 장이다 — 가로:세로 = 2 : √3
-    const s = new Sprite(tex.closed);
-    s.anchor.set(0.5);
-    s.width = w;
-    s.height = h;
-    box.addChild(s);
+    closedSprite = new Sprite(tex.closed);
+    closedSprite.anchor.set(0.5);
+    closedSprite.width = w;
+    closedSprite.height = h;
+    box.addChild(closedSprite);
   } else {
     box.addChild(new Graphics().poly(flatHexPoints(size - 1)).fill(CAGE_DARK));
   }
 
-  const animalTex = tex.animals[cage.animalId] ?? null;
-  if (animalTex) {
-    const a = new Sprite(animalTex);
-    a.anchor.set(0.5);
-    a.width = w * 0.62;
-    a.height = h * 0.62;
-    box.addChild(a);
-  } else {
-    const label = new Text({
-      text: cage.animalId,
-      style: { fontSize: 11, fill: 0xffffff, fontWeight: "bold" },
-    });
-    label.anchor.set(0.5);
-    label.y = -h * 0.1;
-    box.addChild(label);
-  }
+  // 갇힌 동물 — 창살 뒤에 선다
+  box.addChild(makeAnimalView(cage, tex, w * 0.62, h * 0.62));
 
+  let bars: Container | null = null;
+  let lock: Container | null = null;
   if (!tex.closed) {
     // 창살은 동물보다 위에 그린다 — 그래야 「갇혀 있다」로 읽힌다
-    const bars = new Graphics();
-    drawBars(bars, size, BAR_COLOR);
-    bars.roundRect(-9, h / 2 - 17, 18, 13, 3).fill({ color: 0xe4ebf3 });
-    bars.circle(0, h / 2 - 11, 3).fill({ color: CAGE_DARK });
-    box.addChild(bars);
+    const g = new Graphics();
+    drawBars(g, size, BAR_COLOR);
+    bars = g;
+    const l = new Graphics();
+    l.roundRect(-9, -6, 18, 13, 3).fill({ color: 0xe4ebf3 });
+    l.circle(0, 0, 3).fill({ color: CAGE_DARK });
+    l.y = h / 2 - 11;
+    lock = l;
+    box.addChild(g, l);
   }
 
-  return box;
+  return { box, bars, lock, closedSprite, size };
+}
+
+/** rAF 루프를 Promise로 감싼다. onFrame이 false를 돌려주거나 시간이 다하면 끝난다. */
+function animate(durationMs: number, onFrame: (t: number) => boolean): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const start = performance.now();
+    const tick = (): void => {
+      const t = Math.min(1, (performance.now() - start) / durationMs);
+      if (!onFrame(t)) {
+        resolve();
+        return;
+      }
+      if (t < 1) requestAnimationFrame(tick);
+      else resolve();
+    };
+    tick();
+  });
 }
 
 export function createCageView(textures: CageTextures): CageView {
   const root = new Container();
-  const bodies = new Map<string, Container>();
+  /** 낙하하는 동물이 사는 층. 케이지 몸체보다 위에 둔다 — 창살 앞으로 쏟아져 나온다. */
+  const fallLayer = new Container();
+  const bodyLayer = new Container();
+  root.addChild(bodyLayer, fallLayer);
+
+  interface Entry { body: CageBody; baseY: number; phase: number }
+  const bodies = new Map<string, Entry>();
   const animating = new Set<string>();
+  let idleRaf = 0;
+
+  /** 잠김 idle — 아트가 오면 이 자리가 idle 시퀀스로 바뀐다.
+   *  지금은 아주 가벼운 상하 흔들림 목업이다. 연출 중인 케이지는 건드리지 않는다. */
+  function startIdle(): void {
+    if (idleRaf !== 0) return;
+    const tick = (): void => {
+      idleRaf = 0;
+      if (root.destroyed || bodies.size === 0) return;
+      const t = performance.now() / 1000;
+      for (const [id, e] of bodies) {
+        if (animating.has(id) || e.body.box.destroyed) continue;
+        e.body.box.y = e.baseY + Math.sin(t * Math.PI * 2 * IDLE_BOB_HZ + e.phase) * IDLE_BOB_PX;
+      }
+      idleRaf = requestAnimationFrame(tick);
+    };
+    idleRaf = requestAnimationFrame(tick);
+  }
+
+  function stopIdle(): void {
+    if (idleRaf !== 0) cancelAnimationFrame(idleRaf);
+    idleRaf = 0;
+  }
+
+  /** ② 해제 — 자물쇠가 떨어지고 창살이 열린다. 스틸 한 장으로 끝낸다. */
+  async function playUnlock(entry: Entry): Promise<void> {
+    const { box, bars, lock, closedSprite } = entry.body;
+    // 아트가 있으면 열림 스틸로 갈아끼운다 — 이게 「스틸 이미지」 자리다
+    if (closedSprite && textures.open && !closedSprite.destroyed) {
+      closedSprite.texture = textures.open;
+    }
+    const lockFromY = lock?.y ?? 0;
+    await animate(UNLOCK_MS, (t) => {
+      if (box.destroyed) return false;
+      // 자물쇠가 툭 떨어진다
+      if (lock && !lock.destroyed) {
+        lock.y = lockFromY + 26 * t * t;
+        lock.alpha = 1 - t;
+        lock.rotation = t * 1.2;
+      }
+      // 창살이 열린다 — 폴백에서는 흐려지는 것으로 대신한다
+      if (bars && !bars.destroyed) bars.alpha = 1 - t * 0.85;
+      box.scale.set(1 + 0.06 * Math.sin(Math.PI * t)); // 덜컹
+      return true;
+    });
+  }
+
+  /** ③ 낙하 — 동물이 우루루 쏟아진다. 바닥에 가까워질수록 커진다. */
+  async function playFall(cage: Cage, entry: Entry): Promise<void> {
+    const { box, size } = entry.body;
+    const w = 2 * size;
+    const h = Math.sqrt(3) * size;
+    const originX = box.x;
+    const originY = entry.baseY;
+
+    interface Faller { view: Container; vx: number; delay: number; spin: number }
+    const fallers: Faller[] = [];
+    for (let i = 0; i < ANIMAL_COUNT; i += 1) {
+      const view = makeAnimalView(cage, textures, w * 0.42, h * 0.42);
+      view.x = originX;
+      view.y = originY;
+      view.alpha = 0;
+      fallLayer.addChild(view);
+      // 부채꼴로 흩어진다 — 가운데는 곧게, 바깥쪽은 크게 벌어진다
+      const spread = (i / (ANIMAL_COUNT - 1) - 0.5) * 2; // -1 … 1
+      fallers.push({
+        view,
+        vx: spread * 90 + (Math.random() - 0.5) * 24,
+        delay: i * 0.06,
+        spin: spread * 2.2,
+      });
+    }
+
+    const travel = FLOOR_Y - originY;
+    try {
+      await animate(FALL_MS, (t) => {
+        if (root.destroyed) return false;
+        // 케이지 몸체는 동물이 나오는 동안 사그라든다
+        if (!box.destroyed) box.alpha = Math.max(0, 1 - t * 1.6);
+        for (const f of fallers) {
+          if (f.view.destroyed) continue;
+          // delay를 뺀 자기 시간. 아직 안 나온 놈은 투명하게 대기한다
+          const p = Math.max(0, Math.min(1, (t - f.delay) / (1 - f.delay)));
+          if (p <= 0) continue;
+          f.view.alpha = Math.min(1, p * 4);
+          // 처음엔 살짝 튀어 올랐다가 중력으로 떨어진다
+          const rise = -26 * Math.sin(Math.PI * Math.min(1, p * 1.6)) * 0.5;
+          f.view.x = originX + f.vx * p;
+          f.view.y = originY + travel * p * p + rise;
+          f.view.rotation = f.spin * p;
+          // 바닥에 가까워질수록 커진다 — 카메라 쪽으로 다가온다
+          f.view.scale.set(ANIMAL_SCALE_NEAR + (ANIMAL_SCALE_FAR - ANIMAL_SCALE_NEAR) * p * p);
+          if (p > 0.82) f.view.alpha = Math.max(0, (1 - p) / 0.18);
+        }
+        return true;
+      });
+    } finally {
+      for (const f of fallers) if (!f.view.destroyed) f.view.destroy({ children: true });
+    }
+  }
 
   return {
     root,
@@ -165,7 +324,7 @@ export function createCageView(textures: CageTextures): CageView {
           // 구출 연출이 도는 중이면 건드리지 않는다 — playRescue가 끝내고 스스로 치운다
           if (animating.has(cage.id)) continue;
           if (existing) {
-            existing.destroy();
+            existing.body.box.destroy({ children: true });
             bodies.delete(cage.id);
           }
           continue;
@@ -174,50 +333,38 @@ export function createCageView(textures: CageTextures): CageView {
 
         const body = makeCageBody(cage, textures);
         const p = cageCenter(cage);
-        body.x = p.x;
-        body.y = p.y;
-        root.addChild(body);
-        bodies.set(cage.id, body);
+        body.box.x = p.x;
+        body.box.y = p.y;
+        bodyLayer.addChild(body.box);
+        // 케이지마다 위상을 어긋내 여러 개가 한 몸처럼 흔들리지 않게 한다
+        bodies.set(cage.id, { body, baseY: p.y, phase: bodies.size * 1.7 });
       }
+      if (bodies.size > 0) startIdle();
     },
 
     async playRescue(cage: Cage): Promise<void> {
-      const body = bodies.get(cage.id);
-      if (!body) return;
+      const entry = bodies.get(cage.id);
+      if (!entry) return;
 
       animating.add(cage.id);
       try {
-        await new Promise<void>((resolve) => {
-          const start = performance.now();
-          const from = body.y;
-          const tick = (): void => {
-            // 연출 도중 몸체가 파괴됐으면 조용히 끝낸다 — Pixi가 _position을 null로
-            // 만들어 두므로 여기서 막지 않으면 rAF 콜백 안에서 예외가 터지고
-            // resolve가 영영 호출되지 않는다.
-            if (body.destroyed) {
-              resolve();
-              return;
-            }
-            const t = Math.min(1, (performance.now() - start) / 420);
-            body.y = from - 40 * t;
-            body.alpha = 1 - t;
-            body.scale.set(1 + 0.25 * t);
-            if (t < 1) requestAnimationFrame(tick);
-            else resolve();
-          };
-          tick();
-        });
+        await playUnlock(entry);
+        await playFall(cage, entry);
       } finally {
         // 연출이 끝났으니 스스로 치운다 — 이후 sync가 다시 그리지 않는다
         animating.delete(cage.id);
-        if (!body.destroyed) body.destroy();
+        if (!entry.body.box.destroyed) entry.body.box.destroy({ children: true });
         bodies.delete(cage.id);
+        if (bodies.size === 0) stopIdle();
       }
     },
 
     destroy(): void {
+      stopIdle(); // rAF가 살아 있으면 파괴된 노드를 계속 만진다
       animating.clear();
-      for (const b of bodies.values()) b.destroy();
+      for (const e of bodies.values()) {
+        if (!e.body.box.destroyed) e.body.box.destroy({ children: true });
+      }
       bodies.clear();
       root.destroy({ children: true });
     },
