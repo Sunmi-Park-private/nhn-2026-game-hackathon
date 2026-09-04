@@ -366,7 +366,7 @@ function opacitySavePlugin(route: string, manifestFile: string,
 
 // dev 편의: 플로우 에디터의 미저장 대사를 게임에 실시간 반영 (문구만).
 // 저장 전 임시본이라 파일에 쓰지 않고 서버 메모리에만 둔다 — dev 서버를 재시작하면 사라진다.
-// 설계: docs/superpowers/specs/-beats-live-preview-design.md
+// 설계: 박자 라이브 프리뷰
 let beatsOverlay: Record<string, unknown> = {}
 
 /** 화자 프로필 업로드 — 비트마다 다른 파일이라 슬롯 매니페스트가 없다.
