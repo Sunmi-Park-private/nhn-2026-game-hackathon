@@ -20,5 +20,23 @@
   "gates": {
     "rhythm": "assets/bg/gate_rhythm.jpg",
     "dodge": "assets/bg/gate_dodge.jpg"
+  },
+  "hex": {
+    "tiles": [
+      "assets/hex/tile-red.png",
+      "assets/hex/tile-yellow.png",
+      "assets/hex/tile-green.png",
+      "assets/hex/tile-blue.png",
+      "assets/hex/tile-purple.png",
+      "assets/hex/tile-gold.png"
+    ],
+    "horseshoe": "assets/hex/tile-horseshoe.png",
+    "cageClosed": "assets/hex/cage-closed.png",
+    "cageOpen": "assets/hex/cage-open.png",
+    "animals": {
+      "sheep": "assets/hex/animal-sheep.png",
+      "zebra": "assets/hex/animal-zebra.png",
+      "deer": "assets/hex/animal-deer.png"
+    }
   }
 }

@@ -1,6 +1,6 @@
 // main.ts — Pixi 부트스트랩 + 부트 플로우(프롤로그 → 로딩 → 메인 → 스테이지).
 import { Application, VideoSource } from "pixi.js";
-import { loadGameAssets, loadLoadingBg, loadPrologueBg } from "./ui/assets";
+import { loadGameAssets, loadLoadingBg, loadPrologueBg, loadHexAssets } from "./ui/assets";
 import { playPrologue, showLoading, showTitle } from "./ui/boot";
 import { isDevMode } from "./ui/devMode";
 import { initCheatMenu } from "./ui/cheatMenu";
@@ -88,6 +88,7 @@ async function main(): Promise<void> {
   playBgm("main");                                      // 메인 BGM — 로비 진입부터 (프롤로그·로딩·타이틀은 무음)
   // ④ 스테이지 연속 플레이 — 클리어하면 다음 스테이지, 실패하면 같은 스테이지 재도전
   mark("game");
+  const hexTextures = await loadHexAssets(); // 스테이지 루프 전 1회 로드 — 매 스테이지 재로드하지 않고 같은 객체를 재사용
   let stageIndex = 0;
   for (;;) {
     const stage = stages[stageIndex];
@@ -95,13 +96,7 @@ async function main(): Promise<void> {
       stageIndex = 0; // 마지막 스테이지를 넘으면 처음으로 되돌린다
       continue;
     }
-    const result = await runStageScreen(app, stage, stageIndex, {
-      tiles: [null, null, null, null, null, null],
-      horseshoe: null,
-      cageClosed: null,
-      cageOpen: null,
-      animals: {},
-    });
+    const result = await runStageScreen(app, stage, stageIndex, hexTextures);
     if (result === "cleared") stageIndex += 1;
   }
 }
