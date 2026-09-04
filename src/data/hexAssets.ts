@@ -97,6 +97,35 @@ export type VideoSlotId = (typeof VIDEO_SLOT_IDS)[number];
 
 export const videoAssetPaths = pick(manifestJson, "video", VIDEO_SLOT_IDS);
 
+// ── 도감 ────────────────────────────────────────────────────
+// 패널 한 장과 동물마다 카드 두 장(해제·잠김). 카드는 이름표까지 그려진 한 장이라
+// 아트가 있으면 코드는 글자를 얹지 않는다.
+
+export interface CollectionAssetPaths {
+  panel?: string;
+  close?: string;
+  /** 구출한 동물의 카드 */
+  cards: Record<string, string>;
+  /** 아직 못 구한 동물의 실루엣 카드 */
+  locked: Record<string, string>;
+}
+
+function record(raw: unknown, block: string, key: string): Record<string, string> {
+  const src = (((raw as Record<string, unknown>)[block] ?? {}) as Record<string, unknown>)[key];
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries((src ?? {}) as Record<string, unknown>)) {
+    const f = str(v);
+    if (f) out[k] = f;
+  }
+  return out;
+}
+
+export const collectionAssetPaths: CollectionAssetPaths = {
+  ...pick(manifestJson, "collection", ["panel", "close"] as const),
+  cards: record(manifestJson, "collection", "cards"),
+  locked: record(manifestJson, "collection", "locked"),
+};
+
 // ── 소리 ────────────────────────────────────────────────────
 // BGM 2종과 효과음 6종. 파일이 없는 슬롯은 그냥 소리가 안 난다 — 게임은 정상 동작한다.
 

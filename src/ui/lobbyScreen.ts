@@ -9,7 +9,7 @@ import { Application, Container, Graphics, Text, type Texture } from "pixi.js";
 import { BASE_W, stageTop, stageHeight, coverBox, fullRect } from "./stage";
 import { fitSprite } from "./skin";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
-import { openCollection } from "./collection";
+import { openCollection, type CollectionTextures } from "./collection";
 import { openWorld } from "./worldScreen";
 import { slot, type UiSlot } from "../data/uiLayout";
 import { buzz } from "./settings";
@@ -23,8 +23,8 @@ export interface LobbyTextures {
   gear?: Texture;
   /** 우측 레일·하단 내비 아이콘 — 없으면 라벨로 대신한다 */
   icons: Record<string, Texture | null>;
-  /** 도감에 쓰는 동물 아트 — 시퀀스 */
-  animals: Record<string, readonly Texture[]>;
+  /** 도감 — 패널과 동물마다 해제·잠김 카드 */
+  collection: CollectionTextures;
   /** 월드 지도 화면 */
   world: { bg?: Texture; back?: Texture };
   ui: SettingsTextures;
@@ -158,7 +158,7 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
 
     const animals = box("navAnimals", { x: 226, y: 738, w: 96, h: 50 });
     layer.addChild(hotspot(animals, tex.icons.navAnimals, () => {
-      void openCollection(layer, profile.rescued, tex.animals);
+      void openCollection(layer, profile.rescued, tex.collection);
     }));
 
     const events = box("navEvents", { x: 330, y: 738, w: 96, h: 50 });

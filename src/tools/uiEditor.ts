@@ -401,9 +401,11 @@ function renderDetail(): void {
   });
   wrapper.appendChild(grid);
 
-  // 토글처럼 두 장을 오가는 슬롯은 카드가 둘이다 — 켜짐과 꺼짐
-  if (s.asset) wrapper.appendChild(card(s.assetOff ? `${s.label} — 켜짐` : s.label, s.asset, () => renderStage()));
-  if (s.assetOff) wrapper.appendChild(card(`${s.label} — 꺼짐`, s.assetOff, () => renderStage()));
+  // 두 장을 오가는 슬롯은 카드가 둘이다. 상태 이름은 슬롯이 정할 수 있다 —
+  // 토글은 켜짐/꺼짐이지만 도감은 해제/잠김이라야 읽힌다.
+  const [onName, offName] = s.states ?? ["켜짐", "꺼짐"];
+  if (s.asset) wrapper.appendChild(card(s.assetOff ? `${s.label} — ${onName}` : s.label, s.asset, () => renderStage()));
+  if (s.assetOff) wrapper.appendChild(card(`${s.label} — ${offName}`, s.assetOff, () => renderStage()));
   if (!s.asset && !s.assetOff) wrapper.appendChild($("div", "color:#a8987c;font-size:11px", "이 슬롯은 아트 없이 코드가 그립니다."));
 
   detail.appendChild(wrapper);

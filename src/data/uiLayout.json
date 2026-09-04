@@ -142,6 +142,123 @@
       ]
     },
     {
+      "id": "collection",
+      "label": "도감",
+      "slots": [
+        {
+          "id": "panel",
+          "label": "도감 패널",
+          "x": 50,
+          "y": 130,
+          "w": 350,
+          "h": 528,
+          "asset": "collection.panel"
+        },
+        {
+          "id": "close",
+          "label": "닫기 X",
+          "x": 349,
+          "y": 159,
+          "w": 45,
+          "h": 45,
+          "asset": "collection.close"
+        },
+        {
+          "id": "cellRabbit",
+          "label": "토끼",
+          "x": 91,
+          "y": 218,
+          "w": 114,
+          "h": 119,
+          "asset": "collection.cards.rabbit",
+          "assetOff": "collection.locked.rabbit",
+          "states": [
+            "해제",
+            "잠김"
+          ]
+        },
+        {
+          "id": "cellMonkey",
+          "label": "원숭이",
+          "x": 221,
+          "y": 218,
+          "w": 114,
+          "h": 119,
+          "asset": "collection.cards.monkey",
+          "assetOff": "collection.locked.monkey",
+          "states": [
+            "해제",
+            "잠김"
+          ]
+        },
+        {
+          "id": "cellDeer",
+          "label": "사슴",
+          "x": 91,
+          "y": 346,
+          "w": 114,
+          "h": 119,
+          "asset": "collection.cards.deer",
+          "assetOff": "collection.locked.deer",
+          "states": [
+            "해제",
+            "잠김"
+          ]
+        },
+        {
+          "id": "cellSheep",
+          "label": "양",
+          "x": 221,
+          "y": 346,
+          "w": 114,
+          "h": 119,
+          "asset": "collection.cards.sheep",
+          "assetOff": "collection.locked.sheep",
+          "states": [
+            "해제",
+            "잠김"
+          ]
+        },
+        {
+          "id": "cellZebra",
+          "label": "얼룩말",
+          "x": 91,
+          "y": 474,
+          "w": 114,
+          "h": 119,
+          "asset": "collection.cards.zebra",
+          "assetOff": "collection.locked.zebra",
+          "states": [
+            "해제",
+            "잠김"
+          ]
+        },
+        {
+          "id": "cellElephant",
+          "label": "코끼리",
+          "x": 221,
+          "y": 474,
+          "w": 114,
+          "h": 119,
+          "asset": "collection.cards.elephant",
+          "assetOff": "collection.locked.elephant",
+          "states": [
+            "해제",
+            "잠김"
+          ]
+        },
+        {
+          "id": "count",
+          "label": "수집 카운터",
+          "x": 185,
+          "y": 605,
+          "w": 80,
+          "h": 26,
+          "fontSize": 17
+        }
+      ]
+    },
+    {
       "id": "ingame",
       "label": "인게임",
       "slots": [
@@ -393,11 +510,6 @@
     {
       "label": "동물 · 코끼리 — 시퀀스",
       "asset": "hex.animals.elephant",
-      "seq": true
-    },
-    {
-      "label": "동물 · 펭귄 — 시퀀스",
-      "asset": "hex.animals.penguin",
       "seq": true
     },
     {

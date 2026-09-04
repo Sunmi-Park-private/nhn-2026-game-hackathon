@@ -17,7 +17,6 @@
       "zebra": "assets/hex/animal-zebra.png",
       "deer": "assets/hex/animal-deer.png",
       "elephant": "assets/hex/animal-elephant.png",
-      "penguin": "assets/hex/animal-penguin.png",
       "rabbit": "assets/hex/animal-rabbit.png",
       "monkey": "assets/hex/animal-monkey.png"
     },
@@ -70,5 +69,26 @@
     "sfxClear": "assets/audio/sfx-clear.wav",
     "sfxFail": "assets/audio/sfx-fail.wav",
     "sfxTap": "assets/audio/sfx-tap.wav"
+  },
+  "collection": {
+    "_note": "도감(구출한 동물). 패널 한 장과 동물마다 해제·잠김 카드 두 장.",
+    "panel": "assets/collection/panel.png",
+    "close": "assets/collection/btn-close.png",
+    "cards": {
+      "rabbit": "assets/collection/card-rabbit.png",
+      "monkey": "assets/collection/card-monkey.png",
+      "deer": "assets/collection/card-deer.png",
+      "sheep": "assets/collection/card-sheep.png",
+      "zebra": "assets/collection/card-zebra.png",
+      "elephant": "assets/collection/card-elephant.png"
+    },
+    "locked": {
+      "rabbit": "assets/collection/lock-rabbit.png",
+      "monkey": "assets/collection/lock-monkey.png",
+      "deer": "assets/collection/lock-deer.png",
+      "sheep": "assets/collection/lock-sheep.png",
+      "zebra": "assets/collection/lock-zebra.png",
+      "elephant": "assets/collection/lock-elephant.png"
+    }
   }
 }
