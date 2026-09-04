@@ -26,6 +26,13 @@ describe("boardBounds", () => {
     expect(minX).toBeLessThan(toPixel({ q: 0, r: 0 }, GEOM.size).x);
     expect(maxX).toBeGreaterThan(toPixel({ q: 6, r: 0 }, GEOM.size).x);
   });
+
+  it("오른쪽 벽이 홀수 행 마지막 셀의 가장자리까지 간다", () => {
+    // 홀수 행(r=1)은 반 칸 밀려 있어 짝수 행보다 w/2 더 뻗는다
+    const w = Math.sqrt(3) * GEOM.size;
+    const lastOddCellCenter = toPixel({ q: GEOM.cols - 1, r: 1 }, GEOM.size).x;
+    expect(boardBounds(GEOM).maxX).toBeCloseTo(lastOddCellCenter + w / 2, 5);
+  });
 });
 
 describe("simulateShot — 직진", () => {

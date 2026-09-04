@@ -23,7 +23,10 @@ export interface ShotResult {
 export function boardBounds(geom: BoardGeom): { minX: number; maxX: number } {
   const w = SQRT3 * geom.size; // 셀 폭
   const minX = toPixel({ q: 0, r: 0 }, geom.size).x - w / 2;
-  return { minX, maxX: minX + geom.cols * w };
+  // 홀수 행은 반 칸 오른쪽으로 밀려 있어 짝수 행보다 w/2 더 뻗는다.
+  // 벽은 모든 행의 합집합을 감싸야 한다 — 짝수 행 기준으로 잡으면
+  // 오른쪽 벽이 홀수 행 마지막 육각의 한가운데를 자른다.
+  return { minX, maxX: minX + (geom.cols + 0.5) * w };
 }
 
 /**
@@ -39,6 +42,8 @@ export function simulateShot(
 ): ShotResult {
   const { minX, maxX } = boardBounds(geom);
   const step = geom.size / 4; // 셀 하나를 4스텝 이상으로 쪼갠다 — 얇은 관통 방지
+  // 각도는 ±72°로 클램프된다는 전제(UI 레이어에서 강제)로 4000이면 항상 종료된다 —
+  // 여기서는 그 클램프를 강제하지 않으므로 이 값은 방어적 백스톱일 뿐이다.
   const maxSteps = 4000;
 
   let dx = Math.sin(angleRad);
