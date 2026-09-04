@@ -124,4 +124,10 @@ async function main(): Promise<void> {
   }
 }
 
+// 에디터에서 에셋을 올리면 이 탭만 새로 뜬다. 에디터 탭은 리로드하지 않는다 —
+// 리로드가 겹치면 방금 올린 이미지 요청이 중단돼 「미업로드」로 오탐한다.
+if (import.meta.hot) {
+  import.meta.hot.on("asset-updated", () => { location.reload(); });
+}
+
 void main();

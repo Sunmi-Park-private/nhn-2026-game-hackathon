@@ -31,10 +31,14 @@ function box(id: string, fallback: { x: number; y: number; w: number; h: number 
   return slot(AREA, id) ?? { id, label: id, ...fallback };
 }
 
-/** 누를 수 있는 자리. 배경 아트가 있으면 투명하게, 없으면 형태와 이름을 그린다. */
+/** 누를 수 있는 자리.
+ *
+ *  **슬롯마다 따로 판단한다** — 그 슬롯의 아트가 있으면 그걸 그리고, 없으면 형태와 이름을
+ *  그려 준다. 한때 「배경 아트가 있으면 버튼은 배경이 그린 것」으로 가정했는데,
+ *  버튼이 그려져 있지 않은 배경이 올라오자 버튼이 통째로 안 보였다.
+ *  배경이 이미 버튼을 그리고 있다면 그 슬롯에 같은 그림을 올리면 된다. */
 function hotspot(
   b: UiSlot,
-  hasArt: boolean,
   tex: Texture | null | undefined,
   onTap: (() => void) | null,
   fill = 0x6b4626,
@@ -48,7 +52,7 @@ function hotspot(
     s.x = b.w / 2;
     s.y = b.h / 2;
     c.addChild(s);
-  } else if (!hasArt) {
+  } else {
     const g = new Graphics().roundRect(0, 0, b.w, b.h, 8).fill({ color: fill, alpha: onTap ? 1 : 0.55 });
     g.roundRect(2, 2, b.w - 4, b.h - 4, 6).stroke({ width: 2, color: 0xffffff, alpha: 0.18 });
     c.addChild(g);
@@ -83,7 +87,6 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     const layer = new Container();
     app.stage.addChild(layer);
 
-    const hasArt = Boolean(tex.bg);
     layer.addChild(fullRect(0x241a10));
     if (tex.bg) layer.addChild(coverBox(tex.bg));
     layer.addChild(
@@ -94,9 +97,7 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
 
     // ── 상단 재화 바 ─────────────────────────────
     const stats = box("topStats", { x: 30, y: 12, w: 300, h: 34 });
-    if (!hasArt) {
-      layer.addChild(new Graphics().roundRect(stats.x, stats.y, stats.w, stats.h, 17).fill({ color: 0x2b1d10, alpha: 0.85 }));
-    }
+    layer.addChild(new Graphics().roundRect(stats.x, stats.y, stats.w, stats.h, 17).fill({ color: 0x2b1d10, alpha: 0.85 }));
     const statText = new Text({
       // 코인·젬은 아직 재화 시스템이 없어 0으로 둔다 — 말굽만 실제 값이다
       text: `🪙 0    💎 0    🐴 ${profile.horseshoes}`,
@@ -115,19 +116,19 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
       ["railWorld", { x: 384, y: 262, w: 56, h: 56 }],
     ] as const) {
       const b = box(id, fb);
-      layer.addChild(hotspot(b, hasArt, tex.icons[id], null, 0x53341c));
+      layer.addChild(hotspot(b, tex.icons[id], null, 0x53341c));
     }
 
     // ── PLAY ────────────────────────────────────
     const play = box("play", { x: 138, y: 646, w: 174, h: 54 });
-    layer.addChild(hotspot(play, hasArt, tex.play, () => finish(), 0x3faa48));
+    layer.addChild(hotspot(play, tex.play, () => finish(), 0x3faa48));
 
     // ── 하단 4종 — HOME·ANIMALS만 동작 ─────────────
     const home = box("navHome", { x: 18, y: 738, w: 96, h: 50 });
-    layer.addChild(hotspot(home, hasArt, tex.icons.navHome, () => { /* 이미 홈이다 */ }));
+    layer.addChild(hotspot(home, tex.icons.navHome, () => { /* 이미 홈이다 */ }));
 
     const animals = box("navAnimals", { x: 122, y: 738, w: 96, h: 50 });
-    layer.addChild(hotspot(animals, hasArt, tex.icons.navAnimals, () => {
+    layer.addChild(hotspot(animals, tex.icons.navAnimals, () => {
       void openCollection(layer, profile.rescued, tex.animals);
     }));
 
@@ -136,12 +137,12 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
       ["navSoon", { x: 330, y: 738, w: 96, h: 50 }],
     ] as const) {
       const b = box(id, fb);
-      layer.addChild(hotspot(b, hasArt, tex.icons[id], null));
+      layer.addChild(hotspot(b, tex.icons[id], null));
     }
 
     // ── 설정 ────────────────────────────────────
     const gear = box("gear", { x: 396, y: 12, w: 40, h: 40 });
-    layer.addChild(hotspot(gear, hasArt, tex.gear, () => { void openSettings(layer, tex.ui); }, 0x4a3320));
+    layer.addChild(hotspot(gear, tex.gear, () => { void openSettings(layer, tex.ui); }, 0x4a3320));
 
     let done = false;
     function finish(): void {

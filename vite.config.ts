@@ -15,6 +15,20 @@ function readJson(file: string): Record<string, unknown> {
   return JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>
 }
 
+/** 파일을 watch에서 뺐으므로 vite가 스스로 갱신하지 않는다.
+ *  모듈 캐시를 직접 무효화해야 다음 로드가 디스크의 새 내용을 읽는다. */
+function touch(server: ViteDevServer | undefined, file: string): void {
+  const mod = server?.moduleGraph.getModuleById(file)
+  if (mod) server?.moduleGraph.invalidateModule(mod)
+}
+
+function serveJson(res: { statusCode: number; setHeader: (k: string, v: string) => void; end: (s: string) => void }, file: string): void {
+  res.statusCode = 200
+  res.setHeader('content-type', 'application/json')
+  res.setHeader('cache-control', 'no-store')
+  res.end(fs.readFileSync(file, 'utf8'))
+}
+
 /** "hex.tiles.0" 같은 점 경로를 읽고 쓴다. 배열 인덱스도 받는다. */
 function getPath(obj: unknown, dotted: string): unknown {
   return dotted.split('.').reduce<unknown>((acc, key) => {
@@ -53,14 +67,21 @@ function uiLayoutSavePlugin(): Plugin {
     name: 'ui-layout-save',
     apply: 'serve',
     configureServer(server) {
+      server.middlewares.use('/__assets', (req, res) => {
+        if (req.method !== 'GET') { res.statusCode = 405; res.end('GET only'); return }
+        serveJson(res, ASSETS_FILE)
+      })
       server.middlewares.use('/__uilayout', (req, res) => {
-        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        // watch 제외 파일이라 번들 모듈이 옛 내용일 수 있다 — 에디터가 디스크와 맞춘다
+        if (req.method === 'GET') { serveJson(res, LAYOUT_FILE); return }
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('GET/POST only'); return }
         void collectBody(req, 4 * 1024 * 1024).then((buf) => {
           const parsed: unknown = JSON.parse(buf.toString('utf8'))
           if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as { areas?: unknown }).areas)) {
             throw new Error('areas 배열이 필요합니다')
           }
           fs.writeFileSync(LAYOUT_FILE, JSON.stringify(parsed, null, 2) + '\n')
+          touch(server, LAYOUT_FILE)
           res.statusCode = 200
           res.end('ok')
         }).catch((err: unknown) => { res.statusCode = 400; res.end(String(err)) })
@@ -84,10 +105,26 @@ function assetUploadPlugin(): Plugin {
     configureServer(s) {
       server = s
       s.middlewares.use('/__upload', (req, res) => {
-        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
         const url = new URL(req.url ?? '', 'http://x')
         const dotted = url.searchParams.get('asset') ?? ''
         const ext = (url.searchParams.get('ext') ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+        // 업로드 파일 삭제 — 슬롯은 폴백으로 돌아간다. 매니페스트 경로는 그대로 둔다.
+        if (req.method === 'DELETE') {
+          try {
+            const manifest = readJson(ASSETS_FILE)
+            const current = getPath(manifest, dotted)
+            if (typeof current !== 'string') throw new Error(`매니페스트에 없는 경로: ${dotted}`)
+            const abs = path.resolve(PUBLIC_DIR, current)
+            if (!abs.startsWith(PUBLIC_DIR + path.sep)) throw new Error('경로가 public 밖입니다')
+            if (fs.existsSync(abs)) fs.unlinkSync(abs)
+            server?.ws.send({ type: 'custom', event: 'asset-updated', data: { asset: dotted, file: current } })
+            res.statusCode = 200
+            res.end('ok')
+          } catch (err) { res.statusCode = 400; res.end(String(err)) }
+          return
+        }
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST/DELETE only'); return }
 
         void collectBody(req, MAX_BYTES).then((buf) => {
           if (!dotted) throw new Error('asset 파라미터가 필요합니다')
@@ -112,8 +149,10 @@ function assetUploadPlugin(): Plugin {
             fs.writeFileSync(ASSETS_FILE, JSON.stringify(manifest, null, 2) + '\n')
           }
 
-          // 게임 탭에 즉시 반영 — 새로고침 없이 확인할 수 있어야 배치를 조정할 수 있다
-          server?.ws.send({ type: 'full-reload', path: '*' })
+          // 게임 탭에만 알린다. full-reload를 쓰면 에디터 탭까지 리로드돼
+          // 방금 올린 이미지 요청이 중단되고 「미업로드」로 오탐한다.
+          touch(server, ASSETS_FILE)
+          server?.ws.send({ type: 'custom', event: 'asset-updated', data: { asset: dotted, file: rel } })
 
           res.statusCode = 200
           res.setHeader('content-type', 'application/json')
@@ -140,8 +179,9 @@ export default defineConfig({
   server: {
     allowedHosts: ['.trycloudflare.com'], // 재택 디자이너용 quick tunnel 접속 허용
     watch: {
-      // 배치 저장이 게임 탭을 리로드시키지 않게 한다 — 업로드는 ws로 직접 민다
-      ignored: ['**/src/data/uiLayout.json'],
+      // 에디터가 쓰는 파일은 watch에서 뺀다 — 저장·업로드마다 전 탭이 리로드되면
+      // 방금 올린 이미지 요청이 중단돼 「미업로드」로 오탐한다. 반영은 ws로 직접 민다.
+      ignored: ['**/src/data/uiLayout.json', '**/src/data/assets.json'],
     },
   },
 })

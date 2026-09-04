@@ -1,38 +1,46 @@
-// tools/uiEditor.ts — UI 배치 에디터. 한 페이지에서 영역을 탭으로 나눠 조정한다.
+// tools/uiEditor.ts — UI 에디터 (dev 전용, /ui.html).
 //
-// 게임 좌표계(중앙 콘텐츠 450×800)를 그대로 화면에 띄우고, 슬롯을 사각형으로 얹는다.
-// 끌어서 옮기고 모서리를 끌어서 크기를 바꾼 뒤 저장하면 src/data/uiLayout.json이 갱신된다.
-// dev 서버에서만 동작한다 — 저장 엔드포인트가 vite 플러그인이다.
-import { uiAreas, uiUploads, type UiArea, type UiSlot } from "../data/uiLayout";
-import layoutJson from "../data/uiLayout.json";
+// 한 페이지에서 **배치**와 **에셋 업로드**를 함께 한다. 탭으로 영역이 갈린다:
+//   로비 · 인게임 · 설정창  — 좌표가 있는 슬롯. 스테이지에서 끌어 옮긴다
+//   게임 에셋              — 자리가 코드에 고정된 것들(타일·동물·배경). 업로드만
+//
+// 업로드 후 이 탭은 **리로드하지 않고 제자리 갱신**한다. 리로드가 겹치면 방금 올린
+// 이미지 요청이 중단돼 「미업로드」로 오탐한다. 게임 탭만 ws 이벤트로 새로 뜬다.
+//
+// uiLayout.json·assets.json은 vite watch에서 빠져 있다 — 번들 모듈이 옛 내용일 수
+// 있으므로 그리기 전에 디스크와 맞춘다(GET /__uilayout · /__assets).
+import { uiAreas, uiUploads, type UiArea, type UiSlot, type UiUpload } from "../data/uiLayout";
 import assetsJson from "../data/assets.json";
 
 const W = 450;
 const H = 800;
-const SCALE = 0.86;
+const SCALE = 0.8;
+const VID_EXTS = ["mp4", "webm", "mov"];
 
-/** 화면별 배경 미리보기. 파일이 없으면 그냥 안 보인다(에러 아님). */
-const AREA_BG: Record<string, string> = {
-  lobby: "assets/lobby/bg.png",
-  ingame: "assets/hex/bg-board.png",
-  settings: "",
-};
+/** 투명 PNG 확인용 체커보드 — 알파가 있는지 눈으로 알 수 있어야 한다. */
+const CHECKER =
+  "background-image:linear-gradient(45deg,#2b1d10 25%,transparent 25%),linear-gradient(-45deg,#2b1d10 25%,transparent 25%),"
+  + "linear-gradient(45deg,transparent 75%,#2b1d10 75%),linear-gradient(-45deg,transparent 75%,#2b1d10 75%);"
+  + "background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;background-color:#191309";
 
 interface State {
   areas: UiArea[];
+  uploads: UiUpload[];
+  manifest: Record<string, unknown>;
   areaIndex: number;
+  assetsTab: boolean;
   selected: string | null;
   dirty: boolean;
-  /** 위치가 없는 게임 에셋 목록을 보고 있는가 */
-  assetsTab: boolean;
 }
 
 const state: State = {
   areas: uiAreas.map((a) => ({ ...a, slots: a.slots.map((s) => ({ ...s })) })),
+  uploads: [...uiUploads],
+  manifest: assetsJson as unknown as Record<string, unknown>,
   areaIndex: 0,
+  assetsTab: false,
   selected: null,
   dirty: false,
-  assetsTab: false,
 };
 
 const $ = (tag: string, style: string, text = ""): HTMLElement => {
@@ -42,77 +50,186 @@ const $ = (tag: string, style: string, text = ""): HTMLElement => {
   return el;
 };
 
+// ── 매니페스트 읽기·쓰기 ─────────────────────
+function assetPath(dotted: string): string | null {
+  const v = dotted.split(".").reduce<unknown>((acc, k) => {
+    if (acc === null || typeof acc !== "object") return undefined;
+    return (acc as Record<string, unknown>)[k];
+  }, state.manifest as unknown);
+  return typeof v === "string" ? v : null;
+}
+function setAssetPath(dotted: string, value: string): void {
+  const keys = dotted.split(".");
+  let cur = state.manifest;
+  for (const k of keys.slice(0, -1)) {
+    const next = cur[k];
+    if (next === null || typeof next !== "object") return;
+    cur = next as Record<string, unknown>;
+  }
+  cur[keys[keys.length - 1]!] = value;
+}
+
+const isVideo = (file: string): boolean => VID_EXTS.some((e) => file.split("?")[0]!.endsWith(`.${e}`));
+
+// ── 레이아웃 ────────────────────────────────
 const app = document.getElementById("app")!;
-app.setAttribute("style", "font:13px/1.5 system-ui,-apple-system,sans-serif;color:#e8dcc8;padding:16px;display:flex;gap:20px;align-items:flex-start");
+app.setAttribute("style", "font:13px/1.5 system-ui,-apple-system,sans-serif;color:#e8dcc8;padding:16px 20px");
 
-// ── 좌: 스테이지 ─────────────────────────────
-const stageWrap = $("div", `position:relative;width:${W * SCALE}px;height:${H * SCALE}px;background:#241a10;border:2px solid #c98a3c;flex:0 0 auto`);
-const bgImg = document.createElement("img");
-bgImg.setAttribute("style", `position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.65`);
-bgImg.onerror = (): void => { bgImg.style.display = "none"; };
-stageWrap.appendChild(bgImg);
-
-// ── 우: 패널 ────────────────────────────────
-const panel = $("div", "flex:1 1 auto;min-width:280px;max-width:420px");
-const tabs = $("div", "display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap");
-const list = $("div", "display:flex;flex-direction:column;gap:4px;margin-bottom:14px");
-const detail = $("div", "background:#241a10;border:1px solid #4a3320;border-radius:8px;padding:10px;margin-bottom:12px;min-height:96px");
-const actions = $("div", "display:flex;gap:8px;align-items:center");
-const saveBtn = $("button", "background:#3faa48;color:#fff;border:0;border-radius:6px;padding:9px 18px;font-weight:700;cursor:pointer;font-size:13px", "저장");
-const status = $("span", "color:#a8987c");
-actions.append(saveBtn, status);
-panel.append(
-  $("div", "font-size:18px;font-weight:700;margin-bottom:4px", "UI 배치 에디터"),
-  $("div", "color:#a8987c;margin-bottom:14px", "사각형을 끌어서 옮기고, 우하단 손잡이로 크기를 바꿉니다. 좌표계는 450×800."),
-  tabs, list, detail, actions,
+const head = $("div", "margin-bottom:12px");
+head.append(
+  $("div", "font-size:19px;font-weight:800", "🎛 UI 에디터"),
+  $("div", "color:#a8987c;font-size:12px;margin-top:2px",
+    "사각형을 끌어 옮기고 모서리로 크기 조정 · 카드를 클릭하거나 파일을 떨어뜨리면 업로드 · 업로드는 즉시 게임에 반영"),
 );
-app.append(stageWrap, panel);
+const tabs = $("div", "display:flex;gap:6px;margin:12px 0;flex-wrap:wrap");
+const body = $("div", "display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap");
+const stageWrap = $("div", `position:relative;width:${W * SCALE}px;height:${H * SCALE}px;background:#241a10;border:2px solid #c98a3c;flex:0 0 auto;overflow:hidden`);
+const side = $("div", "flex:1 1 380px;min-width:340px;max-width:560px");
+body.append(stageWrap, side);
+app.append(head, tabs, body);
 
-function area(): UiArea {
-  return state.areas[state.areaIndex]!;
-}
+const list = $("div", "display:flex;flex-direction:column;gap:3px;margin-bottom:12px;max-height:220px;overflow:auto");
+const detail = $("div", "");
+const actions = $("div", "display:flex;gap:8px;align-items:center;margin-bottom:12px");
+const saveBtn = $("button", "background:#3faa48;color:#fff;border:0;border-radius:6px;padding:9px 18px;font-weight:800;cursor:pointer;font-size:13px", "배치 저장");
+const status = $("span", "color:#a8987c;font-size:12px");
+actions.append(saveBtn, status);
+side.append(actions, list, detail);
 
-function markDirty(): void {
+const area = (): UiArea => state.areas[state.areaIndex]!;
+const markDirty = (): void => {
   state.dirty = true;
-  status.textContent = "저장 안 됨";
+  status.textContent = "배치 저장 안 됨";
   status.style.color = "#f0c96a";
-}
+};
 
-// ── 렌더 ────────────────────────────────────
-function renderTabs(): void {
-  tabs.replaceChildren();
-  const mk = (label: string, on: boolean, onClick: () => void): void => {
-    const b = $("button",
-      `background:${on ? "#c98a3c" : "#2b1d10"};color:${on ? "#241a10" : "#e8dcc8"};border:1px solid #4a3320;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:13px`,
-      label);
-    b.onclick = onClick;
-    tabs.appendChild(b);
+// ── 업로드 카드 ─────────────────────────────
+/** 슬롯 하나의 카드. 미리보기 + 클릭/드롭 업로드 + 삭제.
+ *  업로드 성공 뒤에도 파일 쓰기가 끝나기 전 요청이 갈 수 있으므로 몇 번 재시도한다. */
+function card(label: string, dotted: string, onChanged?: () => void): HTMLElement {
+  const cell = $("div", "background:#241a10;border:2px solid #4a3320;border-radius:12px;overflow:hidden;cursor:pointer");
+  const stage = $("div", `position:relative;height:140px;${CHECKER};display:flex;align-items:center;justify-content:center`);
+  const img = document.createElement("img");
+  img.setAttribute("style", "max-width:86%;max-height:86%;object-fit:contain");
+  const empty = $("span", "position:absolute;display:none;color:#7a6a52;font-size:12px", "미업로드 — 클릭해서 추가");
+  const del = $("span", "position:absolute;top:6px;right:6px;background:#000c;color:#ff9db8;padding:2px 7px;border-radius:7px;font-size:10px;font-weight:800", "🗑");
+  stage.append(img, empty, del);
+
+  const info = $("div", "padding:9px 12px");
+  const name = $("div", "font-weight:800;font-size:13px", label);
+  const meta = $("div", "font-size:11px;color:#a8987c;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap");
+  info.append(name, meta);
+  cell.append(stage, info);
+
+  const showVideo = (src: string): void => {
+    img.style.display = "none";
+    empty.style.display = "none";
+    stage.querySelector("video")?.remove();
+    const v = document.createElement("video");
+    v.src = src;
+    v.autoplay = true; v.loop = true; v.muted = true; v.playsInline = true;
+    v.setAttribute("style", "position:absolute;inset:0;width:100%;height:100%;object-fit:contain");
+    stage.prepend(v);
   };
-  state.areas.forEach((a, i) => {
-    const on = i === state.areaIndex;
-    const b = $("button",
-      `background:${on ? "#c98a3c" : "#2b1d10"};color:${on ? "#241a10" : "#e8dcc8"};border:1px solid #4a3320;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:13px`,
-      `${a.label} (${a.slots.length})`);
-    b.onclick = (): void => { state.areaIndex = i; state.assetsTab = false; state.selected = null; renderAll(); };
-    tabs.appendChild(b);
-  });
-  mk(`게임 에셋 (${uiUploads.length})`, state.assetsTab, () => { state.assetsTab = true; renderAll(); });
+
+  const paint = (): void => {
+    const rel = assetPath(dotted);
+    meta.textContent = rel ?? "(매니페스트에 없음)";
+    meta.style.color = "#a8987c";
+    if (!rel) { img.style.display = "none"; empty.style.display = "block"; return; }
+    if (isVideo(rel)) { showVideo(`${rel}?v=${Date.now()}`); return; }
+    stage.querySelector("video")?.remove();
+    img.dataset["src"] = rel;
+    img.dataset["retries"] = "1";
+    img.src = `${rel}?v=${Date.now()}`;
+  };
+  img.onload = (): void => { img.style.display = ""; empty.style.display = "none"; };
+  img.onerror = (): void => {
+    const left = Number(img.dataset["retries"] ?? "0");
+    if (left > 0) {
+      // 업로드 직후에는 쓰기가 끝나기 전 요청이 갈 수 있다 — 잠깐 뒤 다시 시도한다
+      img.dataset["retries"] = String(left - 1);
+      setTimeout(() => { img.src = `${img.dataset["src"]}?v=${Date.now()}`; }, 600);
+      return;
+    }
+    img.style.display = "none";
+    empty.style.display = "block";
+  };
+
+  const upload = async (file: File): Promise<void> => {
+    const raw = (file.name.split(".").pop() ?? "").toLowerCase();
+    const ext = raw === "jpeg" ? "jpg" : raw;
+    cell.style.opacity = "0.5";
+    try {
+      const res = await fetch(`/__upload?asset=${encodeURIComponent(dotted)}&ext=${encodeURIComponent(ext)}`, {
+        method: "POST", headers: { "content-type": "application/octet-stream" }, body: await file.arrayBuffer(),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text);
+      const out = JSON.parse(text) as { file: string; bytes: number };
+      // 서버가 최종 경로를 돌려준다 — 후처리로 확장자가 바뀌므로 추측하면 어긋난다
+      setAssetPath(dotted, out.file);
+      img.dataset["retries"] = "6"; // 업로드 성공 = 파일 존재 보장 → 폴링으로 반드시 표시
+      paint();
+      meta.textContent = `${out.file} · ${Math.round(out.bytes / 1024)}KB`;
+      meta.style.color = "#8fdc8f";
+      onChanged?.();
+    } catch (err) {
+      meta.textContent = `실패: ${String(err)}`;
+      meta.style.color = "#ff8f7a";
+    }
+    cell.style.opacity = "1";
+  };
+
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,audio/*";
+  input.style.display = "none";
+  input.onchange = (): void => { const f = input.files?.[0]; if (f) void upload(f); input.value = ""; };
+  cell.appendChild(input);
+  cell.onclick = (): void => input.click();
+  cell.ondragover = (e): void => { e.preventDefault(); cell.style.borderColor = "#f0c96a"; };
+  cell.ondragleave = (): void => { cell.style.borderColor = "#4a3320"; };
+  cell.ondrop = (e): void => {
+    e.preventDefault();
+    cell.style.borderColor = "#4a3320";
+    const f = e.dataTransfer?.files?.[0];
+    if (f) void upload(f);
+  };
+  del.onclick = async (e): Promise<void> => {
+    e.stopPropagation();
+    if (!confirm(`'${label}' 업로드 파일을 삭제할까요?\n빈 슬롯은 게임에서 폴백으로 그려집니다.`)) return;
+    const res = await fetch(`/__upload?asset=${encodeURIComponent(dotted)}`, { method: "DELETE" });
+    if (!res.ok) { alert(`삭제 실패: ${await res.text()}`); return; }
+    stage.querySelector("video")?.remove();
+    img.style.display = "none";
+    empty.style.display = "block";
+    meta.textContent = assetPath(dotted) ?? "";
+    onChanged?.();
+  };
+
+  paint();
+  return cell;
 }
 
+// ── 스테이지 ────────────────────────────────
 function renderStage(): void {
-  stageWrap.querySelectorAll("[data-slot]").forEach((n) => n.remove());
-  bgImg.src = AREA_BG[area().id] || "";
-  bgImg.style.display = AREA_BG[area().id] ? "block" : "none";
-
+  stageWrap.replaceChildren();
   for (const s of area().slots) {
     const on = s.id === state.selected;
     const el = $("div",
       `position:absolute;left:${s.x * SCALE}px;top:${s.y * SCALE}px;width:${s.w * SCALE}px;height:${s.h * SCALE}px;`
-      + `border:2px solid ${on ? "#f0c96a" : "#66c2ff"};background:${on ? "rgba(240,201,106,.22)" : "rgba(102,194,255,.12)"};`
-      + "box-sizing:border-box;cursor:move;display:flex;align-items:center;justify-content:center;overflow:hidden");
-    el.dataset.slot = s.id;
-    el.appendChild($("span", "font-size:10px;color:#fff;text-shadow:0 1px 2px #000;pointer-events:none;text-align:center", s.label));
+      + `box-sizing:border-box;cursor:move;overflow:hidden;`
+      + `border:2px solid ${on ? "#f0c96a" : "rgba(102,194,255,.85)"};`
+      + `background:${on ? "rgba(240,201,106,.18)" : "rgba(102,194,255,.10)"} center/contain no-repeat`);
+    el.dataset["slot"] = s.id;
 
+    // 아트가 올라간 슬롯은 그 그림을 자리에 그대로 보여준다 — 배치를 눈으로 맞출 수 있어야 한다
+    const rel = s.asset ? assetPath(s.asset) : null;
+    if (rel && !isVideo(rel)) el.style.backgroundImage = `url("${rel}?v=${Date.now()}")`;
+
+    const tag = $("span", "position:absolute;left:2px;top:1px;font-size:9px;color:#fff;text-shadow:0 1px 2px #000;pointer-events:none", s.label);
+    el.appendChild(tag);
     const grip = $("div", "position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;background:#f0c96a;cursor:nwse-resize");
     el.appendChild(grip);
 
@@ -121,89 +238,50 @@ function renderStage(): void {
   }
 }
 
+function renderTabs(): void {
+  tabs.replaceChildren();
+  const mk = (label: string, on: boolean, onClick: () => void): void => {
+    const b = $("button",
+      `background:${on ? "#c98a3c" : "#2b1d10"};color:${on ? "#241a10" : "#e8dcc8"};border:1px solid #4a3320;border-radius:6px;padding:7px 14px;font-weight:800;cursor:pointer;font-size:13px`,
+      label);
+    b.onclick = onClick;
+    tabs.appendChild(b);
+  };
+  state.areas.forEach((a, i) => {
+    mk(`${a.label} (${a.slots.length})`, !state.assetsTab && i === state.areaIndex, () => {
+      state.areaIndex = i; state.assetsTab = false; state.selected = null; renderAll();
+    });
+  });
+  mk(`게임 에셋 (${state.uploads.length})`, state.assetsTab, () => { state.assetsTab = true; renderAll(); });
+}
+
 function renderList(): void {
   list.replaceChildren();
   for (const s of area().slots) {
     const on = s.id === state.selected;
     const row = $("button",
-      `text-align:left;background:${on ? "#3a2a18" : "transparent"};color:#e8dcc8;border:1px solid #3a2a18;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px`,
-      `${s.label}  ·  ${Math.round(s.x)}, ${Math.round(s.y)}  ${Math.round(s.w)}×${Math.round(s.h)}`);
+      `text-align:left;background:${on ? "#3a2a18" : "transparent"};color:#e8dcc8;border:1px solid #3a2a18;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:12px`,
+      `${s.asset ? "🖼 " : "· "}${s.label}  ${Math.round(s.x)},${Math.round(s.y)}  ${Math.round(s.w)}×${Math.round(s.h)}`);
     row.onclick = (): void => { state.selected = s.id; renderAll(); };
     list.appendChild(row);
   }
-}
-
-/** assets.json 안의 점 경로를 읽는다. */
-function assetPath(dotted: string): string | null {
-  const v = dotted.split(".").reduce<unknown>((acc, k) => {
-    if (acc === null || typeof acc !== "object") return undefined;
-    return (acc as Record<string, unknown>)[k];
-  }, assetsJson as unknown);
-  return typeof v === "string" ? v : null;
-}
-
-/** 슬롯 하나의 업로드 줄. 현재 파일 미리보기 + 파일 고르기. */
-function uploadRow(label: string, dotted: string): HTMLElement {
-  const wrap = $("div", "display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #3a2a18");
-  const rel = assetPath(dotted);
-
-  const thumb = document.createElement("div");
-  thumb.setAttribute("style", "width:52px;height:52px;flex:0 0 auto;border:1px solid #4a3320;border-radius:6px;background:#14100c center/contain no-repeat");
-  if (rel) thumb.style.backgroundImage = `url("${rel}")`;
-
-  const info = $("div", "flex:1 1 auto;min-width:0");
-  info.appendChild($("div", "font-weight:700;font-size:12px", label));
-  const pathEl = $("div", "font-size:11px;color:#a8987c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", rel ?? "(매니페스트에 없음)");
-  info.appendChild(pathEl);
-
-  const btn = $("label", "background:#c98a3c;color:#241a10;border-radius:6px;padding:7px 12px;font-weight:700;cursor:pointer;font-size:12px;flex:0 0 auto", "업로드");
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "image/*,video/mp4,video/webm,audio/*";
-  input.style.display = "none";
-  btn.appendChild(input);
-
-  input.onchange = async (): Promise<void> => {
-    const file = input.files?.[0];
-    if (!file) return;
-    const ext = (file.name.split(".").pop() ?? "").toLowerCase();
-    pathEl.textContent = "올리는 중…";
-    try {
-      const res = await fetch(`/__upload?asset=${encodeURIComponent(dotted)}&ext=${encodeURIComponent(ext)}`, {
-        method: "POST",
-        headers: { "content-type": "application/octet-stream" },
-        body: await file.arrayBuffer(),
-      });
-      const text = await res.text();
-      if (!res.ok) throw new Error(text);
-      const out = JSON.parse(text) as { file: string; bytes: number };
-      // 같은 경로에 덮어써도 새 그림이 보이도록 캐시를 우회한다
-      thumb.style.backgroundImage = `url("${out.file}?t=${Date.now()}")`;
-      pathEl.textContent = `${out.file}  ·  ${Math.round(out.bytes / 1024)}KB`;
-      pathEl.style.color = "#8fdc8f";
-    } catch (err) {
-      pathEl.textContent = `실패: ${String(err)}`;
-      pathEl.style.color = "#ff8f7a";
-    }
-    input.value = "";
-  };
-
-  wrap.append(thumb, info, btn);
-  return wrap;
 }
 
 function renderDetail(): void {
   detail.replaceChildren();
   const s = area().slots.find((x) => x.id === state.selected);
   if (!s) {
-    detail.appendChild($("div", "color:#a8987c", "슬롯을 고르면 숫자로 조정하고 에셋을 올릴 수 있습니다."));
+    detail.appendChild($("div", "color:#a8987c;background:#241a10;border:1px solid #4a3320;border-radius:8px;padding:12px",
+      "슬롯을 고르면 숫자로 조정하고 에셋을 올릴 수 있습니다."));
     return;
   }
-  detail.appendChild($("div", "font-weight:700;margin-bottom:8px", `${s.label}  (${s.id})`));
-  const grid = $("div", "display:grid;grid-template-columns:repeat(4,1fr);gap:8px");
+  const wrapper = $("div", "background:#241a10;border:1px solid #4a3320;border-radius:8px;padding:12px");
+  wrapper.appendChild($("div", "font-weight:800;margin-bottom:8px", `${s.label}  (${s.id})`));
+
+  const grid = $("div", "display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px");
   (["x", "y", "w", "h"] as const).forEach((k) => {
-    const wrap = $("label", "display:flex;flex-direction:column;gap:3px;font-size:11px;color:#a8987c");
-    wrap.appendChild($("span", "", k.toUpperCase()));
+    const lab = $("label", "display:flex;flex-direction:column;gap:3px;font-size:11px;color:#a8987c");
+    lab.appendChild($("span", "", k.toUpperCase()));
     const input = document.createElement("input");
     input.type = "number";
     input.value = String(Math.round(s[k]));
@@ -216,27 +294,40 @@ function renderDetail(): void {
       renderStage();
       renderList();
     };
-    wrap.appendChild(input);
-    grid.appendChild(wrap);
+    lab.appendChild(input);
+    grid.appendChild(lab);
   });
-  detail.appendChild(grid);
+  wrapper.appendChild(grid);
 
-  if (s.asset) detail.appendChild(uploadRow(s.label, s.asset));
-  else detail.appendChild($("div", "color:#a8987c;font-size:11px;padding-top:8px;border-top:1px solid #3a2a18;margin-top:8px", "이 슬롯은 아트 없이 코드가 그립니다."));
+  if (s.asset) wrapper.appendChild(card(s.label, s.asset, () => renderStage()));
+  else wrapper.appendChild($("div", "color:#a8987c;font-size:11px", "이 슬롯은 아트 없이 코드가 그립니다."));
+
+  detail.appendChild(wrapper);
+}
+
+function renderAssets(): void {
+  stageWrap.style.display = "none";
+  list.replaceChildren();
+  detail.replaceChildren();
+  const head2 = $("div", "margin-bottom:8px");
+  head2.append(
+    $("div", "font-weight:800", "게임 에셋"),
+    $("div", "color:#a8987c;font-size:11px", "자리가 코드에 고정된 것들입니다. 올리면 게임 탭이 바로 갱신됩니다."),
+  );
+  detail.appendChild(head2);
+  const grid = $("div", "display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px");
+  for (const u of state.uploads) grid.appendChild(card(u.label, u.asset));
+  detail.appendChild(grid);
+  side.style.maxWidth = "1100px";
+  side.style.flexBasis = "100%";
 }
 
 function renderAll(): void {
   renderTabs();
-  if (state.assetsTab) {
-    stageWrap.style.display = "none";
-    list.replaceChildren();
-    detail.replaceChildren();
-    detail.appendChild($("div", "font-weight:700;margin-bottom:6px", "게임 에셋"));
-    detail.appendChild($("div", "color:#a8987c;font-size:11px;margin-bottom:6px", "자리가 코드에 고정된 것들입니다. 올리면 게임 탭이 바로 새로고침됩니다."));
-    for (const u of uiUploads) detail.appendChild(uploadRow(u.label, u.asset));
-    return;
-  }
+  if (state.assetsTab) { renderAssets(); return; }
   stageWrap.style.display = "block";
+  side.style.maxWidth = "560px";
+  side.style.flexBasis = "380px";
   renderStage();
   renderList();
   renderDetail();
@@ -255,7 +346,6 @@ function attachDrag(el: HTMLElement, grip: HTMLElement, s: UiSlot): void {
     ox = s.x; oy = s.y; ow = s.w; oh = s.h;
     state.selected = s.id;
     renderAll();
-    el.setPointerCapture?.(e.pointerId);
   };
   el.addEventListener("pointerdown", (e) => down(e, "move"));
   grip.addEventListener("pointerdown", (e) => down(e, "resize"));
@@ -264,17 +354,11 @@ function attachDrag(el: HTMLElement, grip: HTMLElement, s: UiSlot): void {
     if (!mode) return;
     const dx = (e.clientX - startX) / SCALE;
     const dy = (e.clientY - startY) / SCALE;
-    if (mode === "move") {
-      s.x = Math.round(ox + dx);
-      s.y = Math.round(oy + dy);
-    } else {
-      s.w = Math.max(8, Math.round(ow + dx));
-      s.h = Math.max(8, Math.round(oh + dy));
-    }
+    if (mode === "move") { s.x = Math.round(ox + dx); s.y = Math.round(oy + dy); }
+    else { s.w = Math.max(8, Math.round(ow + dx)); s.h = Math.max(8, Math.round(oh + dy)); }
     markDirty();
     renderStage();
     renderList();
-    renderDetail();
   });
   window.addEventListener("pointerup", () => { mode = null; });
 }
@@ -283,12 +367,11 @@ function attachDrag(el: HTMLElement, grip: HTMLElement, s: UiSlot): void {
 saveBtn.onclick = async (): Promise<void> => {
   status.textContent = "저장 중…";
   status.style.color = "#a8987c";
-  const body = { ...(layoutJson as object), areas: state.areas };
   try {
     const res = await fetch("/__uilayout", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...(await currentLayout()), areas: state.areas }),
     });
     if (!res.ok) throw new Error(await res.text());
     state.dirty = false;
@@ -300,9 +383,27 @@ saveBtn.onclick = async (): Promise<void> => {
   }
 };
 
-window.addEventListener("beforeunload", (e) => {
-  if (state.dirty) e.preventDefault();
-});
+async function currentLayout(): Promise<Record<string, unknown>> {
+  try {
+    const r = await fetch("/__uilayout");
+    if (r.ok) return (await r.json()) as Record<string, unknown>;
+  } catch { /* dev 서버 밖 */ }
+  return {};
+}
 
-renderAll();
-status.textContent = "";
+window.addEventListener("beforeunload", (e) => { if (state.dirty) e.preventDefault(); });
+
+/** 그리기 전에 디스크와 맞춘다 — 두 JSON은 watch 제외라 번들 모듈이 옛 내용일 수 있다. */
+async function syncFromDisk(): Promise<void> {
+  try {
+    const [l, a] = await Promise.all([fetch("/__uilayout"), fetch("/__assets")]);
+    if (l.ok) {
+      const fresh = (await l.json()) as { areas?: UiArea[]; uploads?: UiUpload[] };
+      if (Array.isArray(fresh.areas)) state.areas = fresh.areas;
+      if (Array.isArray(fresh.uploads)) state.uploads = fresh.uploads;
+    }
+    if (a.ok) state.manifest = (await a.json()) as Record<string, unknown>;
+  } catch { /* dev 서버 밖 — 번들 값 그대로 */ }
+}
+
+void syncFromDisk().then(() => { renderAll(); status.textContent = ""; });
