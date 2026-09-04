@@ -31,6 +31,10 @@ export interface Launcher {
   clearAim(): void;
   angle(): number;
   playFlight(path: Array<{ x: number; y: number }>, tier: Tier): Promise<void>;
+  /** 조준선이 굴러가던 중이면 그 자리에 세운다. */
+  pause(): void;
+  /** 아직 목표에 닿지 않았으면 다시 굴린다. */
+  resume(): void;
   destroy(): void;
 }
 
@@ -177,6 +181,17 @@ export function createLauncher(horseFrames: readonly Texture[] = []): Launcher {
       } finally {
         if (!chip.destroyed) chip.destroy();
       }
+    },
+
+    /** 일시정지 — 조준선이 목표로 굴러가던 중이면 그 자리에 세운다. */
+    pause(): void {
+      stopAimLoop();
+    },
+
+    /** 재개. 아직 목표에 닿지 않았을 때만 다시 굴린다.
+     *  startAimLoop이 lastTick을 지금으로 맞추므로 멈춰 있던 시간만큼 튀지 않는다. */
+    resume(): void {
+      if (currentAngle !== targetAngle) startAimLoop();
     },
 
     destroy(): void {

@@ -37,6 +37,10 @@ export interface CageView {
    *  **sync가 이미 그 케이지를 지웠다면 아무 일도 하지 않고 즉시 resolve한다** —
    *  이 경우 연출은 보이지 않는다. 위 sync의 순서 계약 참조. */
   playRescue(cage: Cage): Promise<void>;
+  /** 유휴 흔들림을 멈춘다 — 설정창이 열려 있는 동안 화면이 정말로 멎게. */
+  pause(): void;
+  /** 흔들림을 되살린다. */
+  resume(): void;
   destroy(): void;
 }
 
@@ -431,6 +435,17 @@ export function createCageView(textures: CageTextures): CageView {
         bodies.delete(cage.id);
         if (bodies.size === 0) stopIdle();
       }
+    },
+
+    /** 일시정지 — 설정창이 열려 있는 동안 흔들림을 멈춘다.
+     *  멈추지 않으면 「멈춘 게임」 위에서 케이지만 계속 움직여 어색하다. */
+    pause(): void {
+      stopIdle();
+    },
+
+    /** 재개. 케이지가 하나도 없으면(전부 구출) 되살릴 것이 없다. */
+    resume(): void {
+      if (bodies.size > 0) startIdle();
     },
 
     destroy(): void {
