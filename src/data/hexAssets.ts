@@ -61,15 +61,19 @@ export const hexAssetPaths: HexAssetPaths = parse(manifestJson);
 // 아트가 없으면 코드가 그린 기본 도형으로 폴백한다. 슬롯을 늘려도 화면은 안 깨진다.
 
 export const UI_SLOT_IDS = [
-  "settingsPanel", "settingsClose", "toggleOn", "toggleOff", "btnResume", "btnHome", "gear",
+  "settingsPanel", "settingsClose", "toggleOn", "toggleOff", "btnResume", "btnHome", "gear", "stageBar",
 ] as const;
 export type UiSlotId = (typeof UI_SLOT_IDS)[number];
 
 export const LOBBY_SLOT_IDS = [
-  "bg", "play",
-  "navHome", "navAnimals", "navEvents", "navSoon",
+  "bg", "topStats", "play",
+  "navHome", "navWorld", "navAnimals", "navEvents",
 ] as const;
 export type LobbySlotId = (typeof LOBBY_SLOT_IDS)[number];
+
+/** 월드 지도 화면 — 배경 한 장과 돌아가기 버튼. 톱니는 로비 것을 그대로 쓴다. */
+export const WORLD_SLOT_IDS = ["bg", "back"] as const;
+export type WorldSlotId = (typeof WORLD_SLOT_IDS)[number];
 
 function pick<K extends string>(raw: unknown, block: string, keys: readonly K[]): Partial<Record<K, string>> {
   const src = ((raw as Record<string, unknown>)[block] ?? {}) as Record<string, unknown>;
@@ -83,6 +87,12 @@ function pick<K extends string>(raw: unknown, block: string, keys: readonly K[])
 
 export const uiAssetPaths = pick(manifestJson, "ui", UI_SLOT_IDS);
 export const lobbyAssetPaths = pick(manifestJson, "lobby", LOBBY_SLOT_IDS);
+export const worldAssetPaths = pick(manifestJson, "world", WORLD_SLOT_IDS);
+
+/** 이벤트 화면 — 배경 한 장과 닫기·스테이지 버튼. */
+export const EVENT_SLOT_IDS = ["bg", "close", "cta"] as const;
+export type EventSlotId = (typeof EVENT_SLOT_IDS)[number];
+export const eventAssetPaths = pick(manifestJson, "event", EVENT_SLOT_IDS);
 
 // ── 영상 ────────────────────────────────────────────────────
 // 인트로(프롤로그)와 엔딩. 세로 화면 전체를 덮는다. 파일이 없으면 그 단계를 건너뛴다.
@@ -91,3 +101,43 @@ export const VIDEO_SLOT_IDS = ["intro", "ending"] as const;
 export type VideoSlotId = (typeof VIDEO_SLOT_IDS)[number];
 
 export const videoAssetPaths = pick(manifestJson, "video", VIDEO_SLOT_IDS);
+
+// ── 도감 ────────────────────────────────────────────────────
+// 패널 한 장과 동물마다 카드 두 장(해제·잠김). 카드는 이름표까지 그려진 한 장이라
+// 아트가 있으면 코드는 글자를 얹지 않는다.
+
+export interface CollectionAssetPaths {
+  panel?: string;
+  close?: string;
+  /** 구출한 동물의 카드 */
+  cards: Record<string, string>;
+  /** 아직 못 구한 동물의 실루엣 카드 */
+  locked: Record<string, string>;
+}
+
+function record(raw: unknown, block: string, key: string): Record<string, string> {
+  const src = (((raw as Record<string, unknown>)[block] ?? {}) as Record<string, unknown>)[key];
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries((src ?? {}) as Record<string, unknown>)) {
+    const f = str(v);
+    if (f) out[k] = f;
+  }
+  return out;
+}
+
+export const collectionAssetPaths: CollectionAssetPaths = {
+  ...pick(manifestJson, "collection", ["panel", "close"] as const),
+  cards: record(manifestJson, "collection", "cards"),
+  locked: record(manifestJson, "collection", "locked"),
+};
+
+// ── 소리 ────────────────────────────────────────────────────
+// BGM 2종과 효과음 6종. 파일이 없는 슬롯은 그냥 소리가 안 난다 — 게임은 정상 동작한다.
+
+export const AUDIO_SLOT_IDS = [
+  "bgmLobby", "bgmStage",
+  "sfxShot", "sfxPop", "sfxRescue", "sfxClear", "sfxFail", "sfxTap",
+] as const;
+export type AudioSlotId = (typeof AUDIO_SLOT_IDS)[number];
+
+export const audioAssetPaths = pick(manifestJson, "audio", AUDIO_SLOT_IDS);

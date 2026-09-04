@@ -2,11 +2,11 @@
   "_note": "에셋 슬롯 매니페스트 — 파일이 public/ 아래 경로에 존재하면 자동 반영, 없으면 폴백. 디자이너는 파일만 드롭.",
   "hex": {
     "tiles": [
-      "assets/hex/tile-red.png",
+      "assets/hex/tile-red.webp",
       "assets/hex/tile-yellow.webp",
-      "assets/hex/tile-green.png",
-      "assets/hex/tile-blue.png",
-      "assets/hex/tile-purple.png",
+      "assets/hex/tile-green.webp",
+      "assets/hex/tile-blue.webp",
+      "assets/hex/tile-purple.webp",
       "assets/hex/tile-gold.png"
     ],
     "horseshoe": "assets/hex/tile-horseshoe.png",
@@ -17,7 +17,6 @@
       "zebra": "assets/hex/animal-zebra.png",
       "deer": "assets/hex/animal-deer.png",
       "elephant": "assets/hex/animal-elephant.png",
-      "penguin": "assets/hex/animal-penguin.png",
       "rabbit": "assets/hex/animal-rabbit.png",
       "monkey": "assets/hex/animal-monkey.png"
     },
@@ -31,26 +30,71 @@
   },
   "ui": {
     "_note": "공용 UI 슬롯. 파일이 없으면 코드가 그린 도형으로 폴백한다.",
+    "stageBar": "assets/ui/stage-bar.png",
     "settingsPanel": "assets/ui/settings-panel.webp",
-    "settingsClose": "assets/ui/settings-close.png",
-    "toggleOn": "assets/ui/toggle-on.png",
-    "toggleOff": "assets/ui/toggle-off.png",
-    "btnResume": "assets/ui/btn-resume.png",
-    "btnHome": "assets/ui/btn-home.png",
-    "gear": "assets/ui/btn-settings.png"
+    "settingsClose": "assets/ui/settings-close.webp",
+    "toggleOn": "assets/ui/toggle-on.webp",
+    "toggleOff": "assets/ui/toggle-off.webp",
+    "btnResume": "assets/ui/btn-resume.webp",
+    "btnHome": "assets/ui/btn-home.webp",
+    "gear": "assets/ui/btn-settings.webp"
   },
   "lobby": {
     "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다.",
     "bg": "assets/lobby/bg.png",
+    "topStats": "assets/lobby/top-stats.webp",
     "play": "assets/lobby/btn-play.webp",
-    "navHome": "assets/lobby/nav-home.png",
-    "navAnimals": "assets/lobby/nav-animals.png",
-    "navEvents": "assets/lobby/nav-events.png",
-    "navSoon": "assets/lobby/nav-soon.png"
+    "navHome": "assets/lobby/nav-home.webp",
+    "navWorld": "assets/lobby/nav-world.webp",
+    "navAnimals": "assets/lobby/nav-animals.webp",
+    "navEvents": "assets/lobby/nav-events.webp"
+  },
+  "world": {
+    "_note": "월드 지도 화면. 배경 한 장이 전부를 그리고, 누를 수 있는 것은 설정과 돌아가기 둘뿐이다.",
+    "bg": "assets/world/bg.webp",
+    "back": "assets/world/btn-back.webp"
+  },
+  "event": {
+    "_note": "이벤트(한정 구조). 배경 한 장이 세로 화면 전체를 덮고, 누를 수 있는 것은 닫기와 스테이지 버튼뿐이다.",
+    "bg": "assets/event/bg.webp",
+    "close": "assets/event/btn-close.webp",
+    "cta": "assets/event/btn-stage.webp"
   },
   "video": {
     "_note": "세로 화면 전체를 덮는 영상. mp4·webm.",
     "intro": "assets/video/intro.mp4",
     "ending": "assets/video/ending.mp4"
+  },
+  "audio": {
+    "_note": "BGM·효과음. 파일이 없으면 그 소리는 나지 않는다(게임은 정상 동작).",
+    "bgmLobby": "assets/audio/bgm-lobby.mp3",
+    "bgmStage": "assets/audio/bgm-stage.mp3",
+    "sfxShot": "assets/audio/sfx-shot.wav",
+    "sfxPop": "assets/audio/sfx-pop.wav",
+    "sfxRescue": "assets/audio/sfx-rescue.wav",
+    "sfxClear": "assets/audio/sfx-clear.wav",
+    "sfxFail": "assets/audio/sfx-fail.wav",
+    "sfxTap": "assets/audio/sfx-tap.wav"
+  },
+  "collection": {
+    "_note": "도감(구출한 동물). 패널 한 장과 동물마다 해제·잠김 카드 두 장.",
+    "panel": "assets/collection/panel.png",
+    "close": "assets/collection/btn-close.png",
+    "cards": {
+      "rabbit": "assets/collection/card-rabbit.png",
+      "monkey": "assets/collection/card-monkey.png",
+      "deer": "assets/collection/card-deer.png",
+      "sheep": "assets/collection/card-sheep.png",
+      "zebra": "assets/collection/card-zebra.png",
+      "elephant": "assets/collection/card-elephant.png"
+    },
+    "locked": {
+      "rabbit": "assets/collection/lock-rabbit.png",
+      "monkey": "assets/collection/lock-monkey.png",
+      "deer": "assets/collection/lock-deer.png",
+      "sheep": "assets/collection/lock-sheep.png",
+      "zebra": "assets/collection/lock-zebra.png",
+      "elephant": "assets/collection/lock-elephant.png"
+    }
   }
 }

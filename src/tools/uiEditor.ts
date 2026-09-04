@@ -3,13 +3,14 @@
 // 한 페이지에서 **배치**와 **에셋 업로드**를 함께 한다. 탭으로 영역이 갈린다:
 //   로비 · 인게임 · 설정창  — 좌표가 있는 슬롯. 스테이지에서 끌어 옮긴다
 //   게임 에셋              — 자리가 코드에 고정된 것들(타일·동물·배경). 업로드만
+//   영상 · 오디오          — 화면 전체 영상, BGM·효과음. 업로드만
 //
 // 업로드 후 이 탭은 **리로드하지 않고 제자리 갱신**한다. 리로드가 겹치면 방금 올린
 // 이미지 요청이 중단돼 「미업로드」로 오탐한다. 게임 탭만 ws 이벤트로 새로 뜬다.
 //
 // uiLayout.json·assets.json은 vite watch에서 빠져 있다 — 번들 모듈이 옛 내용일 수
 // 있으므로 그리기 전에 디스크와 맞춘다(GET /__uilayout · /__assets).
-import { uiAreas, uiUploads, uiVideos, type UiArea, type UiSlot, type UiUpload } from "../data/uiLayout";
+import { uiAreas, uiUploads, uiVideos, uiAudios, type UiArea, type UiSlot, type UiUpload } from "../data/uiLayout";
 import assetsJson from "../data/assets.json";
 import { createHistory, restoreInto, type History } from "../ui/layoutHistory";
 
@@ -17,6 +18,7 @@ const W = 450;
 const H = 800;
 const SCALE = 0.8;
 const VID_EXTS = ["mp4", "webm", "mov"];
+const AUD_EXTS = ["mp3", "wav", "ogg", "m4a"];
 
 /** 투명 PNG 확인용 체커보드 — 알파가 있는지 눈으로 알 수 있어야 한다. */
 const CHECKER =
@@ -28,12 +30,15 @@ interface State {
   areas: UiArea[];
   uploads: UiUpload[];
   videos: UiUpload[];
+  audios: UiUpload[];
   manifest: Record<string, unknown>;
   areaIndex: number;
   /** 위치가 없는 게임 에셋 목록을 보고 있는가 */
   assetsTab: boolean;
   /** 영상 목록을 보고 있는가 */
   videoTab: boolean;
+  /** 오디오 목록을 보고 있는가 */
+  audioTab: boolean;
   selected: string | null;
   dirty: boolean;
 }
@@ -42,10 +47,12 @@ const state: State = {
   areas: uiAreas.map((a) => ({ ...a, slots: a.slots.map((s) => ({ ...s })) })),
   uploads: [...uiUploads],
   videos: [...uiVideos],
+  audios: [...uiAudios],
   manifest: assetsJson as unknown as Record<string, unknown>,
   areaIndex: 0,
   assetsTab: false,
   videoTab: false,
+  audioTab: false,
   selected: null,
   dirty: false,
 };
@@ -88,7 +95,9 @@ function setAssetPath(dotted: string, value: string | string[]): void {
   cur[keys[keys.length - 1]!] = value;
 }
 
-const isVideo = (file: string): boolean => VID_EXTS.some((e) => file.split("?")[0]!.endsWith(`.${e}`));
+const hasExt = (file: string, exts: string[]): boolean => exts.some((e) => file.split("?")[0]!.endsWith(`.${e}`));
+const isVideo = (file: string): boolean => hasExt(file, VID_EXTS);
+const isAudio = (file: string): boolean => hasExt(file, AUD_EXTS);
 
 // ── 레이아웃 ────────────────────────────────
 const app = document.getElementById("app")!;
@@ -172,10 +181,12 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
   info.append(name, meta);
   cell.append(stage, info);
 
+  const clearMedia = (): void => { stage.querySelector("video")?.remove(); stage.querySelector("audio")?.remove(); };
+
   const showVideo = (src: string): void => {
     img.style.display = "none";
     empty.style.display = "none";
-    stage.querySelector("video")?.remove();
+    clearMedia();
     const v = document.createElement("video");
     v.src = src;
     v.autoplay = true; v.loop = true; v.muted = true; v.playsInline = true;
@@ -183,14 +194,31 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
     stage.prepend(v);
   };
 
+  /** 소리는 볼 것이 없다 — 재생기를 놓아 귀로 확인한다. */
+  const showAudio = (src: string): void => {
+    img.style.display = "none";
+    empty.style.display = "none";
+    clearMedia();
+    const a = document.createElement("audio");
+    a.src = src;
+    a.controls = true;
+    a.preload = "metadata";
+    a.setAttribute("style", "width:86%");
+    // 매니페스트에 경로만 있고 파일이 없는 슬롯이 태반이다 — 재생기가 아니라
+    // 「미업로드」로 보여야 무엇이 비었는지 한눈에 안다
+    a.onerror = (): void => { a.remove(); empty.style.display = "block"; };
+    stage.prepend(a);
+  };
+
   const paint = (): void => {
     const rel = assetPath(dotted);
     const n = frameCount(dotted);
     meta.textContent = rel ? (seq && n > 1 ? `${n}프레임 · ${rel}` : rel) : "(매니페스트에 없음)";
     meta.style.color = "#a8987c";
-    if (!rel) { img.style.display = "none"; empty.style.display = "block"; return; }
+    if (!rel) { img.style.display = "none"; clearMedia(); empty.style.display = "block"; return; }
     if (isVideo(rel)) { showVideo(`${rel}?v=${Date.now()}`); return; }
-    stage.querySelector("video")?.remove();
+    if (isAudio(rel)) { showAudio(`${rel}?v=${Date.now()}`); return; }
+    clearMedia();
     img.dataset["src"] = rel;
     img.dataset["retries"] = "1";
     img.src = `${rel}?v=${Date.now()}`;
@@ -245,7 +273,7 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
 
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,audio/*";
+  input.accept = "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,audio/mpeg,audio/wav,audio/ogg,audio/mp4";
   input.multiple = seq; // 시퀀스 슬롯은 여러 장을 한 번에 받는다
   input.style.display = "none";
   input.onchange = (): void => { void upload([...(input.files ?? [])]); input.value = ""; };
@@ -263,7 +291,7 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
     if (!confirm(`'${label}' 업로드 파일을 삭제할까요?\n빈 슬롯은 게임에서 폴백으로 그려집니다.`)) return;
     const res = await fetch(`/__upload?asset=${encodeURIComponent(dotted)}`, { method: "DELETE" });
     if (!res.ok) { alert(`삭제 실패: ${await res.text()}`); return; }
-    stage.querySelector("video")?.remove();
+    clearMedia();
     img.style.display = "none";
     empty.style.display = "block";
     meta.textContent = assetPath(dotted) ?? "";
@@ -309,17 +337,21 @@ function renderTabs(): void {
     b.onclick = onClick;
     tabs.appendChild(b);
   };
+  // 탭 상태가 boolean 여러 개라 켤 때 나머지를 반드시 끈다 — 하나라도 빠지면 두 탭이 함께 켜진다
+  const only = (which: "assets" | "video" | "audio" | null): void => {
+    state.assetsTab = which === "assets";
+    state.videoTab = which === "video";
+    state.audioTab = which === "audio";
+  };
+  const onArea = !state.assetsTab && !state.videoTab && !state.audioTab;
   state.areas.forEach((a, i) => {
-    mk(`${a.label} (${a.slots.length})`, !state.assetsTab && !state.videoTab && i === state.areaIndex, () => {
-      state.areaIndex = i; state.assetsTab = false; state.videoTab = false; state.selected = null; renderAll();
+    mk(`${a.label} (${a.slots.length})`, onArea && i === state.areaIndex, () => {
+      state.areaIndex = i; only(null); state.selected = null; renderAll();
     });
   });
-  mk(`게임 에셋 (${state.uploads.length})`, state.assetsTab, () => {
-    state.assetsTab = true; state.videoTab = false; renderAll();
-  });
-  mk(`영상 (${state.videos.length})`, state.videoTab, () => {
-    state.videoTab = true; state.assetsTab = false; renderAll();
-  });
+  mk(`게임 에셋 (${state.uploads.length})`, state.assetsTab, () => { only("assets"); renderAll(); });
+  mk(`영상 (${state.videos.length})`, state.videoTab, () => { only("video"); renderAll(); });
+  mk(`오디오 (${state.audios.length})`, state.audioTab, () => { only("audio"); renderAll(); });
 }
 
 function renderList(): void {
@@ -369,44 +401,27 @@ function renderDetail(): void {
   });
   wrapper.appendChild(grid);
 
-  if (s.asset) wrapper.appendChild(card(s.label, s.asset, () => renderStage()));
-  else wrapper.appendChild($("div", "color:#a8987c;font-size:11px", "이 슬롯은 아트 없이 코드가 그립니다."));
+  // 두 장을 오가는 슬롯은 카드가 둘이다. 상태 이름은 슬롯이 정할 수 있다 —
+  // 토글은 켜짐/꺼짐이지만 도감은 해제/잠김이라야 읽힌다.
+  const [onName, offName] = s.states ?? ["켜짐", "꺼짐"];
+  if (s.asset) wrapper.appendChild(card(s.assetOff ? `${s.label} — ${onName}` : s.label, s.asset, () => renderStage()));
+  if (s.assetOff) wrapper.appendChild(card(`${s.label} — ${offName}`, s.assetOff, () => renderStage()));
+  if (!s.asset && !s.assetOff) wrapper.appendChild($("div", "color:#a8987c;font-size:11px", "이 슬롯은 아트 없이 코드가 그립니다."));
 
   detail.appendChild(wrapper);
 }
 
-function renderAssets(): void {
+/** 자리가 없는 업로드 목록 — 게임 에셋 · 영상 · 오디오가 같은 모양이다.
+ *  카드 폭만 다르다(그림은 좁게, 영상·오디오는 넓게). */
+function renderUploads(title: string, desc: string, items: UiUpload[], minWidth: number): void {
   stageWrap.style.display = "none";
   list.replaceChildren();
   detail.replaceChildren();
   const head2 = $("div", "margin-bottom:8px");
-  head2.append(
-    $("div", "font-weight:800", "게임 에셋"),
-    $("div", "color:#a8987c;font-size:11px", "자리가 코드에 고정된 것들입니다. 올리면 게임 탭이 바로 갱신됩니다. 🎞 표시는 여러 장을 한 번에 고르면 시퀀스가 됩니다 — 파일 이름 순으로 재생합니다."),
-  );
+  head2.append($("div", "font-weight:800", title), $("div", "color:#a8987c;font-size:11px", desc));
   detail.appendChild(head2);
-  const grid = $("div", "display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px");
-  for (const u of state.uploads) grid.appendChild(card(u.label, u.asset, undefined, u.seq === true));
-  detail.appendChild(grid);
-  side.style.maxWidth = "1100px";
-  side.style.flexBasis = "100%";
-}
-
-function renderVideos(): void {
-  stageWrap.style.display = "none";
-  list.replaceChildren();
-  detail.replaceChildren();
-  const head2 = $("div", "margin-bottom:8px");
-  head2.append(
-    $("div", "font-weight:800", "영상"),
-    $("div", "color:#a8987c;font-size:11px",
-      "세로 화면 전체를 덮습니다. 인트로는 게임을 열 때, 엔딩은 마지막 스테이지를 깨면 재생됩니다. "
-      + "mp4·webm · 자동재생 정책 때문에 무음으로 시작하고 화면의 🔇 버튼으로 소리를 켭니다. "
-      + "파일이 없으면 그 단계를 건너뜁니다."),
-  );
-  detail.appendChild(head2);
-  const grid = $("div", "display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px");
-  for (const v of state.videos) grid.appendChild(card(v.label, v.asset));
+  const grid = $("div", `display:grid;grid-template-columns:repeat(auto-fill,minmax(${minWidth}px,1fr));gap:12px`);
+  for (const u of items) grid.appendChild(card(u.label, u.asset, undefined, u.seq === true));
   detail.appendChild(grid);
   side.style.maxWidth = "1100px";
   side.style.flexBasis = "100%";
@@ -415,8 +430,28 @@ function renderVideos(): void {
 function renderAll(): void {
   renderTabs();
   paintHistButtons();
-  if (state.videoTab) { renderVideos(); return; }
-  if (state.assetsTab) { renderAssets(); return; }
+  if (state.audioTab) {
+    renderUploads("오디오",
+      "BGM 2종과 효과음 6종입니다. mp3·wav · 올리면 리로드 없이 게임 탭에 바로 반영됩니다. "
+      + "효과음은 설정창의 SOUND, 배경음악은 MUSIC 토글을 따릅니다. 파일이 없는 슬롯은 그냥 소리가 나지 않습니다.",
+      state.audios, 260);
+    return;
+  }
+  if (state.videoTab) {
+    renderUploads("영상",
+      "세로 화면 전체를 덮습니다. 인트로는 게임을 열 때, 엔딩은 마지막 스테이지를 깨면 재생됩니다. "
+      + "mp4·webm · 자동재생 정책 때문에 무음으로 시작하고 화면의 🔇 버튼으로 소리를 켭니다. "
+      + "파일이 없으면 그 단계를 건너뜁니다.",
+      state.videos, 260);
+    return;
+  }
+  if (state.assetsTab) {
+    renderUploads("게임 에셋",
+      "자리가 코드에 고정된 것들입니다. 올리면 게임 탭이 바로 갱신됩니다. "
+      + "🎞 표시는 여러 장을 한 번에 고르면 시퀀스가 됩니다 — 파일 이름 순으로 재생합니다.",
+      state.uploads, 200);
+    return;
+  }
   stageWrap.style.display = "block";
   side.style.maxWidth = "560px";
   side.style.flexBasis = "380px";
@@ -507,10 +542,13 @@ async function syncFromDisk(): Promise<void> {
   try {
     const [l, a] = await Promise.all([fetch("/__uilayout"), fetch("/__assets")]);
     if (l.ok) {
-      const fresh = (await l.json()) as { areas?: UiArea[]; uploads?: UiUpload[]; videos?: UiUpload[] };
+      const fresh = (await l.json()) as {
+        areas?: UiArea[]; uploads?: UiUpload[]; videos?: UiUpload[]; audios?: UiUpload[];
+      };
       if (Array.isArray(fresh.areas)) state.areas = fresh.areas;
       if (Array.isArray(fresh.uploads)) state.uploads = fresh.uploads;
       if (Array.isArray(fresh.videos)) state.videos = fresh.videos;
+      if (Array.isArray(fresh.audios)) state.audios = fresh.audios;
     }
     if (a.ok) state.manifest = (await a.json()) as Record<string, unknown>;
   } catch { /* dev 서버 밖 — 번들 값 그대로 */ }

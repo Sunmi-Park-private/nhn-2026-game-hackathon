@@ -5,7 +5,7 @@
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
 import { Application, VideoSource } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
-import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, videoAssetPaths } from "./data/hexAssets";
+import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, worldAssetPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
 import { loadSlots } from "./ui/skin";
 import { runLobby } from "./ui/lobbyScreen";
 import { parseProfile, serializeProfile, addClear, type Profile } from "./engine/profile";
@@ -68,10 +68,16 @@ async function main(): Promise<void> {
 
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
-  const [hexTextures, uiSlots, lobbySlots] = await Promise.all([
+  const [hexTextures, uiSlots, lobbySlots, worldSlots, eventSlots, collectionSlots, collectionCards, collectionLocked]
+    = await Promise.all([
     loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
     loadSlots(uiAssetPaths),
     loadSlots(lobbyAssetPaths),
+    loadSlots(worldAssetPaths),
+    loadSlots(eventAssetPaths),
+    loadSlots({ panel: collectionAssetPaths.panel, close: collectionAssetPaths.close }),
+    loadSlots(collectionAssetPaths.cards),
+    loadSlots(collectionAssetPaths.locked),
   ]);
   // 설정창이 쓰는 묶음. 스테이지 화면도 같은 것을 그대로 넘겨받는다.
   const ui = {
@@ -82,18 +88,27 @@ async function main(): Promise<void> {
     resume: uiSlots.btnResume,
     home: uiSlots.btnHome,
     settingsButton: uiSlots.gear,
+    stageBar: uiSlots.stageBar,
   };
   const lobbyTextures = {
     bg: lobbySlots.bg,
     play: lobbySlots.play,
     gear: uiSlots.gear,
     icons: {
+      topStats: lobbySlots.topStats ?? null,
       navHome: lobbySlots.navHome ?? null,
+      navWorld: lobbySlots.navWorld ?? null,
       navAnimals: lobbySlots.navAnimals ?? null,
       navEvents: lobbySlots.navEvents ?? null,
-      navSoon: lobbySlots.navSoon ?? null,
     },
-    animals: hexTextures.animals,
+    world: { bg: worldSlots.bg, back: worldSlots.back },
+    event: { bg: eventSlots.bg, close: eventSlots.close, cta: eventSlots.cta },
+    collection: {
+      panel: collectionSlots.panel,
+      close: collectionSlots.close,
+      cards: collectionCards,
+      locked: collectionLocked,
+    },
     ui,
   };
 
@@ -138,7 +153,11 @@ async function main(): Promise<void> {
 // 에디터에서 에셋을 올리면 이 탭만 새로 뜬다. 에디터 탭은 리로드하지 않는다 —
 // 리로드가 겹치면 방금 올린 이미지 요청이 중단돼 「미업로드」로 오탐한다.
 if (import.meta.hot) {
-  import.meta.hot.on("asset-updated", () => { location.reload(); });
+  // 소리는 audio.ts가 제자리에서 갈아끼운다 — 리로드하면 언락이 풀려 다음 제스처까지 조용해진다
+  import.meta.hot.on("asset-updated", (d: { asset?: string }) => {
+    if (typeof d?.asset === "string" && d.asset.startsWith("audio.")) return;
+    location.reload();
+  });
 }
 
 void main();

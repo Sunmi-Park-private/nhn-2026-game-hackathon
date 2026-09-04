@@ -9,9 +9,12 @@ import { Application, Container, Graphics, Text, type Texture } from "pixi.js";
 import { BASE_W, stageTop, stageHeight, coverBox, fullRect } from "./stage";
 import { fitSprite } from "./skin";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
-import { openCollection } from "./collection";
+import { openCollection, type CollectionTextures } from "./collection";
+import { openWorld } from "./worldScreen";
+import { openEvent, type EventTextures } from "./eventScreen";
 import { slot, type UiSlot } from "../data/uiLayout";
 import { buzz } from "./settings";
+import { playBgm, playSfx } from "./audio";
 import { editable, clearEditable } from "./layoutEditor";
 import type { Profile } from "../engine/profile";
 
@@ -21,8 +24,12 @@ export interface LobbyTextures {
   gear?: Texture;
   /** 우측 레일·하단 내비 아이콘 — 없으면 라벨로 대신한다 */
   icons: Record<string, Texture | null>;
-  /** 도감에 쓰는 동물 아트 — 시퀀스 */
-  animals: Record<string, readonly Texture[]>;
+  /** 도감 — 패널과 동물마다 해제·잠김 카드 */
+  collection: CollectionTextures;
+  /** 월드 지도 화면 */
+  world: { bg?: Texture; back?: Texture };
+  /** 이벤트 화면 */
+  event: EventTextures;
   ui: SettingsTextures;
 }
 
@@ -74,7 +81,7 @@ function hotspot(
   if (onTap) {
     c.eventMode = "static";
     c.cursor = "pointer";
-    c.on("pointertap", () => { buzz(); onTap(); });
+    c.on("pointertap", () => { buzz(); playSfx("audio.sfxTap"); onTap(); });
     c.on("pointerdown", () => { c.alpha = 0.78; });
     const up = (): void => { c.alpha = 1; };
     c.on("pointerup", up);
@@ -83,11 +90,36 @@ function hotspot(
   return c;
 }
 
+/** 아트 위에 얹는 숫자 하나. 칸의 배경은 아트가 그리므로 여기서는 글자만 그린다.
+ *  글자 크기·색은 슬롯이 들고 있으면 그 값을 쓴다(에디터에서 조정). */
+function counter(b: UiSlot, value: number): Container {
+  const c = new Container();
+  c.x = b.x;
+  c.y = b.y;
+  const t = new Text({
+    text: String(value),
+    style: {
+      fontSize: b.fontSize ?? 15,
+      fill: b.color ?? 0xfff3dc,
+      fontWeight: "bold",
+      // 아트의 밝은 부분 위에서도 읽히게 — 아트가 아직 없을 때도 배경과 구분된다
+      stroke: { color: 0x1a1108, width: 3 },
+    },
+  });
+  t.anchor.set(0.5);
+  t.x = b.w / 2;
+  t.y = b.h / 2;
+  c.addChild(t);
+  editable(AREA, b, c);
+  return c;
+}
+
 /** 로비를 띄우고 PLAY를 누를 때까지 기다린다. */
 export function runLobby(app: Application, profile: Profile, tex: LobbyTextures): Promise<void> {
   return new Promise<void>((resolve) => {
     const layer = new Container();
     app.stage.addChild(layer);
+    playBgm("audio.bgmLobby");
 
     layer.addChild(fullRect(0x241a10));
     if (tex.bg) layer.addChild(coverBox(tex.bg));
@@ -98,38 +130,45 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     );
 
     // ── 상단 재화 바 ─────────────────────────────
-    const stats = box("topStats", { x: 30, y: 12, w: 300, h: 34 });
-    layer.addChild(new Graphics().roundRect(stats.x, stats.y, stats.w, stats.h, 17).fill({ color: 0x2b1d10, alpha: 0.85 }));
-    const statText = new Text({
-      // 코인·젬은 아직 재화 시스템이 없어 0으로 둔다 — 말굽만 실제 값이다
-      text: `🪙 0    💎 0    🐴 ${profile.horseshoes}`,
-      style: { fontSize: 14, fill: 0xfff3dc, fontWeight: "bold" },
-    });
-    statText.anchor.set(0.5);
-    statText.x = stats.x + stats.w / 2;
-    statText.y = stats.y + stats.h / 2;
-    layer.addChild(statText);
+    // 세 칸을 아트 한 장(투명 png)이 그린다. 코드가 얹는 것은 숫자뿐이다.
+    // 숫자마다 슬롯이 따로 있어 에디터에서 각자 끌어 맞춘다 — 아트의 칸 간격이
+    // 바뀌어도 코드는 그대로고 uiLayout.json만 움직인다.
+    const stats = box("topStats", { x: 14, y: 6, w: 340, h: 113 });
+    layer.addChild(hotspot(stats, tex.icons.topStats, null));
+
+    // 코인·젬은 아직 재화 시스템이 없어 0으로 둔다 — 말굽만 실제 값이다
+    const counters: Array<[string, { x: number; y: number; w: number; h: number }, number]> = [
+      ["statCoin", { x: 67, y: 50, w: 60, h: 22 }, 0],
+      ["statGem", { x: 178, y: 50, w: 60, h: 22 }, 0],
+      ["statHorseshoe", { x: 285, y: 50, w: 60, h: 22 }, profile.horseshoes],
+    ];
+    for (const [id, fb, value] of counters) layer.addChild(counter(box(id, fb), value));
 
     // ── PLAY ────────────────────────────────────
     const play = box("play", { x: 138, y: 646, w: 174, h: 54 });
     layer.addChild(hotspot(play, tex.play, () => finish(), 0x3faa48));
 
-    // ── 하단 4종 — HOME·ANIMALS만 동작 ─────────────
+    // ── 하단 4종 — HOME·WORLD·ANIMALS 동작, EVENTS는 목업 ─────
     const home = box("navHome", { x: 18, y: 738, w: 96, h: 50 });
     layer.addChild(hotspot(home, tex.icons.navHome, () => { /* 이미 홈이다 */ }));
 
-    const animals = box("navAnimals", { x: 122, y: 738, w: 96, h: 50 });
-    layer.addChild(hotspot(animals, tex.icons.navAnimals, () => {
-      void openCollection(layer, profile.rescued, tex.animals);
+    const world = box("navWorld", { x: 122, y: 738, w: 96, h: 50 });
+    layer.addChild(hotspot(world, tex.icons.navWorld, () => {
+      void openWorld(layer, { ...tex.world, gear: tex.gear, ui: tex.ui }).then((r) => {
+        if (r === "lobby") { /* 이미 로비다 — 월드만 닫힌다 */ }
+      });
     }));
 
-    for (const [id, fb] of [
-      ["navEvents", { x: 226, y: 738, w: 96, h: 50 }],
-      ["navSoon", { x: 330, y: 738, w: 96, h: 50 }],
-    ] as const) {
-      const b = box(id, fb);
-      layer.addChild(hotspot(b, tex.icons[id], null));
-    }
+    const animals = box("navAnimals", { x: 226, y: 738, w: 96, h: 50 });
+    layer.addChild(hotspot(animals, tex.icons.navAnimals, () => {
+      void openCollection(layer, profile.rescued, tex.collection);
+    }));
+
+    const events = box("navEvents", { x: 330, y: 738, w: 96, h: 50 });
+    layer.addChild(hotspot(events, tex.icons.navEvents, () => {
+      // 스테이지로 가는 길은 아직 하나뿐이라 어느 쪽으로 닫히든 로비로 돌아온다
+      void openEvent(layer, tex.event);
+    }));
 
     // ── 설정 ────────────────────────────────────
     const gear = box("gear", { x: 396, y: 12, w: 40, h: 40 });

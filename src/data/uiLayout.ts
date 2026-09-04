@@ -13,6 +13,12 @@ export interface UiSlot {
   h: number;
   /** assets.json 안의 위치(점 경로). 아트가 없는 슬롯은 비어 있다. */
   asset?: string;
+  /** 꺼짐 상태의 아트. 토글처럼 두 장을 오가는 슬롯만 갖는다 —
+   *  asset이 켜짐, assetOff가 꺼짐이다. */
+  assetOff?: string;
+  /** 두 상태를 뭐라 부를지 — 에디터의 카드 이름에 붙는다. 기본은 ["켜짐","꺼짐"].
+   *  도감처럼 켜짐/꺼짐이 어색한 곳에서 ["해제","잠김"]처럼 바꿔 준다. */
+  states?: [string, string];
 
   // ── 표시 속성 — 레이아웃 에디터에서 지정했을 때만 존재한다 ──
   /** 이미지·컨테이너 배율 (1 = 원본) */
@@ -59,6 +65,11 @@ function parseAreas(raw: unknown): UiArea[] {
           label: String(t.label ?? t.id ?? ""),
           x: num(t.x, 0), y: num(t.y, 0), w: num(t.w, 40), h: num(t.h, 40),
           asset: typeof t.asset === "string" ? t.asset : undefined,
+          assetOff: typeof t.assetOff === "string" ? t.assetOff : undefined,
+          states: Array.isArray(t.states) && t.states.length === 2
+            && typeof t.states[0] === "string" && typeof t.states[1] === "string"
+            ? [t.states[0], t.states[1]]
+            : undefined,
           scale: typeof t.scale === "number" ? t.scale : undefined,
           fontSize: typeof t.fontSize === "number" ? t.fontSize : undefined,
           color: typeof t.color === "string" ? t.color : undefined,
@@ -83,6 +94,9 @@ export const uiUploads: UiUpload[] = parseUploads((layoutJson as { uploads?: unk
 
 /** 영상 슬롯 — 인트로·엔딩. 세로 화면 전체를 덮는다. */
 export const uiVideos: UiUpload[] = parseUploads((layoutJson as { videos?: unknown }).videos);
+
+/** 오디오 슬롯 — BGM·효과음. 위치 개념이 없어 업로드 목록으로만 산다. */
+export const uiAudios: UiUpload[] = parseUploads((layoutJson as { audios?: unknown }).audios);
 
 /** 영역 안의 슬롯. 없으면 null — 호출부가 기본값으로 간다. */
 export function slot(areaId: string, slotId: string): UiSlot | null {

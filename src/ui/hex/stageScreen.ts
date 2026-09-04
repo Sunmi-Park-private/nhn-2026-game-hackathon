@@ -14,6 +14,7 @@ import { makeButton } from "../skin";
 import { openSettings, type SettingsTextures } from "../settingsMenu";
 import { slot } from "../../data/uiLayout";
 import { editable } from "../layoutEditor";
+import { playBgm, playSfx } from "../audio";
 
 /** 스테이지가 끝난 이유. 호출자(main)가 다음 화면을 정한다. */
 export type StageResult = "cleared" | "failed" | "lobby";
@@ -29,7 +30,11 @@ export interface StageOutcome {
 }
 
 /** 세팅 모달과 톱니 버튼이 쓰는 슬롯. 스테이지 화면은 내용을 모르고 넘기기만 한다. */
-export type StageUiTextures = SettingsTextures & { settingsButton?: import("pixi.js").Texture };
+export type StageUiTextures = SettingsTextures & {
+  settingsButton?: import("pixi.js").Texture;
+  /** 상단 스테이지 바 판 */
+  stageBar?: import("pixi.js").Texture;
+};
 
 export interface StageTextures {
   tiles: Array<Texture | null>;
@@ -96,6 +101,7 @@ export async function runStageScreen(
 
   const layer = new Container();
   layer.addChild(buildBackground(textures.bg));
+  playBgm("audio.bgmStage");
 
   const board = createBoardView({ tiles: textures.tiles, horseshoe: textures.horseshoe });
   const cages = createCageView({
@@ -103,7 +109,7 @@ export async function runStageScreen(
     open: textures.cageOpen,
     animals: textures.animals,
   });
-  const hud = createHudView(stageIndex);
+  const hud = createHudView(stageIndex, { stageBar: ui.stageBar });
   const launcher = createLauncher(textures.horse);
 
   // 케이지는 타일보다 뒤에 둬서 타일이 케이지를 파묻게 하고, 발사대·HUD는 맨 앞에 둔다
@@ -187,21 +193,26 @@ export async function runStageScreen(
         // 비행 경로를 먼저 얻어 연출하고, 그 뒤 상태를 확정한다
         const firedTier = state.loaded;
         const { path } = simulateShot(state.cells, BOARD, launchOriginLocal(), angle);
+        playSfx("audio.sfxShot");
         await launcher.playFlight(path, firedTier);
 
         const outcome = fireAt(state, BOARD, launchOriginLocal(), angle);
+        if (outcome.steps.length > 0) playSfx("audio.sfxPop");
         redrawExceptCages(); // 타일·HUD는 즉시 반영 — 케이지는 아직 건드리지 않는다
 
         for (const cage of outcome.rescued) {
+          playSfx("audio.sfxRescue");
           await cages.playRescue(cage); // 몸체가 아직 살아 있다
         }
         redraw(); // 연출이 끝난 뒤 케이지 정리
 
         if (isCleared(state)) {
+          playSfx("audio.sfxClear");
           finish("cleared");
           return;
         }
         if (isFailed(state)) {
+          playSfx("audio.sfxFail");
           finish("failed");
           return;
         }

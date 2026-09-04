@@ -6,12 +6,12 @@ export interface AnimalDef {
   glyph: string;
 }
 
+/** 시안의 도감 순서 그대로다 — 격자 기본 배치가 아트와 맞아야 한다. */
 export const ANIMALS: readonly AnimalDef[] = [
-  { id: "sheep", name: "양", glyph: "🐑" },
-  { id: "zebra", name: "얼룩말", glyph: "🦓" },
-  { id: "deer", name: "사슴", glyph: "🦌" },
-  { id: "elephant", name: "코끼리", glyph: "🐘" },
-  { id: "penguin", name: "펭귄", glyph: "🐧" },
   { id: "rabbit", name: "토끼", glyph: "🐰" },
   { id: "monkey", name: "원숭이", glyph: "🐵" },
+  { id: "deer", name: "사슴", glyph: "🦌" },
+  { id: "sheep", name: "양", glyph: "🐑" },
+  { id: "zebra", name: "얼룩말", glyph: "🦓" },
+  { id: "elephant", name: "코끼리", glyph: "🐘" },
 ];
