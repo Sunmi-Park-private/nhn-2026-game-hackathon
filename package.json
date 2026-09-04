@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "dev:share": "vite --host",
+    "dev:share": "vite --host --port 5174 --strictPort",
     "tunnel": "cloudflared tunnel --url http://localhost:5174",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
