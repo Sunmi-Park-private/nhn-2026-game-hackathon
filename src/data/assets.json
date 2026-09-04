@@ -10,8 +10,22 @@
       "assets/hex/tile-gold.png"
     ],
     "horseshoe": "assets/hex/tile-horseshoe.png",
-    "cageClosed": "assets/hex/cage-closed.png",
-    "cageOpen": "assets/hex/cage-open.png",
+    "cageLocked": {
+      "rabbit": "assets/hex/cage-locked-rabbit.png",
+      "monkey": "assets/hex/cage-locked-monkey.png",
+      "deer": "assets/hex/cage-locked-deer.png",
+      "sheep": "assets/hex/cage-locked-sheep.png",
+      "zebra": "assets/hex/cage-locked-zebra.png",
+      "elephant": "assets/hex/cage-locked-elephant.png"
+    },
+    "cageOpen": {
+      "rabbit": "assets/hex/cage-open-rabbit.png",
+      "monkey": "assets/hex/cage-open-monkey.png",
+      "deer": "assets/hex/cage-open-deer.png",
+      "sheep": "assets/hex/cage-open-sheep.png",
+      "zebra": "assets/hex/cage-open-zebra.png",
+      "elephant": "assets/hex/cage-open-elephant.png"
+    },
     "animals": {
       "sheep": "assets/hex/animal-sheep.png",
       "zebra": "assets/hex/animal-zebra.png",
@@ -20,7 +34,7 @@
       "rabbit": "assets/hex/animal-rabbit.png",
       "monkey": "assets/hex/animal-monkey.png"
     },
-    "_note": "문자열=스틸 한 장, 배열=이미지 시퀀스. 에디터가 시퀀스를 올리면 배열로 바뀐다.",
+    "_note": "문자열=스틸 한 장, 배열=이미지 시퀀스. 에디터가 시퀀스를 올리면 배열로 바뀐다. cageLocked는 동물마다 시퀀스, cageOpen은 동물마다 스틸이다.",
     "horse": "assets/hex/horse-idle.png",
     "bg": {
       "board": "assets/hex/bg-board.png",
@@ -40,14 +54,22 @@
     "gear": "assets/ui/btn-settings.webp"
   },
   "lobby": {
-    "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다.",
+    "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다. friends는 구출한 동물이 로비 좌우에 나타나는 자리 — 키는 data/animals.ts의 id다.",
     "bg": "assets/lobby/bg.png",
     "topStats": "assets/lobby/top-stats.webp",
     "play": "assets/lobby/btn-play.webp",
     "navHome": "assets/lobby/nav-home.webp",
     "navWorld": "assets/lobby/nav-world.webp",
     "navAnimals": "assets/lobby/nav-animals.webp",
-    "navEvents": "assets/lobby/nav-events.webp"
+    "navEvents": "assets/lobby/nav-events.webp",
+    "friends": {
+      "rabbit": "assets/lobby/friend-rabbit.png",
+      "monkey": "assets/lobby/friend-monkey.png",
+      "deer": "assets/lobby/friend-deer.png",
+      "sheep": "assets/lobby/friend-sheep.png",
+      "zebra": "assets/lobby/friend-zebra.png",
+      "elephant": "assets/lobby/friend-elephant.png"
+    }
   },
   "world": {
     "_note": "월드 지도 화면. 배경 한 장이 전부를 그리고, 누를 수 있는 것은 설정과 돌아가기 둘뿐이다.",

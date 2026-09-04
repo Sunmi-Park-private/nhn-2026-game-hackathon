@@ -2,6 +2,7 @@
 //
 // 한 페이지에서 **배치**와 **에셋 업로드**를 함께 한다. 탭으로 영역이 갈린다:
 //   로비 · 인게임 · 설정창  — 좌표가 있는 슬롯. 스테이지에서 끌어 옮긴다
+//                            (로비에는 동물 친구 6칸 묶음 업로드가 아래에 더 붙는다)
 //   게임 에셋              — 자리가 코드에 고정된 것들(타일·동물·배경). 업로드만
 //   영상 · 오디오          — 화면 전체 영상, BGM·효과음. 업로드만
 //
@@ -143,9 +144,15 @@ function paintHistButtons(): void {
 }
 const status = $("span", "color:#a8987c;font-size:12px");
 actions.append(saveBtn, undoBtn, redoBtn, status);
-side.append(actions, list, detail);
+/** 고른 슬롯과 별개로, 그 영역 전체에 걸린 묶음 업로드가 들어가는 자리. */
+const extras = $("div", "margin-top:12px");
+side.append(actions, list, detail, extras);
 
 const area = (): UiArea => state.areas[state.areaIndex]!;
+
+/** 로비에 서는 구출 동물. 이 접두사를 쓰는 슬롯을 한 판에 모아 올린다 —
+ *  6칸을 하나씩 골라 들어가지 않고 타일처럼 한자리에서 끝내려는 것이다. */
+const FRIEND_PREFIX = "lobby.friends.";
 
 /** 되돌리기·다시. 배치만 다룬다 — 업로드는 파일이 이미 디스크에 있으므로 되돌리지 않는다. */
 let history: History<UiArea[]> | null = null;
@@ -354,6 +361,23 @@ function renderTabs(): void {
   mk(`오디오 (${state.audios.length})`, state.audioTab, () => { only("audio"); renderAll(); });
 }
 
+/** 영역 탭에만 붙는 묶음 업로드 판. 지금은 로비의 동물 친구 6칸뿐이다.
+ *  좌표는 위 스테이지에서 끌어 맞추고, 그림은 여기서 한 번에 올린다. */
+function renderExtras(): void {
+  extras.replaceChildren();
+  const friends: UiUpload[] = area().slots
+    .filter((s) => s.asset?.startsWith(FRIEND_PREFIX) === true)
+    .map((s) => ({ label: s.label.replace(/^로비 친구 · /, ""), asset: s.asset!, group: "동물 친구" }));
+  if (friends.length === 0) return;
+
+  const wrap = $("div", "background:#241a10;border:1px solid #4a3320;border-radius:8px;padding:12px");
+  wrap.appendChild($("div", "color:#a8987c;font-size:11px;margin-bottom:8px",
+    "스테이지를 깨서 구출한 동물만 로비 좌우에 섭니다. 자리는 위 스테이지에서 끌어 옮기고, "
+    + "그림은 여기서 올립니다. 안 올린 칸은 게임에서 글리프 폴백으로 그려집니다."));
+  wrap.appendChild(uploadGrid(friends, 110, () => renderStage()));
+  extras.appendChild(wrap);
+}
+
 function renderList(): void {
   list.replaceChildren();
   for (const s of area().slots) {
@@ -411,18 +435,42 @@ function renderDetail(): void {
   detail.appendChild(wrapper);
 }
 
+/** 묶음 머리글 — 그리드 폭 전체를 가로지르는 구분선 한 줄.
+ *  30장 가까운 카드를 한 그리드에 늘어놓으면 어디까지가 타일이고 어디부터가
+ *  창살인지 알 수 없다. 묶음이 바뀌는 자리에만 들어간다. */
+function groupHead(label: string, first: boolean): HTMLElement {
+  return $("div",
+    "grid-column:1/-1;font-weight:800;font-size:12px;color:#f0c96a;letter-spacing:.02em;"
+    + `padding-top:${first ? 0 : 10}px;margin-top:${first ? 0 : 2}px;`
+    + `border-top:${first ? "0" : "1px solid #4a3320"}`,
+    label);
+}
+
+/** 카드 그리드 한 판. items의 순서가 곧 표시 순서고, group이 바뀔 때마다 구분선이 들어간다. */
+function uploadGrid(items: UiUpload[], minWidth: number, onChanged?: () => void): HTMLElement {
+  const grid = $("div", `display:grid;grid-template-columns:repeat(auto-fill,minmax(${minWidth}px,1fr));gap:12px;align-items:start`);
+  let group: string | undefined;
+  for (const u of items) {
+    if (u.group && u.group !== group) {
+      grid.appendChild(groupHead(u.group, group === undefined));
+      group = u.group;
+    }
+    grid.appendChild(card(u.label, u.asset, onChanged, u.seq === true));
+  }
+  return grid;
+}
+
 /** 자리가 없는 업로드 목록 — 게임 에셋 · 영상 · 오디오가 같은 모양이다.
  *  카드 폭만 다르다(그림은 좁게, 영상·오디오는 넓게). */
 function renderUploads(title: string, desc: string, items: UiUpload[], minWidth: number): void {
   stageWrap.style.display = "none";
   list.replaceChildren();
   detail.replaceChildren();
+  extras.replaceChildren();
   const head2 = $("div", "margin-bottom:8px");
   head2.append($("div", "font-weight:800", title), $("div", "color:#a8987c;font-size:11px", desc));
   detail.appendChild(head2);
-  const grid = $("div", `display:grid;grid-template-columns:repeat(auto-fill,minmax(${minWidth}px,1fr));gap:12px`);
-  for (const u of items) grid.appendChild(card(u.label, u.asset, undefined, u.seq === true));
-  detail.appendChild(grid);
+  detail.appendChild(uploadGrid(items, minWidth));
   side.style.maxWidth = "1100px";
   side.style.flexBasis = "100%";
 }
@@ -458,6 +506,7 @@ function renderAll(): void {
   renderStage();
   renderList();
   renderDetail();
+  renderExtras();
 }
 
 // ── 드래그 ──────────────────────────────────

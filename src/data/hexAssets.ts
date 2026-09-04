@@ -8,10 +8,11 @@ export interface HexAssetPaths {
   /** tier 0~5 순서 고정 — 배열 길이는 항상 6 */
   tiles: Array<string | undefined>;
   horseshoe?: string;
-  /** 잠긴 우리 — 스틸 한 장 */
-  cageClosed?: string;
-  /** 잠금이 풀리는 순간 — **이미지 시퀀스**. 한 장만 넣으면 스틸로 동작한다 */
-  cageOpen: string[];
+  /** 창살(잠금) — 동물마다 **이미지 시퀀스**. 갇혀 있는 동안 계속 돈다.
+   *  한 장만 넣으면 스틸로 동작한다. 키는 data/animals.ts의 id다. */
+  cageLocked: Record<string, string[]>;
+  /** 창살(해제) — 동물마다 스틸 한 장. 잠금이 풀린 자리를 덮는다 */
+  cageOpen: Record<string, string>;
   /** 동물마다 시퀀스. 한 장만 넣으면 스틸로 동작한다 */
   animals: Record<string, string[]>;
   /** 화면 하단 붉은말(발사대) — 시퀀스 */
@@ -30,25 +31,41 @@ function frames(v: unknown): string[] {
   return one ? [one] : [];
 }
 
+/** 동물 id → 프레임 목록. 파일이 하나도 없는 동물은 키 자체가 빠진다 —
+ *  화면이 「아트 있음」을 길이로 판단하므로 빈 배열을 남기면 안 된다. */
+function framesByAnimal(raw: unknown): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [id, file] of Object.entries((raw ?? {}) as Record<string, unknown>)) {
+    const f = frames(file);
+    if (f.length > 0) out[id] = f;
+  }
+  return out;
+}
+
+/** 동물 id → 스틸 한 장. 값이 비면 키가 빠진다. */
+function strByAnimal(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [id, file] of Object.entries((raw ?? {}) as Record<string, unknown>)) {
+    const one = str(file);
+    if (one) out[id] = one;
+  }
+  return out;
+}
+
 function parse(raw: unknown): HexAssetPaths {
   const hex = (raw as { hex?: Record<string, unknown> }).hex ?? {};
   const tilesRaw = Array.isArray(hex.tiles) ? hex.tiles : [];
   // 길이 6 고정 — StageTextures[tier] 인덱싱이 항상 안전해야 한다
   const tiles = Array.from({ length: 6 }, (_, i) => str(tilesRaw[i]));
 
-  const animals: Record<string, string[]> = {};
-  const animalsRaw = (hex.animals ?? {}) as Record<string, unknown>;
-  for (const [id, file] of Object.entries(animalsRaw)) {
-    const f = frames(file);
-    if (f.length > 0) animals[id] = f;
-  }
+  const animals = framesByAnimal(hex.animals);
 
   const bgRaw = (hex.bg ?? {}) as Record<string, unknown>;
   return {
     tiles,
     horseshoe: str(hex.horseshoe),
-    cageClosed: str(hex.cageClosed),
-    cageOpen: frames(hex.cageOpen),
+    cageLocked: framesByAnimal(hex.cageLocked),
+    cageOpen: strByAnimal(hex.cageOpen),
     horse: frames(hex.horse),
     animals,
     bg: { board: str(bgRaw.board), panelLeft: str(bgRaw.panelLeft), panelRight: str(bgRaw.panelRight) },
@@ -70,6 +87,10 @@ export const LOBBY_SLOT_IDS = [
   "navHome", "navWorld", "navAnimals", "navEvents",
 ] as const;
 export type LobbySlotId = (typeof LOBBY_SLOT_IDS)[number];
+
+/** 로비에 나타나는 구출한 동물 — 동물 id → 스틸 한 장.
+ *  스테이지를 깨서 구출한 동물만 로비 좌우에 선다. 아트가 없으면 코드 폴백. */
+export const lobbyFriendAssetPaths: Record<string, string> = record(manifestJson, "lobby", "friends");
 
 /** 월드 지도 화면 — 배경 한 장과 돌아가기 버튼. 톱니는 로비 것을 그대로 쓴다. */
 export const WORLD_SLOT_IDS = ["bg", "back"] as const;

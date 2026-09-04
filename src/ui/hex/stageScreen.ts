@@ -40,9 +40,10 @@ export type StageUiTextures = SettingsTextures & {
 export interface StageTextures {
   tiles: Array<Texture | null>;
   horseshoe: Texture | null;
-  cageClosed: Texture | null;
-  /** 잠금 해제 시퀀스. 비면 스틸 교체 없이 폴백 연출만 돈다 */
-  cageOpen: Texture[];
+  /** 창살(잠금) — 동물마다 시퀀스. 없는 동물은 코드가 그린 창살로 폴백한다 */
+  cageLocked: Record<string, Texture[]>;
+  /** 창살(해제) — 동물마다 스틸 한 장. 없으면 스틸 교체 없이 폴백 연출만 돈다 */
+  cageOpen: Record<string, Texture>;
   /** 동물마다 시퀀스 */
   animals: Record<string, Texture[]>;
   /** 화면 하단 붉은말 — 시퀀스 */
@@ -106,7 +107,7 @@ export async function runStageScreen(
 
   const board = createBoardView({ tiles: textures.tiles, horseshoe: textures.horseshoe });
   const cages = createCageView({
-    closed: textures.cageClosed,
+    locked: textures.cageLocked,
     open: textures.cageOpen,
     animals: textures.animals,
   });
