@@ -1,7 +1,7 @@
 {
   "id": "stage-02",
   "cols": 7,
-  "rows": 12,
+  "rows": 10,
   "objective": 2,
   "shots": 25,
   "cages": [
