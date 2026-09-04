@@ -38,9 +38,9 @@ export interface CageView {
    *  **sync가 이미 그 케이지를 지웠다면 아무 일도 하지 않고 즉시 resolve한다** —
    *  이 경우 연출은 보이지 않는다. 위 sync의 순서 계약 참조. */
   playRescue(cage: Cage): Promise<void>;
-  /** 유휴 흔들림을 멈춘다 — 설정창이 열려 있는 동안 화면이 정말로 멎게. */
+  /** 유휴 흔들림과 창살 시퀀스를 멈춘다 — 설정창이 열려 있는 동안 화면이 정말로 멎게. */
   pause(): void;
-  /** 흔들림을 되살린다. */
+  /** 흔들림과 창살 시퀀스를 되살린다. */
   resume(): void;
   destroy(): void;
 }
@@ -164,6 +164,12 @@ interface CageBody {
   size: number;
 }
 
+/** 잠김 창살 재생 — 붙일 때와 되살릴 때가 **같은 함수를 거쳐야** 한다.
+ *  파라미터가 어긋나면 설정창을 한 번 열고 닫은 뒤부터 창살 속도가 달라진다. */
+function playLocked(seq: SequenceView): void {
+  void seq.play({ fps: LOCKED_FPS, loop: true });
+}
+
 function makeAnimalView(cage: Cage, tex: CageTextures, w: number, h: number): Container {
   const frames = tex.animals[cage.animalId] ?? [];
   if (frames.length > 0) {
@@ -210,7 +216,7 @@ function makeCageBody(cage: Cage, tex: CageTextures): CageBody {
     const lockedSeq = makeSequence(lockedFrames, w, h);
     if (lockedSeq) {
       // 갇혀 있는 동안 계속 돈다 — 한 장짜리는 makeSequence가 스틸로 다룬다
-      void lockedSeq.play({ fps: LOCKED_FPS, loop: true });
+      playLocked(lockedSeq);
       box.addChild(lockedSeq.root);
       return { box, bars: null, lock: null, lockedSeq, size };
     }
@@ -452,15 +458,24 @@ export function createCageView(textures: CageTextures): CageView {
       }
     },
 
-    /** 일시정지 — 설정창이 열려 있는 동안 흔들림을 멈춘다.
-     *  멈추지 않으면 「멈춘 게임」 위에서 케이지만 계속 움직여 어색하다. */
+    /** 일시정지 — 설정창이 열려 있는 동안 흔들림과 창살을 멈춘다.
+     *  멈추지 않으면 「멈춘 게임」 위에서 케이지만 계속 움직여 어색하다.
+     *  창살 시퀀스는 idle 흔들림과 **다른 rAF**라 따로 세워야 한다 —
+     *  stopIdle만 부르면 아트가 올라온 케이지는 그대로 움직인다. */
     pause(): void {
       stopIdle();
+      for (const e of bodies.values()) e.body.lockedSeq?.stop();
     },
 
-    /** 재개. 케이지가 하나도 없으면(전부 구출) 되살릴 것이 없다. */
+    /** 재개. 흔들림은 되살릴 케이지가 있을 때만 돌리고, 창살은 그 가드와 무관하게
+     *  케이지마다 되건다 — 아트가 다 올라오면 흔들림 대상이 0이라 가드에 걸린다.
+     *  연출 중인 케이지는 건드리지 않는다: 해제 페이드가 지우고 있는 중이다. */
     resume(): void {
       if (bodies.size > 0) startIdle();
+      for (const [id, e] of bodies) {
+        if (animating.has(id) || !e.body.lockedSeq || e.body.lockedSeq.root.destroyed) continue;
+        playLocked(e.body.lockedSeq);
+      }
     },
 
     destroy(): void {
