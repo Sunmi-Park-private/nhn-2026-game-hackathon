@@ -3,7 +3,7 @@
   "hex": {
     "tiles": [
       "assets/hex/tile-red.png",
-      "assets/hex/tile-yellow.png",
+      "assets/hex/tile-yellow.webp",
       "assets/hex/tile-green.png",
       "assets/hex/tile-blue.png",
       "assets/hex/tile-purple.png",
@@ -31,7 +31,7 @@
   },
   "ui": {
     "_note": "공용 UI 슬롯. 파일이 없으면 코드가 그린 도형으로 폴백한다.",
-    "settingsPanel": "assets/ui/settings-panel.png",
+    "settingsPanel": "assets/ui/settings-panel.webp",
     "settingsClose": "assets/ui/settings-close.png",
     "toggleOn": "assets/ui/toggle-on.png",
     "toggleOff": "assets/ui/toggle-off.png",
@@ -42,7 +42,7 @@
   "lobby": {
     "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다.",
     "bg": "assets/lobby/bg.png",
-    "play": "assets/lobby/btn-play.png",
+    "play": "assets/lobby/btn-play.webp",
     "navHome": "assets/lobby/nav-home.png",
     "navAnimals": "assets/lobby/nav-animals.png",
     "navEvents": "assets/lobby/nav-events.png",
