@@ -115,6 +115,7 @@ export async function runStageScreen(
     function finish(result: StageResult): void {
       if (finished) return;
       finished = true;
+      input.off("pointerdown", onDown);
       input.off("pointermove", onMove);
       input.off("pointerup", onUpWrapped);
       input.off("pointerupoutside", onUpWrapped);
@@ -124,6 +125,14 @@ export async function runStageScreen(
       board.destroy();
       layer.destroy({ children: true });
       resolve(result);
+    }
+
+    // 새 터치의 첫 접촉 — 조준선을 그 자리에 바로 맞춘다.
+    // 이어지는 pointermove는 상한 속도로 부드럽게 따라간다.
+    function onDown(e: FederatedPointerEvent): void {
+      if (busy) return;
+      const p = e.getLocalPosition(layer);
+      launcher.aimAt(p.x, p.y, state.cells, true);
     }
 
     function onMove(e: FederatedPointerEvent): void {
@@ -137,7 +146,7 @@ export async function runStageScreen(
     async function onUp(e: FederatedPointerEvent): Promise<void> {
       if (busy || finished) return;
       const p = e.getLocalPosition(layer);
-      launcher.aimAt(p.x, p.y, state.cells);
+      launcher.aimAt(p.x, p.y, state.cells, true); // 손을 뗀 자리로 확정 — 조준선과 실제 발사가 어긋나지 않게
       const angle = launcher.angle();
       launcher.clearAim();
 
@@ -172,6 +181,7 @@ export async function runStageScreen(
     // finish()의 .off는 동일 참조여야 실제로 제거된다 — 익명 래퍼를 그때그때 만들면
     // EventEmitter는 참조가 달라 지우지 못한다(Container.destroy가 가려줄 뿐 무동작이었다).
     const onUpWrapped = (e: FederatedPointerEvent): void => void onUp(e);
+    input.on("pointerdown", onDown);
     input.on("pointermove", onMove);
     input.on("pointerup", onUpWrapped);
     input.on("pointerupoutside", onUpWrapped);
