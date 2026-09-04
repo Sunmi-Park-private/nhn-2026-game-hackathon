@@ -233,8 +233,11 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 **아트는 시안 그대로 만들어도 된다.** 미구현 버튼은 코드에서 숨기거나 비활성으로
 처리하며, 시간이 남으면 그때 살린다. 아트를 덜어낼 이유는 없다.
 
-**작동할 것:** `PLAY` · `ANIMALS`(도감) · 목장의 구출 동물 · 말굽 재화 · 설정
-**보이되 작동하지 않을 것:** `MISSIONS` · `SHOP` · `WORLD` · `EVENTS` · 코인 · 젬
+**작동할 것:** `PLAY` · `WORLD`(지도) · `ANIMALS`(도감) · 목장의 구출 동물 · 말굽 재화 · 설정
+**보이되 작동하지 않을 것:** `MISSIONS` · `SHOP` · `EVENTS` · 코인 · 젬
+
+> 2026-09-05: 하단 내비가 **HOME · WORLD · ANIMALS · EVENTS**로 바뀌었다.
+> `SOON`은 없앴고 그 자리에 `WORLD`가 들어왔다.
 
 ---
 
@@ -302,7 +305,7 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 |---|---|
 | `bg.png` | **시안 전체를 담은 한 장** (9:16). 배경·간판·동물·버튼 그림이 다 들어간다 |
 | `btn-play.png` | PLAY 버튼 |
-| `nav-home.png` · `nav-animals.png` · `nav-events.png` · `nav-soon.png` | 하단 4종 |
+| `nav-home.png` · `nav-world.png` · `nav-animals.png` · `nav-events.png` | 하단 4종 — **이 순서다**(HOME·WORLD·ANIMALS·EVENTS) |
 
 > **슬롯마다 따로 판단한다.** 그 슬롯의 파일이 있으면 그걸 그리고, 없으면 코드가
 > 임시 버튼을 그린다. 배경에 버튼이 이미 그려져 있다면 **그 슬롯에도 같은 그림을
@@ -310,6 +313,20 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 >
 > `bg.png`는 버튼을 뺀 **무대 그림**으로 주는 편이 다루기 쉽다. 버튼은 각자 파일로
 > 올리면 위치·크기를 `/ui.html`에서 자유롭게 조정할 수 있다.
+
+### 월드 지도 — `public/assets/world/`
+
+| 파일 | 내용 |
+|---|---|
+| `bg.png` | **화면 전체 한 장** (9:16). 스테이지 노드·표지판·동물·별 카운터가 다 들어간다 |
+| `btn-back.png` | 좌하단 돌아가기 |
+
+> **누를 수 있는 것은 둘뿐이다** — 우상단 설정(톱니)과 좌하단 돌아가기.
+> 스테이지 노드·표지판·동물은 전부 그림이고 눌러도 아무 일이 없다.
+> 지도 위 어디를 눌러도 뒤 화면(로비)으로 터치가 새지 않는다.
+>
+> 배경이 이미 돌아가기 버튼을 그리고 있으므로 **같은 자리를 잘라** `btn-back.png`로
+> 올려야 한다. 그래야 코드가 그 자리를 안다. 톱니는 로비 것을 그대로 쓴다.
 
 ### 설정창 — `public/assets/ui/`
 
@@ -333,8 +350,8 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 
 | | 동작 |
 |---|---|
-| **동작함** | PLAY · ANIMALS(도감) · HOME · 설정(톱니) · 설정창 5종 전부(SOUND·MUSIC·VIBRATION·RESUME·HOME) |
-| **목업** | EVENTS · SOON · 코인 · 젬 |
+| **동작함** | PLAY · WORLD(지도) · ANIMALS(도감) · HOME · 설정(톱니) · 설정창 5종 전부(SOUND·MUSIC·VIBRATION·RESUME·HOME) |
+| **목업** | EVENTS · 코인 · 젬 |
 | **뺐음** | MISSIONS · COLLECTION · SHOP · WORLD — 우측 레일 4종은 기능째 제거했다 |
 
 목업 버튼도 **아트는 시안 그대로** 넣으면 된다. 눌러도 반응만 없다.

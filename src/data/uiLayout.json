@@ -79,9 +79,18 @@
           "asset": "lobby.navHome"
         },
         {
+          "id": "navWorld",
+          "label": "WORLD",
+          "x": 122,
+          "y": 738,
+          "w": 96,
+          "h": 50,
+          "asset": "lobby.navWorld"
+        },
+        {
           "id": "navAnimals",
           "label": "ANIMALS",
-          "x": 122,
+          "x": 226,
           "y": 738,
           "w": 96,
           "h": 50,
@@ -91,20 +100,44 @@
         {
           "id": "navEvents",
           "label": "EVENTS",
-          "x": 226,
-          "y": 738,
-          "w": 96,
-          "h": 50,
-          "asset": "lobby.navEvents"
-        },
-        {
-          "id": "navSoon",
-          "label": "SOON",
           "x": 330,
           "y": 738,
           "w": 96,
           "h": 50,
-          "asset": "lobby.navSoon"
+          "asset": "lobby.navEvents"
+        }
+      ]
+    },
+    {
+      "id": "world",
+      "label": "월드",
+      "slots": [
+        {
+          "id": "bg",
+          "label": "월드 배경(전체)",
+          "x": 0,
+          "y": 0,
+          "w": 450,
+          "h": 800,
+          "asset": "world.bg"
+        },
+        {
+          "id": "gear",
+          "label": "설정",
+          "x": 400,
+          "y": 10,
+          "w": 40,
+          "h": 40,
+          "asset": "ui.gear"
+        },
+        {
+          "id": "back",
+          "label": "돌아가기",
+          "x": 17,
+          "y": 740,
+          "w": 126,
+          "h": 35,
+          "asset": "world.back"
         }
       ]
     },

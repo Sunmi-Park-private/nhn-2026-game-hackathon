@@ -67,9 +67,13 @@ export type UiSlotId = (typeof UI_SLOT_IDS)[number];
 
 export const LOBBY_SLOT_IDS = [
   "bg", "topStats", "play",
-  "navHome", "navAnimals", "navEvents", "navSoon",
+  "navHome", "navWorld", "navAnimals", "navEvents",
 ] as const;
 export type LobbySlotId = (typeof LOBBY_SLOT_IDS)[number];
+
+/** 월드 지도 화면 — 배경 한 장과 돌아가기 버튼. 톱니는 로비 것을 그대로 쓴다. */
+export const WORLD_SLOT_IDS = ["bg", "back"] as const;
+export type WorldSlotId = (typeof WORLD_SLOT_IDS)[number];
 
 function pick<K extends string>(raw: unknown, block: string, keys: readonly K[]): Partial<Record<K, string>> {
   const src = ((raw as Record<string, unknown>)[block] ?? {}) as Record<string, unknown>;
@@ -83,6 +87,7 @@ function pick<K extends string>(raw: unknown, block: string, keys: readonly K[])
 
 export const uiAssetPaths = pick(manifestJson, "ui", UI_SLOT_IDS);
 export const lobbyAssetPaths = pick(manifestJson, "lobby", LOBBY_SLOT_IDS);
+export const worldAssetPaths = pick(manifestJson, "world", WORLD_SLOT_IDS);
 
 // ── 영상 ────────────────────────────────────────────────────
 // 인트로(프롤로그)와 엔딩. 세로 화면 전체를 덮는다. 파일이 없으면 그 단계를 건너뛴다.

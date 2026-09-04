@@ -10,6 +10,7 @@ import { BASE_W, stageTop, stageHeight, coverBox, fullRect } from "./stage";
 import { fitSprite } from "./skin";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection } from "./collection";
+import { openWorld } from "./worldScreen";
 import { slot, type UiSlot } from "../data/uiLayout";
 import { buzz } from "./settings";
 import { playBgm, playSfx } from "./audio";
@@ -24,6 +25,8 @@ export interface LobbyTextures {
   icons: Record<string, Texture | null>;
   /** 도감에 쓰는 동물 아트 — 시퀀스 */
   animals: Record<string, readonly Texture[]>;
+  /** 월드 지도 화면 */
+  world: { bg?: Texture; back?: Texture };
   ui: SettingsTextures;
 }
 
@@ -132,9 +135,9 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
 
     // 코인·젬은 아직 재화 시스템이 없어 0으로 둔다 — 말굽만 실제 값이다
     const counters: Array<[string, { x: number; y: number; w: number; h: number }, number]> = [
-      ["statCoin", { x: 66, y: 49, w: 60, h: 22 }, 0],
-      ["statGem", { x: 179, y: 49, w: 60, h: 22 }, 0],
-      ["statHorseshoe", { x: 292, y: 49, w: 60, h: 22 }, profile.horseshoes],
+      ["statCoin", { x: 67, y: 50, w: 60, h: 22 }, 0],
+      ["statGem", { x: 178, y: 50, w: 60, h: 22 }, 0],
+      ["statHorseshoe", { x: 285, y: 50, w: 60, h: 22 }, profile.horseshoes],
     ];
     for (const [id, fb, value] of counters) layer.addChild(counter(box(id, fb), value));
 
@@ -142,22 +145,24 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     const play = box("play", { x: 138, y: 646, w: 174, h: 54 });
     layer.addChild(hotspot(play, tex.play, () => finish(), 0x3faa48));
 
-    // ── 하단 4종 — HOME·ANIMALS만 동작 ─────────────
+    // ── 하단 4종 — HOME·WORLD·ANIMALS 동작, EVENTS는 목업 ─────
     const home = box("navHome", { x: 18, y: 738, w: 96, h: 50 });
     layer.addChild(hotspot(home, tex.icons.navHome, () => { /* 이미 홈이다 */ }));
 
-    const animals = box("navAnimals", { x: 122, y: 738, w: 96, h: 50 });
+    const world = box("navWorld", { x: 122, y: 738, w: 96, h: 50 });
+    layer.addChild(hotspot(world, tex.icons.navWorld, () => {
+      void openWorld(layer, { ...tex.world, gear: tex.gear, ui: tex.ui }).then((r) => {
+        if (r === "lobby") { /* 이미 로비다 — 월드만 닫힌다 */ }
+      });
+    }));
+
+    const animals = box("navAnimals", { x: 226, y: 738, w: 96, h: 50 });
     layer.addChild(hotspot(animals, tex.icons.navAnimals, () => {
       void openCollection(layer, profile.rescued, tex.animals);
     }));
 
-    for (const [id, fb] of [
-      ["navEvents", { x: 226, y: 738, w: 96, h: 50 }],
-      ["navSoon", { x: 330, y: 738, w: 96, h: 50 }],
-    ] as const) {
-      const b = box(id, fb);
-      layer.addChild(hotspot(b, tex.icons[id], null));
-    }
+    const events = box("navEvents", { x: 330, y: 738, w: 96, h: 50 });
+    layer.addChild(hotspot(events, tex.icons.navEvents, null));
 
     // ── 설정 ────────────────────────────────────
     const gear = box("gear", { x: 396, y: 12, w: 40, h: 40 });
