@@ -62,6 +62,35 @@ describe("parseStage — 거부", () => {
       tiles: [{ at: { q: 2, r: 2 }, tier: 0 }], // 케이지와 같은 자리
     })).toThrow(/겹/);
   });
+
+  it("cols나 rows가 0 이하면 던진다", () => {
+    expect(() => parseStage({ ...good, cols: 0 })).toThrow(/cols\/rows/);
+    expect(() => parseStage({ ...good, rows: 0 })).toThrow(/cols\/rows/);
+  });
+
+  it("shots가 0 이하면 던진다", () => {
+    expect(() => parseStage({ ...good, shots: 0 })).toThrow(/shots/);
+  });
+
+  it("objective가 음수면 던진다", () => {
+    expect(() => parseStage({ ...good, objective: -1 })).toThrow(/objective/);
+  });
+
+  it("배열이어야 할 자리가 배열이 아니면 던진다", () => {
+    expect(() => parseStage({ ...good, cages: "not-an-array" })).toThrow(/배열/);
+    expect(() => parseStage({ ...good, tiles: {} })).toThrow(/배열/);
+  });
+
+  it("케이지끼리 자리가 겹치면 던진다", () => {
+    expect(() => parseStage({
+      ...good,
+      objective: 1,
+      cages: [
+        { id: "c1", animalId: "sheep", cells: [{ q: 2, r: 2 }] },
+        { id: "c2", animalId: "zebra", cells: [{ q: 2, r: 2 }] },
+      ],
+    })).toThrow(/겹/);
+  });
 });
 
 describe("stages 데이터", () => {
