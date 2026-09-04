@@ -4,19 +4,23 @@ import { buildCells, cageNeighbors, clearCell, cellAt, isOccupied, placeTile } f
 import { resolveMerges, type MergeStep } from "./merge";
 import { findFloating } from "./gravity";
 import { simulateShot, type BoardGeom } from "./shot";
+import { pickNext } from "./nextTile";
 import type { Axial, Cage, RunState, StageDef } from "./types";
 
-/** 스테이지 정의로 새 런을 만든다. */
-export function createRun(stage: StageDef): RunState {
+/** 스테이지 정의로 새 런을 만든다.
+ *  `rng`는 발사체 색 추첨에만 쓴다 — 테스트가 고정값을 넣을 수 있도록 주입받는다. */
+export function createRun(stage: StageDef, rng: () => number = Math.random): RunState {
+  const cells = buildCells(stage);
   return {
     stage,
-    cells: buildCells(stage),
+    cells,
     shotsLeft: stage.shots,
     rescued: [],
     horseshoes: 0,
     boosters: { bomb: 3, rainbow: 2, horseshoe: 1 },
-    loaded: 0,
-    next: 0,
+    // 첫 두 발도 판에서 뽑는다 — 판에 없는 색을 장전한 채 시작하지 않는다
+    loaded: pickNext(cells, rng),
+    next: pickNext(cells, rng),
   };
 }
 
@@ -58,6 +62,7 @@ export function fireAt(
   geom: BoardGeom,
   from: { x: number; y: number },
   angleRad: number,
+  rng: () => number = Math.random,
 ): ShotOutcome {
   const empty: ShotOutcome = { snapped: null, steps: [], dropped: [], rescued: [] };
   if (state.shotsLeft <= 0) return empty;
@@ -75,7 +80,8 @@ export function fireAt(
   const rescued = applyRescues(state);
 
   state.loaded = state.next;
-  state.next = 0; // 발사체는 항상 최하위 티어
+  // 합체·낙하가 모두 끝난 뒤의 판에서 뽑는다 — 방금 사라진 색이 장전되지 않게
+  state.next = pickNext(state.cells, rng);
 
   return { snapped: snap, steps, dropped, rescued };
 }
