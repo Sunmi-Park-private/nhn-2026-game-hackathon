@@ -259,6 +259,39 @@
       ]
     },
     {
+      "id": "event",
+      "label": "이벤트",
+      "slots": [
+        {
+          "id": "bg",
+          "label": "이벤트 배경(전체)",
+          "x": 0,
+          "y": 0,
+          "w": 450,
+          "h": 800,
+          "asset": "event.bg"
+        },
+        {
+          "id": "close",
+          "label": "닫기 X",
+          "x": 386,
+          "y": 124,
+          "w": 46,
+          "h": 45,
+          "asset": "event.close"
+        },
+        {
+          "id": "cta",
+          "label": "스테이지로",
+          "x": 88,
+          "y": 614,
+          "w": 275,
+          "h": 63,
+          "asset": "event.cta"
+        }
+      ]
+    },
+    {
       "id": "ingame",
       "label": "인게임",
       "slots": [

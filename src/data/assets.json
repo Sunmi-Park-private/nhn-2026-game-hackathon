@@ -54,6 +54,12 @@
     "bg": "assets/world/bg.webp",
     "back": "assets/world/btn-back.webp"
   },
+  "event": {
+    "_note": "이벤트(한정 구조). 배경 한 장이 세로 화면 전체를 덮고, 누를 수 있는 것은 닫기와 스테이지 버튼뿐이다.",
+    "bg": "assets/event/bg.webp",
+    "close": "assets/event/btn-close.webp",
+    "cta": "assets/event/btn-stage.webp"
+  },
   "video": {
     "_note": "세로 화면 전체를 덮는 영상. mp4·webm.",
     "intro": "assets/video/intro.mp4",

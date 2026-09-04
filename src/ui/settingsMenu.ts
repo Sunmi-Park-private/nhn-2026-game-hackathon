@@ -106,7 +106,9 @@ function plate(
   const t = new Text({
     text,
     style: {
-      fontSize: Math.min(b.h * 0.42, (b.w - 12) / Math.max(1, text.length * 0.62)),
+      // 상자를 아주 좁게 줄여도 0이나 음수가 되지 않게 하한을 둔다 —
+      // 에디터는 크기에 하한이 없고, 음수 fontSize는 Pixi에서 글자가 깨진다
+      fontSize: Math.max(8, Math.min(b.h * 0.42, (b.w - 12) / Math.max(1, [...text].length * 0.62))),
       fill: 0xfff3dc,
       fontWeight: "bold",
     },

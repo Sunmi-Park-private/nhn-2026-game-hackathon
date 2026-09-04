@@ -11,6 +11,7 @@ import { fitSprite } from "./skin";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection, type CollectionTextures } from "./collection";
 import { openWorld } from "./worldScreen";
+import { openEvent, type EventTextures } from "./eventScreen";
 import { slot, type UiSlot } from "../data/uiLayout";
 import { buzz } from "./settings";
 import { playBgm, playSfx } from "./audio";
@@ -27,6 +28,8 @@ export interface LobbyTextures {
   collection: CollectionTextures;
   /** 월드 지도 화면 */
   world: { bg?: Texture; back?: Texture };
+  /** 이벤트 화면 */
+  event: EventTextures;
   ui: SettingsTextures;
 }
 
@@ -162,7 +165,10 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     }));
 
     const events = box("navEvents", { x: 330, y: 738, w: 96, h: 50 });
-    layer.addChild(hotspot(events, tex.icons.navEvents, null));
+    layer.addChild(hotspot(events, tex.icons.navEvents, () => {
+      // 스테이지로 가는 길은 아직 하나뿐이라 어느 쪽으로 닫히든 로비로 돌아온다
+      void openEvent(layer, tex.event);
+    }));
 
     // ── 설정 ────────────────────────────────────
     const gear = box("gear", { x: 396, y: 12, w: 40, h: 40 });

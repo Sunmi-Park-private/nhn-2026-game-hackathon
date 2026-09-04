@@ -89,6 +89,11 @@ export const uiAssetPaths = pick(manifestJson, "ui", UI_SLOT_IDS);
 export const lobbyAssetPaths = pick(manifestJson, "lobby", LOBBY_SLOT_IDS);
 export const worldAssetPaths = pick(manifestJson, "world", WORLD_SLOT_IDS);
 
+/** 이벤트 화면 — 배경 한 장과 닫기·스테이지 버튼. */
+export const EVENT_SLOT_IDS = ["bg", "close", "cta"] as const;
+export type EventSlotId = (typeof EVENT_SLOT_IDS)[number];
+export const eventAssetPaths = pick(manifestJson, "event", EVENT_SLOT_IDS);
+
 // ── 영상 ────────────────────────────────────────────────────
 // 인트로(프롤로그)와 엔딩. 세로 화면 전체를 덮는다. 파일이 없으면 그 단계를 건너뛴다.
 

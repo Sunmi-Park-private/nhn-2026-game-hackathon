@@ -28,7 +28,12 @@ for (const [slot, file] of Object.entries(audioAssetPaths)) {
 }
 
 const els = new Map<AudioId, HTMLAudioElement>();
-const cueEls = new Map<AudioId, HTMLAudioElement>();
+/** 효과음은 id마다 몇 개를 돌려 쓴다. 겹쳐 울려야 해서 하나로는 모자라고,
+ *  호출마다 새로 만들면 모바일 사파리의 미디어 요소 한도(대략 16~20개)를 금방 태운다.
+ *  한도를 넘으면 play()가 조용히 거절돼 그 뒤로 효과음이 통째로 죽는다. */
+const CUE_VOICES = 3;
+const cuePool = new Map<AudioId, HTMLAudioElement[]>();
+const cueCursor = new Map<AudioId, number>();
 let currentId: AudioId | null = null;
 /** 마지막으로 요청된 장면 — 핫스왑 때 무엇을 다시 틀지 판단하는 기준 */
 let sceneId: AudioId | null = null;
@@ -52,20 +57,32 @@ const applyVolume = (): void => {
 
 /** 매니페스트에 경로가 적혀 있어도 파일이 없을 수 있다 — 디자이너가 아직 안 올린 슬롯이
  *  그렇다. 404를 만나면 표에서 지워서 「파일이 없으면 조용하다」가 실제로 성립하게 한다. */
+/** 파일이 정말로 없을 때만 지운다. 터널이 끊기거나 dev 서버가 재시작하면
+ *  네트워크 오류가 한 번 나는데, 그걸로 슬롯을 영구히 죽이면 파일이 멀쩡한데도
+ *  리로드 전까지 그 소리가 안 난다. SRC_NOT_SUPPORTED(4)만 진짜 부재로 본다. */
+function onMediaError(id: AudioId, a: HTMLAudioElement): void {
+  if (a.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) forget(id);
+}
+
 function forget(id: AudioId): void {
   files.delete(id);
+  // 버리기 전에 세운다 — 재생 중인 요소를 참조만 놓으면 아무도 멈출 수 없고
+  // 다음 곡이 그 위에 겹쳐 울린다
+  els.get(id)?.pause();
   els.delete(id);
-  cueEls.delete(id);
+  for (const a of cuePool.get(id) ?? []) a.pause();
+  cuePool.delete(id);
+  cueCursor.delete(id);
   if (currentId === id) currentId = null;
 }
 
 function el(id: AudioId, file: string): HTMLAudioElement {
-  let a = els.get(id);
-  if (!a) {
-    a = new Audio(file);
+  const cached = els.get(id);
+  const a = cached ?? new Audio(file);
+  if (!cached) {
     a.loop = true;
     a.preload = "auto";
-    a.onerror = (): void => forget(id);
+    a.onerror = (): void => onMediaError(id, a);
     els.set(id, a);
   }
   a.volume = muted ? 0 : baseVolume(id) * master;
@@ -132,16 +149,22 @@ export function resumeBgm(): void {
 export function playCue(id: AudioId): void {
   const file = files.get(id);
   if (!file) return;
-  let src = cueEls.get(id);
-  if (!src) {
-    src = new Audio(file);
-    src.loop = false;
-    src.preload = "auto";
-    src.onerror = (): void => forget(id);
-    cueEls.set(id, src);
+  let pool = cuePool.get(id);
+  if (!pool) {
+    pool = Array.from({ length: CUE_VOICES }, () => {
+      const a = new Audio(file);
+      a.loop = false;
+      a.preload = "auto";
+      a.onerror = (): void => onMediaError(id, a);
+      return a;
+    });
+    cuePool.set(id, pool);
   }
-  const a = src.cloneNode() as HTMLAudioElement;
+  const n = (cueCursor.get(id) ?? 0) % pool.length;
+  cueCursor.set(id, n + 1);
+  const a = pool[n]!;
   a.volume = baseVolume(id) * master; // SOUND 판단은 playSfx가 이미 했다
+  a.currentTime = 0;
   void a.play().catch(() => {});
 }
 
@@ -185,7 +208,7 @@ export function initAudioUnlock(): void {
       current: currentBgm, volume: bgmVolume, setVolume: setBgmVolume,
       scene: () => sceneId,
       files: () => Object.fromEntries(files),
-      cues: () => [...cueEls.keys()],
+      cues: () => [...cuePool.keys()],
       state: (id: AudioId) => {
         const a = els.get(id);
         return a ? { paused: a.paused, volume: a.volume, time: a.currentTime } : null;
@@ -206,8 +229,9 @@ if (import.meta.hot) {
     else files.set(id, `${d.file}?v=${Date.now()}`);
     els.get(id)?.pause();
     els.delete(id);
-    cueEls.get(id)?.pause();
-    cueEls.delete(id);
+    for (const a of cuePool.get(id) ?? []) a.pause();
+    cuePool.delete(id);
+    cueCursor.delete(id);
     // 지금 울리고 있거나 지금 장면의 곡이 바뀌었으면 장면 기준으로 다시 판단한다
     if (currentId === id || sceneId === id) {
       currentId = null;
