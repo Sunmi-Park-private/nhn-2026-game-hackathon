@@ -50,11 +50,9 @@ npm test         # 유닛 테스트
 npm run share    # 빌드 후 프리뷰 서버 (외부 공유용)
 ```
 
-### 모바일·단일 파일 빌드
+### 단일 파일 빌드
 
 ```bash
-npm run apk:debug      # 안드로이드 APK (치트 포함 — 팀 테스트용)
-npm run apk:release    # 안드로이드 APK (치트 제외 — 제출·외부 공유용)
 npm run build:single   # 단일 HTML (로컬 파일로 실행)
 ```
 

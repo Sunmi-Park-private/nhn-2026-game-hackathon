@@ -14,20 +14,12 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build:single": "tsc --noEmit && VITE_CHEATS=1 vite build --config vite.single.config.ts && node scripts/singlefile.mjs",
-    "apk:sync": "tsc --noEmit && VITE_CHEATS=1 vite build && cap sync android",
-    "apk:debug": "npm run apk:sync && cd android && ./gradlew assembleDebug",
-    "apk:sync:release": "tsc --noEmit && vite build && cap sync android",
-    "apk:release": "npm run apk:sync:release && cd android && ./gradlew assembleRelease"
+    "build:single": "tsc --noEmit && VITE_CHEATS=1 vite build --config vite.single.config.ts && node scripts/singlefile.mjs"
   },
   "dependencies": {
-    "@capacitor/android": "^8.4.2",
-    "@capacitor/core": "^8.4.2",
-    "@capacitor/ios": "^8.4.2",
     "pixi.js": "^8.0.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.4.2",
     "@types/node": "^26.1.1",
     "playwright-core": "^1.61.1",
     "qrcode-generator": "^2.0.4",
