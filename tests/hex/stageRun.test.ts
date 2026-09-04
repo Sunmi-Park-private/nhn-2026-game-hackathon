@@ -100,14 +100,17 @@ describe("fireAt", () => {
     expect(run.cells.get(key(out.snapped!))).toEqual({ kind: "tile", tier: 0 });
   });
 
-  it("빨강 2개가 이미 붙어 있으면 발사로 합체가 일어난다", () => {
+  it("빨강 2개가 이미 붙어 있으면 발사로 셋이 터진다", () => {
     const run = createRun(stage({
       tiles: [{ at: { q: -2, r: 10 }, tier: 0 }, { at: { q: -1, r: 10 }, tier: 0 }],
     }));
     // (-2,11)에 붙으면 (-2,10)과 인접 → 빨강 3개
     const out = fireAt(run, GEOM, from, 0);
     expect(out.steps.length).toBeGreaterThan(0);
-    expect(out.steps[0]!.kind).toBe("merge");
+    expect(out.steps[0]!.kind).toBe("pop");
+    // 상위 색이 남지 않는다 — 세 칸이 모두 빈다
+    expect(out.steps[0]!.cleared).toHaveLength(3);
+    for (const a of out.steps[0]!.cleared) expect(run.cells.has(key(a))).toBe(false);
   });
 
   it("샷이 없으면 발사되지 않는다", () => {

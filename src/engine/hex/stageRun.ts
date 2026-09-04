@@ -1,7 +1,7 @@
 // engine/hex/stageRun.ts — 한 판의 진행. 발사 → 합체 → 낙하 → 구출을 한 번에 묶는다.
 import { key } from "./coords";
 import { buildCells, cageNeighbors, clearCell, cellAt, isOccupied, placeTile } from "./grid";
-import { resolveMerges, type MergeStep } from "./merge";
+import { resolvePops, type PopStep } from "./pop";
 import { findFloating } from "./gravity";
 import { simulateShot, type BoardGeom } from "./shot";
 import { pickNext } from "./nextTile";
@@ -48,7 +48,7 @@ export function applyRescues(state: RunState): Cage[] {
 
 export interface ShotOutcome {
   snapped: Axial | null;
-  steps: MergeStep[];
+  steps: PopStep[];
   dropped: Axial[];
   rescued: Cage[];
 }
@@ -73,7 +73,7 @@ export function fireAt(
   state.shotsLeft -= 1;
   placeTile(state.cells, snap, state.loaded);
 
-  const steps = resolveMerges(state.cells, snap);
+  const steps = resolvePops(state.cells, snap);
   const { dropped, shoes } = collectDrops(state);
   state.horseshoes += shoes;
 
