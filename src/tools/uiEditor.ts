@@ -369,8 +369,10 @@ function renderDetail(): void {
   });
   wrapper.appendChild(grid);
 
-  if (s.asset) wrapper.appendChild(card(s.label, s.asset, () => renderStage()));
-  else wrapper.appendChild($("div", "color:#a8987c;font-size:11px", "이 슬롯은 아트 없이 코드가 그립니다."));
+  // 토글처럼 두 장을 오가는 슬롯은 카드가 둘이다 — 켜짐과 꺼짐
+  if (s.asset) wrapper.appendChild(card(s.assetOff ? `${s.label} — 켜짐` : s.label, s.asset, () => renderStage()));
+  if (s.assetOff) wrapper.appendChild(card(`${s.label} — 꺼짐`, s.assetOff, () => renderStage()));
+  if (!s.asset && !s.assetOff) wrapper.appendChild($("div", "color:#a8987c;font-size:11px", "이 슬롯은 아트 없이 코드가 그립니다."));
 
   detail.appendChild(wrapper);
 }

@@ -197,25 +197,55 @@
           "id": "rowSound",
           "label": "SOUND",
           "x": 84,
-          "y": 262,
+          "y": 283,
           "w": 282,
           "h": 56
+        },
+        {
+          "id": "toggleSound",
+          "label": "SOUND 토글",
+          "x": 279,
+          "y": 289,
+          "w": 44,
+          "h": 44,
+          "asset": "ui.toggleOn",
+          "assetOff": "ui.toggleOff"
         },
         {
           "id": "rowMusic",
           "label": "MUSIC",
           "x": 84,
-          "y": 324,
+          "y": 338,
           "w": 282,
           "h": 56
+        },
+        {
+          "id": "toggleMusic",
+          "label": "MUSIC 토글",
+          "x": 279,
+          "y": 344,
+          "w": 44,
+          "h": 44,
+          "asset": "ui.toggleOn",
+          "assetOff": "ui.toggleOff"
         },
         {
           "id": "rowVibration",
           "label": "VIBRATION",
           "x": 84,
-          "y": 386,
+          "y": 394,
           "w": 282,
           "h": 56
+        },
+        {
+          "id": "toggleVibration",
+          "label": "VIBRATION 토글",
+          "x": 279,
+          "y": 400,
+          "w": 44,
+          "h": 44,
+          "asset": "ui.toggleOn",
+          "assetOff": "ui.toggleOff"
         },
         {
           "id": "resume",
@@ -307,14 +337,6 @@
     {
       "label": "우 패널",
       "asset": "hex.bg.panelRight"
-    },
-    {
-      "label": "토글 켜짐",
-      "asset": "ui.toggleOn"
-    },
-    {
-      "label": "토글 꺼짐",
-      "asset": "ui.toggleOff"
     },
     {
       "label": "동물 · 코끼리 — 시퀀스",

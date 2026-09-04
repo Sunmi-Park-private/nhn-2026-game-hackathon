@@ -316,10 +316,17 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 |---|---|
 | `settings-panel.png` | 나무 패널 한 장 (SOUND·MUSIC·VIBRATION 줄 배경 포함) |
 | `settings-close.png` | 우상단 X |
-| `toggle-on.png` · `toggle-off.png` | 말굽 토글 — **금색=켜짐, 회색=꺼짐** |
+| `toggle-on.png` · `toggle-off.png` | 말굽 토글 — **금색=켜짐, 은색=꺼짐**. `/ui.html` 설정창 탭의 「SOUND·MUSIC·VIBRATION 토글」 슬롯에서 켜짐·꺼짐 카드 두 장으로 올린다 |
 | `btn-resume.png` | 초록 RESUME |
 | `btn-home.png` | HOME |
 | `btn-settings.png` | 톱니 버튼 (로비·인게임 공용) |
+
+> **투명 여백은 잘라서 준다.** 토글처럼 슬롯 상자에 맞춰 그리는 그림은 여백만큼
+> 작게 렌더된다. 두 장(켜짐·꺼짐)은 **같은 경계로 잘라야** 상태가 바뀔 때 크기가
+> 튀지 않는다.
+>
+> 말굽 세 개는 각자 슬롯이라 줄마다 따로 옮기고 키울 수 있다 — 패널 아트의
+> 말굽 자리가 바뀌어도 `/ui.html`에서 맞추면 되고 코드는 건드리지 않는다.
 
 ### 동작하는 것 · 자리만 채우는 것
 

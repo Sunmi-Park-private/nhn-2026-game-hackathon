@@ -29,9 +29,12 @@ const AREA = "settings";
 const FALLBACK = {
   panel: { x: 60, y: 170, w: 330, h: 440 },
   close: { x: 356, y: 158, w: 52, h: 52 },
-  rowSound: { x: 84, y: 262, w: 282, h: 56 },
-  rowMusic: { x: 84, y: 324, w: 282, h: 56 },
-  rowVibration: { x: 84, y: 386, w: 282, h: 56 },
+  rowSound: { x: 84, y: 283, w: 282, h: 56 },
+  rowMusic: { x: 84, y: 338, w: 282, h: 56 },
+  rowVibration: { x: 84, y: 394, w: 282, h: 56 },
+  toggleSound: { x: 279, y: 289, w: 44, h: 44 },
+  toggleMusic: { x: 279, y: 344, w: 44, h: 44 },
+  toggleVibration: { x: 279, y: 400, w: 44, h: 44 },
   resume: { x: 92, y: 462, w: 266, h: 56 },
   home: { x: 130, y: 530, w: 190, h: 44 },
 } as const;
@@ -118,45 +121,54 @@ export function openSettings(parent: Container, tex: SettingsTextures): Promise<
     };
 
     // ── 토글 3종 ────────────────────────────────
-    const rows: Array<{ key: keyof Settings; id: "rowSound" | "rowMusic" | "rowVibration"; text: string }> = [
-      { key: "sound", id: "rowSound", text: "SOUND" },
-      { key: "music", id: "rowMusic", text: "MUSIC" },
-      { key: "vibration", id: "rowVibration", text: "VIBRATION" },
+    // 말굽 아이콘은 줄과 별개의 슬롯이다 — 패널 아트마다 말굽 자리가 다르므로
+    // 줄 폭에서 역산하지 않고 에디터에서 직접 끌어 맞춘다.
+    const rows: Array<{
+      key: keyof Settings;
+      id: "rowSound" | "rowMusic" | "rowVibration";
+      knob: "toggleSound" | "toggleMusic" | "toggleVibration";
+      text: string;
+    }> = [
+      { key: "sound", id: "rowSound", knob: "toggleSound", text: "SOUND" },
+      { key: "music", id: "rowMusic", knob: "toggleMusic", text: "MUSIC" },
+      { key: "vibration", id: "rowVibration", knob: "toggleVibration", text: "VIBRATION" },
     ];
     for (const row of rows) {
       const b = box(row.id);
-      const knobX = b.x + b.w - 34;
-      const knobY = b.y + b.h / 2;
+      const k = box(row.knob);
 
       // 아트가 없을 때만 줄 배경을 그린다 — 있으면 패널 아트가 이미 그리고 있다
       if (!tex.panel) {
         root.addChild(new Graphics().roundRect(b.x, b.y, b.w, b.h, 8).fill({ color: 0x53341c }));
-        root.addChild(label(row.text, 15, b.x + 16, knobY));
+        root.addChild(label(row.text, 15, b.x + 16, b.y + b.h / 2));
       }
 
       const mark = new Container();
-      mark.x = knobX;
-      mark.y = knobY;
+      mark.x = k.x + k.w / 2;
+      mark.y = k.y + k.h / 2;
       root.addChild(mark);
 
       const paint = (on: boolean): void => {
         mark.removeChildren().forEach((c) => c.destroy());
         const t = on ? tex.toggleOn : tex.toggleOff;
         if (t) {
-          mark.addChild(fitSprite(t, 34, 34));
+          mark.addChild(fitSprite(t, k.w, k.h));
           return;
         }
         // 폴백 — 켜짐은 금빛 말굽, 꺼짐은 회색
         const glyph = new Text({
           text: "U",
-          style: { fontSize: 22, fill: on ? 0xf5c518 : 0x8a8f96, fontWeight: "bold" },
+          style: { fontSize: k.h * 0.6, fill: on ? 0xf5c518 : 0x8a8f96, fontWeight: "bold" },
         });
         glyph.anchor.set(0.5);
         mark.addChild(glyph);
       };
       paint(settings()[row.key]);
 
-      root.addChild(hotspot(b, () => paint(toggle(row.key))));
+      // 말굽 자체가 버튼이다 — 줄 전체도 함께 받는다(시안대로 어디를 눌러도 바뀐다)
+      const flip = (): void => paint(toggle(row.key));
+      root.addChild(hotspot(b, flip));
+      editable(AREA, { id: k.id, label: k.label, x: k.x, y: k.y, w: k.w, h: k.h }, mark);
     }
 
     // ── RESUME · HOME · 닫기 ─────────────────────

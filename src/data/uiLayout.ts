@@ -13,6 +13,9 @@ export interface UiSlot {
   h: number;
   /** assets.json 안의 위치(점 경로). 아트가 없는 슬롯은 비어 있다. */
   asset?: string;
+  /** 꺼짐 상태의 아트. 토글처럼 두 장을 오가는 슬롯만 갖는다 —
+   *  asset이 켜짐, assetOff가 꺼짐이다. */
+  assetOff?: string;
 
   // ── 표시 속성 — 레이아웃 에디터에서 지정했을 때만 존재한다 ──
   /** 이미지·컨테이너 배율 (1 = 원본) */
@@ -59,6 +62,7 @@ function parseAreas(raw: unknown): UiArea[] {
           label: String(t.label ?? t.id ?? ""),
           x: num(t.x, 0), y: num(t.y, 0), w: num(t.w, 40), h: num(t.h, 40),
           asset: typeof t.asset === "string" ? t.asset : undefined,
+          assetOff: typeof t.assetOff === "string" ? t.assetOff : undefined,
           scale: typeof t.scale === "number" ? t.scale : undefined,
           fontSize: typeof t.fontSize === "number" ? t.fontSize : undefined,
           color: typeof t.color === "string" ? t.color : undefined,
