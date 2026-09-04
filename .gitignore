@@ -1,0 +1,36 @@
+# 의존성
+node_modules/
+
+# 빌드 산출물
+dist/
+dist-single/
+
+# QA·분석 도구 출력
+.shots/
+graphify-out/
+
+# 임시 파일
+*.tmp.mjs
+*.log
+
+# 비트(스토리) 저장 시 자동 백업 — /__beats 통째 덮어쓰기 사고 대비, 커밋 대상 아님
+src/data/beats/.backups/
+
+# OS
+.DS_Store
+
+# 세션별 git worktree (로컬 작업 공간)
+.claude/worktrees/
+
+docs/BUILD_ROADMAP.md
+
+# 제출물 원고 (로컬 전용 — 실명·연락처가 들어가므로 공개 저장소에 올리지 않는다.
+# 구글독스로 검토하고 PDF로 제출한다)
+docs/제출_*.md
+
+# 에이전트 인수인계 문서 (로컬 전용)
+docs/QA_HARNESS_HANDOFF.md
+
+# 마이그레이션 작업 문서 (로컬 전용 — 커밋하지 않음)
+docs/superpowers/specs/-incremental-pr-migration-design.md
+docs/superpowers/plans/-incremental-pr-migration.md

@@ -1,0 +1,24 @@
+Copyright (c) 2026 Sunmi Park. All Rights Reserved.
+
+이 저장소의 모든 소스코드, 리소스(이미지·사운드·텍스트 포함), 문서에 대한
+저작권은 저작권자에게 있습니다.
+
+본 저장소는 NAN 2026 (NHN GAME × AI 해커톤) 본선 심사 목적으로만
+공개됩니다. 저작권자의 사전 서면 동의 없이 아래 행위를 금합니다.
+
+  - 복제, 배포, 전송, 공중송신
+  - 수정 및 2차적 저작물의 작성
+  - 상업적 이용 및 재라이선스
+  - 저장소 내용의 전부 또는 일부를 별도 저작물에 포함하는 행위
+
+심사에 필요한 열람 및 심사 목적의 로컬 실행은 허용됩니다.
+
+본 저장소가 사용하는 서드파티 라이브러리는 각각의 원 라이선스를 따릅니다.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
