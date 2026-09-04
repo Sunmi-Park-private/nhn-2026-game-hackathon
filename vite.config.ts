@@ -29,7 +29,7 @@ function toWebp(abs: string): string | null {
 }
 
 /** 업로드를 허용하는 확장자. 그 외는 거부한다 — 공개 디렉터리에 아무거나 쓰이면 곤란하다. */
-const ALLOWED = new Set(['png', 'webp', 'jpg', 'jpeg', 'gif', 'mp4', 'webm', 'mp3', 'wav'])
+const ALLOWED = new Set(['png', 'webp', 'jpg', 'jpeg', 'gif', 'mp4', 'webm', 'mp3', 'wav', 'ogg', 'm4a'])
 const MAX_BYTES = 20 * 1024 * 1024
 
 function readJson(file: string): Record<string, unknown> {
@@ -143,7 +143,7 @@ function assetUploadPlugin(): Plugin {
               if (!abs.startsWith(PUBLIC_DIR + path.sep)) throw new Error('경로가 public 밖입니다')
               if (fs.existsSync(abs)) fs.unlinkSync(abs)
             }
-            server?.ws.send({ type: 'custom', event: 'asset-updated', data: { asset: dotted, file: files[0] } })
+            server?.ws.send({ type: 'custom', event: 'asset-updated', data: { asset: dotted, file: files[0], deleted: true } })
             res.statusCode = 200
             res.end('ok')
           } catch (err) { res.statusCode = 400; res.end(String(err)) }

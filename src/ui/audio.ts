@@ -40,7 +40,9 @@ let master = (() => {
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) / 100 : DEFAULT_VOLUME / 100;
 })();
 
-// 음소거는 설정창의 MUSIC 토글이 정한다 — 값이 두 군데 살면 화면과 소리가 어긋난다
+// 음소거는 설정창의 MUSIC 토글이 정한다 — 값이 두 군데 살면 화면과 소리가 어긋난다.
+// **배경음악에만** 걸린다. 효과음은 SOUND 토글이 따로 정하므로 여기에 얽히면
+// 음악만 끈 사람의 효과음까지 같이 죽는다.
 let muted = !settings().music;
 onSettingsChange((s) => { setBgmMuted(!s.music); });
 
@@ -48,12 +50,22 @@ const applyVolume = (): void => {
   for (const [id, a] of els) a.volume = muted ? 0 : baseVolume(id) * master;
 };
 
+/** 매니페스트에 경로가 적혀 있어도 파일이 없을 수 있다 — 디자이너가 아직 안 올린 슬롯이
+ *  그렇다. 404를 만나면 표에서 지워서 「파일이 없으면 조용하다」가 실제로 성립하게 한다. */
+function forget(id: AudioId): void {
+  files.delete(id);
+  els.delete(id);
+  cueEls.delete(id);
+  if (currentId === id) currentId = null;
+}
+
 function el(id: AudioId, file: string): HTMLAudioElement {
   let a = els.get(id);
   if (!a) {
     a = new Audio(file);
     a.loop = true;
     a.preload = "auto";
+    a.onerror = (): void => forget(id);
     els.set(id, a);
   }
   a.volume = muted ? 0 : baseVolume(id) * master;
@@ -112,18 +124,24 @@ export function resumeBgm(): void {
   startCurrent();
 }
 
-/** 트랙을 효과음처럼 처음부터 1회 재생(루프·BGM 전환 없음). 미업로드면 무음. */
+/** 트랙을 효과음처럼 1회 재생(루프·BGM 전환 없음). 미업로드면 무음.
+ *
+ *  캐시본은 **미리 받아 두는 원본**이고 실제로 우는 것은 그 복제본이다.
+ *  하나를 currentTime=0으로 되감아 쓰면 한 발에 우리가 둘 열릴 때
+ *  첫 소리가 잘리고 한 번만 들린다. */
 export function playCue(id: AudioId): void {
   const file = files.get(id);
   if (!file) return;
-  let a = cueEls.get(id);
-  if (!a) {
-    a = new Audio(file);
-    a.loop = false;
-    cueEls.set(id, a);
+  let src = cueEls.get(id);
+  if (!src) {
+    src = new Audio(file);
+    src.loop = false;
+    src.preload = "auto";
+    src.onerror = (): void => forget(id);
+    cueEls.set(id, src);
   }
-  a.volume = muted ? 0 : baseVolume(id) * master;
-  a.currentTime = 0;
+  const a = src.cloneNode() as HTMLAudioElement;
+  a.volume = baseVolume(id) * master; // SOUND 판단은 playSfx가 이미 했다
   void a.play().catch(() => {});
 }
 
@@ -132,12 +150,6 @@ export function playCue(id: AudioId): void {
 export function playSfx(id: AudioId): void {
   if (!settings().sound) return;
   playCue(id);
-}
-
-/** 재생 중인 큐 정지 */
-export function stopCue(id: AudioId): void {
-  const a = cueEls.get(id);
-  if (a) { a.pause(); a.currentTime = 0; }
 }
 
 /** 마스터 볼륨 (0~100) — 슬롯별 기본 배율에 곱해짐, localStorage 유지 */
@@ -185,12 +197,13 @@ export function initAudioUnlock(): void {
 // 개발용 핫스왑 — 에디터 업로드를 리로드 없이 반영한다(assets.json은 vite watch 제외).
 // vite WebSocket 커스텀 이벤트라 터널로 접속한 다른 기기의 게임에도 전파된다.
 if (import.meta.hot) {
-  import.meta.hot.on("asset-updated", (d: { asset?: string; file?: string }) => {
+  import.meta.hot.on("asset-updated", (d: { asset?: string; file?: string; deleted?: boolean }) => {
     const id = d.asset as AudioId | undefined;
     if (!id || !id.startsWith("audio.")) return;
+    // 삭제도 파일 경로를 함께 보낸다(방금 지운 그 경로다) — 표식이 없으면 둘을 구별할 수 없다
+    if (d.deleted || !d.file) files.delete(id);
     // 같은 파일명으로 다시 올렸을 때 브라우저 캐시를 무효화한다
-    if (d.file) files.set(id, `${d.file}?v=${Date.now()}`);
-    else files.delete(id);
+    else files.set(id, `${d.file}?v=${Date.now()}`);
     els.get(id)?.pause();
     els.delete(id);
     cueEls.get(id)?.pause();

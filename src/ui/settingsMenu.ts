@@ -148,12 +148,17 @@ export function openSettings(parent: Container, tex: SettingsTextures): Promise<
       mark.x = k.x + k.w / 2;
       mark.y = k.y + k.h / 2;
       root.addChild(mark);
+      // 그림은 상태가 바뀔 때마다 갈아 끼우고, 히트 영역은 그대로 둔다.
+      // 한 컨테이너에 섞으면 갈아 끼울 때 히트 영역까지 함께 지워진다.
+      const icon = new Container();
+      mark.addChild(icon);
+      mark.addChild(new Graphics().rect(-k.w / 2, -k.h / 2, k.w, k.h).fill({ color: 0xffffff, alpha: 0 }));
 
       const paint = (on: boolean): void => {
-        mark.removeChildren().forEach((c) => c.destroy());
+        icon.removeChildren().forEach((c) => c.destroy());
         const t = on ? tex.toggleOn : tex.toggleOff;
         if (t) {
-          mark.addChild(fitSprite(t, k.w, k.h));
+          icon.addChild(fitSprite(t, k.w, k.h));
           return;
         }
         // 폴백 — 켜짐은 금빛 말굽, 꺼짐은 회색
@@ -162,13 +167,18 @@ export function openSettings(parent: Container, tex: SettingsTextures): Promise<
           style: { fontSize: k.h * 0.6, fill: on ? 0xf5c518 : 0x8a8f96, fontWeight: "bold" },
         });
         glyph.anchor.set(0.5);
-        mark.addChild(glyph);
+        icon.addChild(glyph);
       };
       paint(settings()[row.key]);
 
-      // 말굽 자체가 버튼이다 — 줄 전체도 함께 받는다(시안대로 어디를 눌러도 바뀐다)
+      // 줄 어디를 눌러도 바뀌고, 말굽 자체도 버튼이다.
+      // 말굽의 히트 영역을 mark 안에 두어야 에디터에서 말굽을 줄 밖으로 옮겨도
+      // 같이 따라간다 — 별도 노드로 두면 그림만 움직이고 누를 자리는 제자리에 남는다.
       const flip = (): void => paint(toggle(row.key));
       root.addChild(hotspot(b, flip));
+      mark.eventMode = "static";
+      mark.cursor = "pointer";
+      mark.on("pointertap", () => { buzz(); playSfx("audio.sfxTap"); flip(); });
       editable(AREA, { id: k.id, label: k.label, x: k.x, y: k.y, w: k.w, h: k.h }, mark);
     }
 
