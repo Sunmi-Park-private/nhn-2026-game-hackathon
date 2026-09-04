@@ -8,8 +8,9 @@ import {
 import { fromPixel } from "../../src/engine/hex/coords";
 
 describe("보드 상수", () => {
-  it("7열이다", () => {
-    expect(COLS).toBe(7);
+  it("11열 16행이다 — 케이지가 육각 덩어리(7칸)와 둘레 타일을 다 담으려면 이만큼 잘아야 한다", () => {
+    expect(COLS).toBe(11);
+    expect(ROWS).toBe(16);
   });
 
   it("셀 폭은 √3 × 반지름이다", () => {

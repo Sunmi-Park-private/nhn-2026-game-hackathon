@@ -48,6 +48,22 @@ function hexAt(size: number, dx: number, dy: number): number[] {
   return out;
 }
 
+/** 케이지가 차지한 덩어리를 덮는 큰 육각 하나의 반지름.
+ *
+ *  케이지는 칸 하나가 아니라 육각 덩어리(반지름 1이면 7칸)를 차지하고,
+ *  그 둘레를 1칸짜리 타일이 감싼다. 그래서 창살은 칸마다 그리지 않고
+ *  덩어리 전체를 덮는 **큰 육각 한 장**으로 그린다.
+ *
+ *  세로로 가장 먼 칸의 중심까지 거리에 육각 반지름을 더하면 그 칸의 바깥
+ *  꼭짓점에 정확히 닿는다. pointy-top 육각은 세로가 가로보다 길어서(2 : √3)
+ *  이 값을 쓰면 가로로는 저절로 덩어리 안에 들어온다 — 둘레 타일을 침범하지 않는다.
+ *  한 칸짜리 케이지면 dy가 0이라 그냥 육각 한 장이 된다. */
+function cageHexSize(offsets: Array<{ dx: number; dy: number }>): number {
+  let maxDy = 0;
+  for (const o of offsets) maxDy = Math.max(maxDy, Math.abs(o.dy));
+  return maxDy + HEX_SIZE;
+}
+
 /** pointy-top 육각형 안에서, 중심으로부터 x만큼 떨어진 세로선의 반높이.
  *  꼭짓점이 (0, ±size)와 (±√3·size/2, ±size/2)이므로 위아래 빗변은
  *  |x|가 커질수록 y가 √3분의 1씩 줄어든다. 이 식으로 창살을 육각 안에 딱 맞춘다.
@@ -56,16 +72,20 @@ function barHalfHeight(size: number, x: number): number {
   return size - Math.abs(x) / Math.sqrt(3);
 }
 
-/** 창살 한 칸. 육각 윤곽 + 세로 창살 3줄을 그린다. */
-function drawBars(g: Graphics, size: number, dx: number, dy: number, color: number): void {
+/** 창살. 큰 육각 하나의 윤곽과, 그 안을 채우는 세로 창살을 그린다.
+ *  창살 간격은 육각 크기에 비례시켜 케이지가 커져도 밀도가 유지된다. */
+function drawBars(g: Graphics, size: number, color: number): void {
   const w = Math.sqrt(3) * size;
-  for (const t of [-1 / 3, 0, 1 / 3]) {
+  const count = Math.max(3, Math.round(size / HEX_SIZE) * 2 + 1);
+  for (let i = 0; i < count; i += 1) {
+    // -0.5 ~ +0.5 구간에 균등 배치. 양 끝은 윤곽선에 묻히므로 조금 안쪽으로 들인다
+    const t = (i / (count - 1) - 0.5) * 0.86;
     const x = w * t;
     const half = barHalfHeight(size - 3, x) - 2;
     if (half <= 0) continue;
-    g.moveTo(dx + x, dy - half).lineTo(dx + x, dy + half).stroke({ width: 2.5, color });
+    g.moveTo(x, -half).lineTo(x, half).stroke({ width: 2.5, color });
   }
-  g.poly(hexAt(size - 1, dx, dy)).stroke({ width: 3, color });
+  g.poly(hexPoints(size - 1)).stroke({ width: 3.5, color });
 }
 
 const BAR_COLOR = 0xb9c4d2;   // 쇠창살
@@ -74,57 +94,48 @@ const CAGE_DARK = 0x1b2430;   // 창살 안쪽 그늘
 function makeCageBody(cage: Cage, tex: CageTextures): Container {
   const box = new Container();
   const center = cageCenter(cage);
-  // 케이지가 차지한 각 칸의 중심을, 케이지 전체 중심 기준 오프셋으로 바꾼다.
-  // 이 오프셋이 곧 육각 격자의 칸 간격이므로 주변 타일과 정확히 맞물린다.
   const offsets = cage.cells.map((c) => {
     const p = cellToScreen(c);
     return { dx: p.x - center.x, dy: p.y - center.y };
   });
-  const w = Math.sqrt(3) * HEX_SIZE;
-  const h = 2 * HEX_SIZE;
+  const size = cageHexSize(offsets);
+  const w = Math.sqrt(3) * size;
+  const h = 2 * size;
 
   if (tex.closed) {
-    // 아트가 오면 칸마다 한 장씩 얹는다 — 타일과 같은 육각 규격이다
-    for (const { dx, dy } of offsets) {
-      const s = new Sprite(tex.closed);
-      s.anchor.set(0.5);
-      s.width = w;
-      s.height = h;
-      s.x = dx;
-      s.y = dy;
-      box.addChild(s);
-    }
+    // 아트도 덩어리 전체를 덮는 큰 육각 한 장이다 — 타일과 같은 √3 : 2 비율
+    const s = new Sprite(tex.closed);
+    s.anchor.set(0.5);
+    s.width = w;
+    s.height = h;
+    box.addChild(s);
   } else {
-    // 폴백 — 칸마다 육각 그늘을 깔고, 동물을 얹은 뒤, 창살을 그 위에 덮는다.
-    // 순서가 중요하다: 창살이 동물보다 위에 있어야 「갇혀 있다」로 읽힌다.
-    const back = new Graphics();
-    for (const { dx, dy } of offsets) back.poly(hexAt(HEX_SIZE - 1, dx, dy)).fill(CAGE_DARK);
-    box.addChild(back);
+    box.addChild(new Graphics().poly(hexPoints(size - 1)).fill(CAGE_DARK));
   }
 
   const animalTex = tex.animals[cage.animalId] ?? null;
   if (animalTex) {
     const a = new Sprite(animalTex);
     a.anchor.set(0.5);
-    a.width = w * cage.cells.length * 0.6;
-    a.height = h * 0.6;
+    a.width = w * 0.62;
+    a.height = h * 0.62;
     box.addChild(a);
   } else {
     const label = new Text({
       text: cage.animalId,
-      style: { fontSize: 10, fill: 0xffffff, fontWeight: "bold" },
+      style: { fontSize: 11, fill: 0xffffff, fontWeight: "bold" },
     });
     label.anchor.set(0.5);
-    label.y = -HEX_SIZE * 0.3; // 아래쪽 자물쇠와 겹치지 않게 살짝 올린다
+    label.y = -size * 0.12;
     box.addChild(label);
   }
 
   if (!tex.closed) {
+    // 창살은 동물보다 위에 그린다 — 그래야 「갇혀 있다」로 읽힌다
     const bars = new Graphics();
-    for (const { dx, dy } of offsets) drawBars(bars, HEX_SIZE, dx, dy, BAR_COLOR);
-    // 자물쇠 — 케이지 아래쪽 한가운데. 육각 아래 꼭짓점 안쪽에 걸친다.
-    bars.roundRect(-9, HEX_SIZE - 16, 18, 13, 3).fill({ color: 0xe4ebf3 });
-    bars.circle(0, HEX_SIZE - 10, 3).fill({ color: CAGE_DARK });
+    drawBars(bars, size, BAR_COLOR);
+    bars.roundRect(-9, size - 17, 18, 13, 3).fill({ color: 0xe4ebf3 });
+    bars.circle(0, size - 11, 3).fill({ color: CAGE_DARK });
     box.addChild(bars);
   }
 

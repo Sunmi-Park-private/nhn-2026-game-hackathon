@@ -14,8 +14,11 @@ export const RAIL_W = 56;
 export const RAIL_MARGIN = 12;
 const RAIL_RESERVE = RAIL_W + RAIL_MARGIN * 2; // 80
 
-export const COLS = 7;
-export const ROWS = 10;
+// 케이지가 반지름 1의 육각 덩어리(7칸)를 차지하고, 그 둘레(반지름 2, 12칸)를
+// 1칸짜리 타일이 감싼다. 그러려면 케이지 하나가 가로 3열·세로 3행을 먹으므로
+// 7열 격자로는 두 개를 놓을 자리가 없다. 칸을 잘게 쪼개 자리를 만든다.
+export const COLS = 11;
+export const ROWS = 16;
 
 /** 중앙 콘텐츠 컬럼의 논리 크기. 정확히 9:16이다.
  *  전체 화면은 16:9이고 좌우에 헛간 패널이 붙지만, 게임은 이 컬럼 안에서만 논다. */
