@@ -1,24 +1,56 @@
 {
-  "_note": "에셋 슬롯 매니페스트 — 파일이 public/ 아래 경로에 존재하면 자동 반영, 없으면 플레이스홀더. 디자이너는 파일만 드롭.",
-  "background": "assets/bg/practice.webp",
-  "title": "assets/bg/title.webp",
-  "loading": "assets/bg/loading.png",
-  "characters": {
-    "haru": {
-      "bust": "assets/char/haru_bust.webp",
-      "stand": "assets/char/haru_stand.png",
-      "idle": {
-        "base": "assets/char/haru_idle_",
-        "frames": 16,
-        "fps": 10
-      }
+  "_note": "에셋 슬롯 매니페스트 — 파일이 public/ 아래 경로에 존재하면 자동 반영, 없으면 폴백. 디자이너는 파일만 드롭.",
+  "hex": {
+    "tiles": [
+      "assets/hex/tile-red.png",
+      "assets/hex/tile-yellow.webp",
+      "assets/hex/tile-green.png",
+      "assets/hex/tile-blue.png",
+      "assets/hex/tile-purple.png",
+      "assets/hex/tile-gold.png"
+    ],
+    "horseshoe": "assets/hex/tile-horseshoe.png",
+    "cageClosed": "assets/hex/cage-closed.png",
+    "cageOpen": "assets/hex/cage-open.png",
+    "animals": {
+      "sheep": "assets/hex/animal-sheep.png",
+      "zebra": "assets/hex/animal-zebra.png",
+      "deer": "assets/hex/animal-deer.png",
+      "elephant": "assets/hex/animal-elephant.png",
+      "penguin": "assets/hex/animal-penguin.png",
+      "rabbit": "assets/hex/animal-rabbit.png",
+      "monkey": "assets/hex/animal-monkey.png"
     },
-    "staff": {
-      "bust": "assets/char/staff_bust.png"
+    "_note": "문자열=스틸 한 장, 배열=이미지 시퀀스. 에디터가 시퀀스를 올리면 배열로 바뀐다.",
+    "horse": "assets/hex/horse-idle.png",
+    "bg": {
+      "board": "assets/hex/bg-board.png",
+      "panelLeft": "assets/hex/bg-panel-left.png",
+      "panelRight": "assets/hex/bg-panel-right.png"
     }
   },
-  "gates": {
-    "rhythm": "assets/bg/gate_rhythm.jpg",
-    "dodge": "assets/bg/gate_dodge.jpg"
+  "ui": {
+    "_note": "공용 UI 슬롯. 파일이 없으면 코드가 그린 도형으로 폴백한다.",
+    "settingsPanel": "assets/ui/settings-panel.webp",
+    "settingsClose": "assets/ui/settings-close.png",
+    "toggleOn": "assets/ui/toggle-on.png",
+    "toggleOff": "assets/ui/toggle-off.png",
+    "btnResume": "assets/ui/btn-resume.png",
+    "btnHome": "assets/ui/btn-home.png",
+    "gear": "assets/ui/btn-settings.png"
+  },
+  "lobby": {
+    "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다.",
+    "bg": "assets/lobby/bg.png",
+    "play": "assets/lobby/btn-play.webp",
+    "navHome": "assets/lobby/nav-home.png",
+    "navAnimals": "assets/lobby/nav-animals.png",
+    "navEvents": "assets/lobby/nav-events.png",
+    "navSoon": "assets/lobby/nav-soon.png"
+  },
+  "video": {
+    "_note": "세로 화면 전체를 덮는 영상. mp4·webm.",
+    "intro": "assets/video/intro.mp4",
+    "ending": "assets/video/ending.mp4"
   }
 }

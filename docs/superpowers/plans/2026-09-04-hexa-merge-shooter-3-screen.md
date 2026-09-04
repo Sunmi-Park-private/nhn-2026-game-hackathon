@@ -29,8 +29,11 @@
 ## Global Constraints
 
 - **Node 20~24** (`.nvmrc` = 22). Node 25에서도 현재 빌드·테스트는 통과한다
-- **논리 좌표계 430×800** — `src/ui/stage.ts`의 `BASE_W`/`BASE_H`가 SSOT다. 새 코드도 이 좌표계에 그린다
-- **7열 고정.** 육각 반지름은 나무 프레임 안쪽 폭에서 역산한다 — 최종 시안의 프레임이 좌우를 잡아먹어 430 전폭을 쓸 수 없다. `geom.ts`가 `FIELD_INSET`으로부터 `HEX_SIZE`를 계산하는 것이 SSOT다 (Task 9)
+- **화면 = 전체 16:9 · 중앙 9:16 · 좌우 각 175:288.** 게임은 세로 게임이고 중앙 컬럼 안에서만 논다.
+  좌우 패널은 가로 뷰포트를 채우는 배경 장식이다 (9/16 + 2×175/288 = 16/9, 정확한 분할)
+- **논리 콘텐츠 박스 450×800** (정확히 9:16) — `src/ui/stage.ts`의 `BASE_W`/`BASE_H`가 SSOT.
+  캔버스는 뷰포트가 허용하는 만큼 가로로 확장하고(최대 1422.22×800) 남는 자리를 좌우 패널이 채운다
+- **7열 고정.** 육각 반지름은 중앙 컬럼 폭에서 역산한다. `geom.ts`가 `CENTER_W`·`FIELD_INSET`으로부터 `CELL_W`와 `HEX_SIZE`를 계산하는 것이 SSOT다 (Task 9). 스테이지 JSON이 7열 전제라 `COLS`는 바꾸지 않는다
 - **티어 6단계** — `Tier = 0|1|2|3|4|5` (0=빨강 … 5=황금). 기획서 T1~T6과 1:1 대응하되 0부터 센다
 - **머지 임계값 3** — 같은 티어 연결 성분이 3 이상일 때 합체
 - **규약 1조** — `ui/` 렌더 함수는 200줄에서 자른다
@@ -117,7 +120,7 @@
 // tests/hex/geom.test.ts — 보드 배치 상수 (Pixi 비의존 부분만)
 import { describe, it, expect } from "vitest";
 import {
-  HEX_SIZE, CELL_W, COLS, ROWS, BOARD, ORIGIN, FIELD_INSET,
+  HEX_SIZE, CELL_W, COLS, ROWS, BOARD, ORIGIN, FIELD_INSET, CENTER_W, CENTER_H,
   cellToScreen, launchOrigin,
 } from "../../src/ui/hex/geom";
 
@@ -137,7 +140,7 @@ describe("보드 상수", () => {
 
 describe("나무 프레임 안쪽에 들어간다", () => {
   it("보드 전체 폭이 프레임 안쪽 폭을 넘지 않는다", () => {
-    const fieldW = 430 - FIELD_INSET * 2;
+    const fieldW = CENTER_W - FIELD_INSET * 2;
     expect(COLS * CELL_W).toBeLessThanOrEqual(fieldW + 0.001);
   });
 
@@ -148,12 +151,12 @@ describe("나무 프레임 안쪽에 들어간다", () => {
 
   it("보드 오른쪽 끝이 프레임 안쪽보다 안에 있다", () => {
     const right = cellToScreen({ q: COLS - 1, r: 0 }).x + CELL_W / 2;
-    expect(right).toBeLessThanOrEqual(430 - FIELD_INSET + 0.001);
+    expect(right).toBeLessThanOrEqual(CENTER_W - FIELD_INSET + 0.001);
   });
 
   it("좌우 여백이 대칭이다", () => {
     const left = cellToScreen({ q: 0, r: 0 }).x - CELL_W / 2;
-    const right = 430 - (cellToScreen({ q: COLS - 1, r: 0 }).x + CELL_W / 2);
+    const right = CENTER_W - (cellToScreen({ q: COLS - 1, r: 0 }).x + CELL_W / 2);
     expect(left).toBeCloseTo(right, 5);
   });
 });
@@ -176,11 +179,11 @@ describe("launchOrigin", () => {
   });
 
   it("발사 지점이 가로 중앙이다", () => {
-    expect(launchOrigin().x).toBeCloseTo(215, 0);
+    expect(launchOrigin().x).toBeCloseTo(CENTER_W / 2, 5);
   });
 
   it("발사 지점이 화면 안에 있다", () => {
-    expect(launchOrigin().y).toBeLessThan(800);
+    expect(launchOrigin().y).toBeLessThan(CENTER_H);
   });
 });
 ```
@@ -203,22 +206,27 @@ import type { BoardGeom } from "../../engine/hex/shot";
 
 /** 최종 아트의 나무 프레임 안쪽까지의 여백(한쪽). 판은 이 안에서만 논다.
  *  프레임을 조금 넓히거나 좁히면 여기만 고치면 되고, 육각 크기는 자동으로 따라온다. */
-export const FIELD_INSET = 58;
+export const FIELD_INSET = 10;
 
 export const COLS = 7;
 export const ROWS = 12;
 
-/** 프레임 안쪽 폭. 430에서 좌우 여백을 뺀 값. */
-const FIELD_W = 430 - FIELD_INSET * 2; // 314
+/** 중앙 콘텐츠 컬럼의 논리 크기. 정확히 9:16이다.
+ *  전체 화면은 16:9이고 좌우에 헛간 패널이 붙지만, 게임은 이 컬럼 안에서만 논다. */
+export const CENTER_W = 450;
+export const CENTER_H = 800;
+
+/** 판 폭. 중앙 컬럼에서 좌우 여백을 뺀 값. */
+const FIELD_W = CENTER_W - FIELD_INSET * 2; // 430
 
 /** 셀 폭은 프레임 안쪽 폭을 열 수로 나눈 값이다 — 아트가 크기를 정한다. */
-export const CELL_W = FIELD_W / COLS; // ≈ 44.86
+export const CELL_W = FIELD_W / COLS; // ≈ 61.4
 
 /** 육각 반지름은 셀 폭에서 역산한다. 셀 폭 = √3 × 반지름. */
-export const HEX_SIZE = CELL_W / Math.sqrt(3); // ≈ 25.9
+export const HEX_SIZE = CELL_W / Math.sqrt(3); // ≈ 35.5
 
 /** 행 간격. pointy-top 육각은 1.5 × 반지름씩 내려간다. */
-export const ROW_H = HEX_SIZE * 1.5; // ≈ 38.9
+export const ROW_H = HEX_SIZE * 1.5; // ≈ 53.2
 
 export const BOARD: BoardGeom = { size: HEX_SIZE, cols: COLS, rows: ROWS };
 
@@ -235,7 +243,7 @@ export function cellToScreen(a: Axial): { x: number; y: number } {
 
 /** 발사 지점 — 판 하단 중앙. 붉은말이 여기서 타일을 던진다. */
 export function launchOrigin(): { x: number; y: number } {
-  return { x: 215, y: ORIGIN.y + ROW_H * ROWS + 30 };
+  return { x: CENTER_W / 2, y: ORIGIN.y + ROW_H * ROWS + 30 };
 }
 
 /** 발사 지점을 엔진 좌표계(ORIGIN 기준)로 옮긴다 — simulateShot이 쓰는 계다. */
@@ -326,7 +334,7 @@ Expected: 전부 통과
 git add src/ui/hex/geom.ts src/ui/hex/tileArt.ts tests/hex/geom.test.ts
 git commit -m "feat(hex): 보드 지오메트리와 타일 아트 폴백
 
-7열을 나무 프레임 안쪽(좌우 58px 여백)에 맞추고 육각 크기를 역산한다.
+7열을 중앙 9:16 컬럼(450×800) 안에 맞추고 육각 크기를 역산한다.
 아트가 없으면
 가시광선 순서의 색 육각으로 폴백해 디자이너를 기다리지 않고 개발한다."
 ```
@@ -1045,6 +1053,81 @@ git commit -m "feat(hex): 스테이지 화면 조립
 ---
 
 ## Task 14: 부트 플로우 교체 (main.ts)
+
+> **개정 (2026-09-04, 해상도 변경 반영).** 화면이 전체 16:9로 바뀌었다. 게임은 여전히
+> 세로 게임이고 **중앙 9:16 컬럼(450×800) 안에서만 논다.** 좌우 패널(각 175:288)은
+> 가로 뷰포트를 채우는 배경 장식이다. 기존 `stage.ts`의 구조(콘텐츠 박스 고정 + 배경
+> 블리드)를 그대로 쓰되, 지금까지 세로로만 하던 블리드를 **가로로도** 해야 한다.
+>
+> 이 태스크는 아래 두 가지를 추가로 한다.
+
+### 추가 A — `src/ui/stage.ts`에 가로 블리드를 넣는다
+
+현재 `stage.ts`는 `BASE_W = 430`이고 세로 블리드만 있다(`setStageExtra` · `stageTop` ·
+`stageHeight`). 정확히 대칭인 가로판을 추가하고 `BASE_W`를 9:16에 맞춘다.
+
+```ts
+export const BASE_W = 450;   // 430 → 450. 450×800 = 정확히 9:16
+export const BASE_H = 800;
+
+let extra = 0;      // 세로 여분 (기존)
+let extraX = 0;     // 가로 여분 — 캔버스 논리 폭 − BASE_W
+
+export function setStageExtraX(e: number): void { extraX = Math.max(0, e); }
+
+/** 콘텐츠(0..450) 좌표계에서 캔버스 최좌단 x (0 또는 음수) */
+export function stageLeft(): number { return -extraX / 2; }
+/** 캔버스 논리 폭 (BASE_W + 좌우 패널) */
+export function stageWidth(): number { return BASE_W + extraX; }
+```
+
+`fullRect`와 `coverBg`가 가로 여분까지 덮도록 고친다 — 지금은 폭이 `BASE_W`로 박혀 있다.
+
+```ts
+export function fullRect(color: number, alpha?: number): Graphics {
+  const g = new Graphics().rect(stageLeft(), stageTop(), stageWidth(), stageHeight());
+  return alpha === undefined ? g.fill(color) : g.fill({ color, alpha });
+}
+
+export function coverBg(tex: Texture): Sprite {
+  const spr = new Sprite(tex);
+  const s = Math.max(stageWidth() / tex.width, stageHeight() / tex.height);
+  spr.scale.set(s);
+  spr.x = stageLeft() + (stageWidth() - tex.width * s) / 2;
+  spr.y = stageTop() + (stageHeight() - tex.height * s) / 2;
+  return spr;
+}
+```
+
+### 추가 B — `src/main.ts`의 캔버스 fit을 16:9로
+
+지금은 폭 430 고정에 세로만 늘린다. 이제 **가로도 늘린다** — 뷰포트가 9:16보다 넓으면
+최대 16:9(= 1422.22 × 800)까지 확장하고, 남는 자리를 좌우 패널이 채운다.
+좁은 세로 뷰포트(폰)에서는 중앙만 보이고 게임은 그대로 성립한다.
+
+```ts
+  const MAX_ASPECT = 16 / 9;                  // 전체 화면 상한
+  const MIN_ASPECT = 450 / 800;               // 중앙 컬럼 = 9:16
+  const fit = (): void => {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    // 논리 높이는 800 고정, 논리 폭만 뷰포트 비율에 따라 늘린다
+    const aspect = Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, vw / vh));
+    const logicalW = Math.round(800 * aspect);
+    const s = Math.min(vw / logicalW, vh / 800);
+    app.renderer.resize(logicalW, 800);
+    setStageExtraX(logicalW - 450);
+    setStageExtra(0);
+    app.stage.x = (logicalW - 450) / 2;        // 콘텐츠 450 박스를 가로 중앙에
+    app.canvas.style.width = `${logicalW * s}px`;
+    app.canvas.style.height = `${800 * s}px`;
+  };
+```
+
+기존 세로 블리드 로직(`ART_H = 956`, `logicalH()`)은 걷어낸다 — 세로는 800 고정이고
+가로가 늘어나는 구조로 바뀌었다.
+
+**검증:** 브라우저 창을 좁혔다 넓혔다 하며 (1) 좁을 때 중앙 컬럼만 보이고 판이 잘리지
+않는지, (2) 넓을 때 좌우 패널이 채워지고 판이 가운데 고정인지 확인한다.
 
 **Files:**
 - Modify: `src/main.ts` — 게임 루프를 스테이지 루프로 교체

@@ -1,0 +1,321 @@
+{
+  "_note": "UI 슬롯 배치. 좌표계는 중앙 콘텐츠 컬럼 450×800이다. /ui.html 에디터로 조정하고 저장한다.",
+  "areas": [
+    {
+      "id": "lobby",
+      "label": "로비",
+      "slots": [
+        {
+          "id": "bg",
+          "label": "로비 배경(전체)",
+          "x": 0,
+          "y": 0,
+          "w": 450,
+          "h": 800,
+          "asset": "lobby.bg"
+        },
+        {
+          "id": "topStats",
+          "label": "상단 재화 바",
+          "x": 30,
+          "y": 12,
+          "w": 300,
+          "h": 34
+        },
+        {
+          "id": "gear",
+          "label": "설정",
+          "x": 400,
+          "y": 10,
+          "w": 40,
+          "h": 40,
+          "asset": "ui.gear"
+        },
+        {
+          "id": "play",
+          "label": "PLAY",
+          "x": 140,
+          "y": 620,
+          "w": 174,
+          "h": 54,
+          "asset": "lobby.play"
+        },
+        {
+          "id": "navHome",
+          "label": "HOME",
+          "x": 18,
+          "y": 738,
+          "w": 96,
+          "h": 50,
+          "asset": "lobby.navHome"
+        },
+        {
+          "id": "navAnimals",
+          "label": "ANIMALS",
+          "x": 122,
+          "y": 738,
+          "w": 96,
+          "h": 50,
+          "asset": "lobby.navAnimals",
+          "fontSize": 12
+        },
+        {
+          "id": "navEvents",
+          "label": "EVENTS",
+          "x": 226,
+          "y": 738,
+          "w": 96,
+          "h": 50,
+          "asset": "lobby.navEvents"
+        },
+        {
+          "id": "navSoon",
+          "label": "SOON",
+          "x": 330,
+          "y": 738,
+          "w": 96,
+          "h": 50,
+          "asset": "lobby.navSoon"
+        }
+      ]
+    },
+    {
+      "id": "ingame",
+      "label": "인게임",
+      "slots": [
+        {
+          "id": "stageBar",
+          "label": "스테이지 바",
+          "x": 115,
+          "y": 28,
+          "w": 220,
+          "h": 40
+        },
+        {
+          "id": "shots",
+          "label": "남은 발사",
+          "x": 155,
+          "y": 72,
+          "w": 140,
+          "h": 20
+        },
+        {
+          "id": "gear",
+          "label": "설정",
+          "x": 396,
+          "y": 12,
+          "w": 40,
+          "h": 40,
+          "asset": "ui.gear"
+        },
+        {
+          "id": "nextPanel",
+          "label": "NEXT",
+          "x": 382,
+          "y": 300,
+          "w": 56,
+          "h": 68
+        },
+        {
+          "id": "boosterBomb",
+          "label": "부스터 폭탄",
+          "x": 388,
+          "y": 378,
+          "w": 44,
+          "h": 44
+        },
+        {
+          "id": "boosterRainbow",
+          "label": "부스터 레인보우",
+          "x": 388,
+          "y": 434,
+          "w": 44,
+          "h": 44
+        },
+        {
+          "id": "boosterHorseshoe",
+          "label": "부스터 말굽",
+          "x": 388,
+          "y": 490,
+          "w": 44,
+          "h": 44
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "label": "설정창",
+      "slots": [
+        {
+          "id": "panel",
+          "label": "패널",
+          "x": 60,
+          "y": 170,
+          "w": 330,
+          "h": 440,
+          "asset": "ui.settingsPanel"
+        },
+        {
+          "id": "close",
+          "label": "닫기 X",
+          "x": 356,
+          "y": 158,
+          "w": 52,
+          "h": 52,
+          "asset": "ui.settingsClose"
+        },
+        {
+          "id": "rowSound",
+          "label": "SOUND",
+          "x": 84,
+          "y": 262,
+          "w": 282,
+          "h": 56
+        },
+        {
+          "id": "rowMusic",
+          "label": "MUSIC",
+          "x": 84,
+          "y": 324,
+          "w": 282,
+          "h": 56
+        },
+        {
+          "id": "rowVibration",
+          "label": "VIBRATION",
+          "x": 84,
+          "y": 386,
+          "w": 282,
+          "h": 56
+        },
+        {
+          "id": "resume",
+          "label": "RESUME",
+          "x": 92,
+          "y": 462,
+          "w": 266,
+          "h": 56,
+          "asset": "ui.btnResume"
+        },
+        {
+          "id": "home",
+          "label": "HOME",
+          "x": 130,
+          "y": 530,
+          "w": 190,
+          "h": 44,
+          "asset": "ui.btnHome"
+        }
+      ]
+    }
+  ],
+  "uploads": [
+    {
+      "label": "붉은말(발사대) — 시퀀스",
+      "asset": "hex.horse",
+      "seq": true
+    },
+    {
+      "label": "타일 빨강",
+      "asset": "hex.tiles.0"
+    },
+    {
+      "label": "타일 노랑",
+      "asset": "hex.tiles.1"
+    },
+    {
+      "label": "타일 초록",
+      "asset": "hex.tiles.2"
+    },
+    {
+      "label": "타일 파랑",
+      "asset": "hex.tiles.3"
+    },
+    {
+      "label": "타일 보라",
+      "asset": "hex.tiles.4"
+    },
+    {
+      "label": "타일 황금",
+      "asset": "hex.tiles.5"
+    },
+    {
+      "label": "말굽 타일",
+      "asset": "hex.horseshoe"
+    },
+    {
+      "label": "우리(닫힘)",
+      "asset": "hex.cageClosed"
+    },
+    {
+      "label": "우리(열림) — 시퀀스",
+      "asset": "hex.cageOpen",
+      "seq": true
+    },
+    {
+      "label": "동물 · 양 — 시퀀스",
+      "asset": "hex.animals.sheep",
+      "seq": true
+    },
+    {
+      "label": "동물 · 얼룩말 — 시퀀스",
+      "asset": "hex.animals.zebra",
+      "seq": true
+    },
+    {
+      "label": "동물 · 사슴 — 시퀀스",
+      "asset": "hex.animals.deer",
+      "seq": true
+    },
+    {
+      "label": "게임판 배경",
+      "asset": "hex.bg.board"
+    },
+    {
+      "label": "좌 패널",
+      "asset": "hex.bg.panelLeft"
+    },
+    {
+      "label": "우 패널",
+      "asset": "hex.bg.panelRight"
+    },
+    {
+      "label": "토글 켜짐",
+      "asset": "ui.toggleOn"
+    },
+    {
+      "label": "토글 꺼짐",
+      "asset": "ui.toggleOff"
+    },
+    {
+      "label": "동물 · 코끼리 — 시퀀스",
+      "asset": "hex.animals.elephant",
+      "seq": true
+    },
+    {
+      "label": "동물 · 펭귄 — 시퀀스",
+      "asset": "hex.animals.penguin",
+      "seq": true
+    },
+    {
+      "label": "동물 · 토끼 — 시퀀스",
+      "asset": "hex.animals.rabbit",
+      "seq": true
+    },
+    {
+      "label": "동물 · 원숭이 — 시퀀스",
+      "asset": "hex.animals.monkey",
+      "seq": true
+    }
+  ],
+  "videos": [
+    {
+      "label": "인트로 (프롤로그)",
+      "asset": "video.intro"
+    },
+    {
+      "label": "엔딩",
+      "asset": "video.ending"
+    }
+  ]
+}

@@ -28,9 +28,3 @@ docs/BUILD_ROADMAP.md
 # 구글독스로 검토하고 PDF로 제출한다)
 docs/제출_*.md
 
-# 에이전트 인수인계 문서 (로컬 전용)
-docs/QA_HARNESS_HANDOFF.md
-
-# 마이그레이션 작업 문서 (로컬 전용 — 커밋하지 않음)
-docs/superpowers/specs/-incremental-pr-migration-design.md
-docs/superpowers/plans/-incremental-pr-migration.md

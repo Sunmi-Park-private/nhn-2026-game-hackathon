@@ -50,11 +50,9 @@ npm test         # 유닛 테스트
 npm run share    # 빌드 후 프리뷰 서버 (외부 공유용)
 ```
 
-### 모바일·단일 파일 빌드
+### 단일 파일 빌드
 
 ```bash
-npm run apk:debug      # 안드로이드 APK (치트 포함 — 팀 테스트용)
-npm run apk:release    # 안드로이드 APK (치트 제외 — 제출·외부 공유용)
 npm run build:single   # 단일 HTML (로컬 파일로 실행)
 ```
 
@@ -72,6 +70,8 @@ src/data/stages/*.json  →  src/engine/hex/  →  src/ui/hex/
 |---|---|
 | `engine/hex/` | 축좌표계 · 그리드 · 색 판정과 제거 · 낙하 · 궤적과 스냅 · 케이지 6면 분할 · 런 상태 · 부스터 · 스테이지 검증 |
 | `ui/hex/` | 보드 렌더 · 케이지와 구출 연출 · HUD · 런처 · 화면 조립 |
+| `ui/` | 로비 · 설정창 · 도감 · 스킨 슬롯 · 설정 저장 |
+| `tools/` | UI 배치 에디터 (`/ui.html`) |
 
 ## 화면 구성
 
@@ -95,8 +95,10 @@ src/data/stages/*.json  →  src/engine/hex/  →  src/ui/hex/
 아직 도착하지 않은 슬롯은 색 육각·창살 프레임 같은 폴백으로 그려지므로,
 아트가 하나도 없어도 게임이 성립하고 일부만 도착해도 정상 동작합니다.
 
-제작 사양은 `docs/ART_SPEC.md`에 있습니다. 배치는 브라우저 에디터(`/editor.html`)로
-직접 조정합니다.
+제작 사양은 `docs/ART_SPEC.md`에 있습니다.
+UI 배치와 에셋 업로드는 브라우저 에디터 `/ui.html`에서 합니다 — 로비·인게임·설정창·게임 에셋
+탭이 한 페이지에 있고, 저장하면 `src/data/uiLayout.json`이 갱신됩니다.
+`/?editor=1`을 열면 **도는 게임 위에서** 항목을 직접 끌어 옮길 수 있습니다(자동 저장).
 
 ## 문서
 

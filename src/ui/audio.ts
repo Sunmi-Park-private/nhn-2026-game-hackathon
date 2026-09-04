@@ -2,6 +2,7 @@
 // 모바일 물리 볼륨 버튼: 웹은 시스템 볼륨 API가 없지만, HTMLAudio는 OS '미디어 볼륨' 채널로
 // 재생되므로 기기 볼륨 버튼이 자동으로 적용된다 (별도 코드 불필요).
 import { isDevMode } from "./devMode";
+import { settings, onSettingsChange } from "./settings";
 import bgmJson from "../data/bgm.json";
 
 export interface BgmTrack { id: string; label: string; file: string; base: number; desc?: string }
@@ -46,7 +47,9 @@ let master = (() => {
   return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) / 100 : DEFAULT_VOLUME / 100;
 })();
 
-let muted = localStorage.getItem("redhorserescue.bgmMuted") === "1";
+// 음소거는 설정창의 MUSIC 토글이 정한다 — 값이 두 군데 살면 화면과 소리가 어긋난다
+let muted = !settings().music;
+onSettingsChange((s) => { setBgmMuted(!s.music); });
 
 const applyVolume = (): void => {
   for (const [id, a] of els) a.volume = muted ? 0 : (byId.get(id)?.base ?? 0.5) * master;
