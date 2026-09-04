@@ -84,7 +84,11 @@ export async function runStageScreen(
   const launcher = createLauncher();
 
   // 케이지는 타일보다 뒤에 둬서 타일이 케이지를 파묻게 하고, 발사대·HUD는 맨 앞에 둔다
-  layer.addChild(cages.root, board.root, launcher.root, hud.root);
+  // 순서 = z. 케이지를 타일보다 **위**에 둔다 — 큰 창살이 둘레 타일의 가장자리를
+  // 덮으면서 「타일 무리 위에 얹힌 물건」으로 읽힌다. 아래에 두면 작은 타일들이
+  // 창살을 파고들어 케이지 윤곽이 끊겨 보였다.
+  // 발사체(launcher)는 케이지보다 위다 — 창살 앞을 지나가는 것이 맞다.
+  layer.addChild(board.root, cages.root, launcher.root, hud.root);
   app.stage.addChild(layer);
 
   /** 케이지를 뺀 나머지 갱신. 구출 연출 전에는 이것만 부른다 —
