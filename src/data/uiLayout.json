@@ -283,19 +283,19 @@
         {
           "id": "resume",
           "label": "RESUME",
-          "x": 92,
-          "y": 462,
-          "w": 266,
-          "h": 56,
+          "x": 121,
+          "y": 468,
+          "w": 98,
+          "h": 48,
           "asset": "ui.btnResume"
         },
         {
           "id": "home",
           "label": "HOME",
-          "x": 130,
-          "y": 530,
-          "w": 190,
-          "h": 44,
+          "x": 229,
+          "y": 468,
+          "w": 98,
+          "h": 48,
           "asset": "ui.btnHome"
         }
       ]

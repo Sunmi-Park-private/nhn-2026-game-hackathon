@@ -1,4 +1,4 @@
-// ui/settingsMenu.ts — 설정창. 시안대로 SOUND · MUSIC · VIBRATION 토글과 RESUME · HOME.
+// ui/settingsMenu.ts — 설정창. 시안대로 사운드 · 배경음악 · 진동 토글과 계속하기 · 홈으로.
 //
 // 열려 있는 동안 뒤 화면의 입력을 막는다 — 반투명 막이 히트 영역을 통째로 먹는다.
 // 그러지 않으면 메뉴를 누르려다 뒤에서 발사가 나간다.
@@ -36,8 +36,10 @@ const FALLBACK = {
   toggleSound: { x: 279, y: 289, w: 44, h: 44 },
   toggleMusic: { x: 279, y: 344, w: 44, h: 44 },
   toggleVibration: { x: 279, y: 400, w: 44, h: 44 },
-  resume: { x: 92, y: 462, w: 266, h: 56 },
-  home: { x: 130, y: 530, w: 190, h: 44 },
+  // 하단 두 버튼은 좌우로 나란하다. 에디터에서 확정한 값과 같게 둔다 —
+  // 슬롯이 없을 때도 같은 그림이 나와야 한다.
+  resume: { x: 121, y: 468, w: 98, h: 48 },
+  home: { x: 229, y: 468, w: 98, h: 48 },
 } as const;
 
 function box(id: keyof typeof FALLBACK): { x: number; y: number; w: number; h: number; id: string; label: string } {
@@ -78,6 +80,44 @@ function label(text: string, size: number, x: number, y: number): Text {
   return t;
 }
 
+/** 버튼 한 장. 아트가 있으면 그걸 그리고, 없으면 색과 글자로 대신한다.
+ *  글자 크기는 상자에서 뽑는다 — 좌우 배치로 상자가 좁아져도 글자가 넘치지 않게. */
+function plate(
+  b: { x: number; y: number; w: number; h: number },
+  tex: Texture | undefined,
+  fill: number,
+  text: string,
+  round = false,
+): Container {
+  const c = new Container();
+  const cx = b.x + b.w / 2;
+  const cy = b.y + b.h / 2;
+  if (tex) {
+    const s = fitSprite(tex, b.w, b.h);
+    s.x = cx;
+    s.y = cy;
+    c.addChild(s);
+    return c;
+  }
+  const g = new Graphics();
+  if (round) g.circle(cx, cy, b.w / 2).fill({ color: fill }).stroke({ width: 3, color: 0x8f9bab });
+  else g.roundRect(b.x, b.y, b.w, b.h, 10).fill({ color: fill });
+  c.addChild(g);
+  const t = new Text({
+    text,
+    style: {
+      fontSize: Math.min(b.h * 0.42, (b.w - 12) / Math.max(1, text.length * 0.62)),
+      fill: 0xfff3dc,
+      fontWeight: "bold",
+    },
+  });
+  t.anchor.set(0.5);
+  t.x = cx;
+  t.y = cy;
+  c.addChild(t);
+  return c;
+}
+
 /**
  * 설정창을 띄우고 닫힐 때까지 기다린다.
  * 부모에 붙였다가 스스로 걷어내므로 호출자는 결과만 받으면 된다.
@@ -105,7 +145,7 @@ export function openSettings(parent: Container, tex: SettingsTextures): Promise<
       g.roundRect(p.x, p.y, p.w, p.h, 16).fill({ color: 0x6b4626 });
       g.roundRect(p.x + 6, p.y + 6, p.w - 12, p.h - 12, 12).stroke({ width: 3, color: 0x3d2513 });
       root.addChild(g);
-      const title = new Text({ text: "SETTINGS", style: { fontSize: 22, fill: 0xfff3dc, fontWeight: "bold" } });
+      const title = new Text({ text: "설정", style: { fontSize: 22, fill: 0xfff3dc, fontWeight: "bold" } });
       title.anchor.set(0.5);
       title.x = p.x + p.w / 2;
       title.y = p.y + 26;
@@ -130,9 +170,9 @@ export function openSettings(parent: Container, tex: SettingsTextures): Promise<
       knob: "toggleSound" | "toggleMusic" | "toggleVibration";
       text: string;
     }> = [
-      { key: "sound", id: "rowSound", knob: "toggleSound", text: "SOUND" },
-      { key: "music", id: "rowMusic", knob: "toggleMusic", text: "MUSIC" },
-      { key: "vibration", id: "rowVibration", knob: "toggleVibration", text: "VIBRATION" },
+      { key: "sound", id: "rowSound", knob: "toggleSound", text: "사운드" },
+      { key: "music", id: "rowMusic", knob: "toggleMusic", text: "배경음악" },
+      { key: "vibration", id: "rowVibration", knob: "toggleVibration", text: "진동" },
     ];
     for (const row of rows) {
       const b = box(row.id);
@@ -182,56 +222,16 @@ export function openSettings(parent: Container, tex: SettingsTextures): Promise<
       editable(AREA, { id: k.id, label: k.label, x: k.x, y: k.y, w: k.w, h: k.h }, mark);
     }
 
-    // ── RESUME · HOME · 닫기 ─────────────────────
-    const r = box("resume");
-    if (tex.resume) {
-      const s = fitSprite(tex.resume, r.w, r.h);
-      s.x = r.x + r.w / 2;
-      s.y = r.y + r.h / 2;
-      root.addChild(s);
-    } else {
-      root.addChild(new Graphics().roundRect(r.x, r.y, r.w, r.h, 10).fill({ color: 0x3faa48 }));
-      const t = new Text({ text: "▶ RESUME", style: { fontSize: 20, fill: 0xffffff, fontWeight: "bold" } });
-      t.anchor.set(0.5);
-      t.x = r.x + r.w / 2;
-      t.y = r.y + r.h / 2;
-      root.addChild(t);
-    }
-    root.addChild(hotspot(r, () => finish("resume")));
+    // ── 계속하기 · 홈으로 · 닫기 ──────────────────
+    // 셋 다 「아트가 있으면 그것, 없으면 폴백」이 전부다 — 세 번 반복하지 않는다.
+    root.addChild(plate(box("resume"), tex.resume, 0x3faa48, "▶ 계속하기"));
+    root.addChild(hotspot(box("resume"), () => finish("resume")));
 
-    const h = box("home");
-    if (tex.home) {
-      const s = fitSprite(tex.home, h.w, h.h);
-      s.x = h.x + h.w / 2;
-      s.y = h.y + h.h / 2;
-      root.addChild(s);
-    } else {
-      root.addChild(new Graphics().roundRect(h.x, h.y, h.w, h.h, 8).fill({ color: 0x53341c }));
-      const t = new Text({ text: "⌂ HOME", style: { fontSize: 16, fill: 0xfff3dc, fontWeight: "bold" } });
-      t.anchor.set(0.5);
-      t.x = h.x + h.w / 2;
-      t.y = h.y + h.h / 2;
-      root.addChild(t);
-    }
-    root.addChild(hotspot(h, () => finish("lobby")));
+    root.addChild(plate(box("home"), tex.home, 0x53341c, "🏠 홈으로"));
+    root.addChild(hotspot(box("home"), () => finish("lobby")));
 
-    const c = box("close");
-    if (tex.close) {
-      const s = fitSprite(tex.close, c.w, c.h);
-      s.x = c.x + c.w / 2;
-      s.y = c.y + c.h / 2;
-      root.addChild(s);
-    } else {
-      const g = new Graphics().circle(c.x + c.w / 2, c.y + c.h / 2, c.w / 2).fill({ color: 0xd23b30 });
-      g.stroke({ width: 3, color: 0x8f9bab });
-      root.addChild(g);
-      const t = new Text({ text: "✕", style: { fontSize: 22, fill: 0xffffff, fontWeight: "bold" } });
-      t.anchor.set(0.5);
-      t.x = c.x + c.w / 2;
-      t.y = c.y + c.h / 2;
-      root.addChild(t);
-    }
-    root.addChild(hotspot(c, () => finish("resume")));
+    root.addChild(plate(box("close"), tex.close, 0xd23b30, "✕", true));
+    root.addChild(hotspot(box("close"), () => finish("resume")));
 
     veil.on("pointertap", () => finish("resume"));
   });
