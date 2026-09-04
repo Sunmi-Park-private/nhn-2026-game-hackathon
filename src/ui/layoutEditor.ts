@@ -58,6 +58,28 @@ function hasVisual(node: Container): boolean {
   return found;
 }
 
+/**
+ * 노드의 기준점을 **자기 그림의 정가운데**로 옮긴다.
+ *
+ * Pixi의 scale은 노드 원점을 기준으로 커진다. 원점이 좌상단인 컨테이너(로비 버튼,
+ * HUD 묶음 등)를 그대로 확대하면 오른쪽 아래로만 자라 자리가 밀린다.
+ * pivot을 그림 중심으로 옮기고 위치를 같은 만큼 보정하면, 배율이 1일 때는 아무것도
+ * 달라지지 않으면서 확대·축소만 **가운데 정렬**로 일어난다.
+ *
+ * 이미 중심 정렬된 스프라이트(anchor 0.5)는 중심이 원점이라 보정값이 0이다 — 안전하다.
+ */
+function centerPivot(node: Container): void {
+  const b = node.getLocalBounds();
+  if (!(b.width > 0) || !(b.height > 0)) return; // 아직 그릴 것이 없는 노드
+  const cx = b.x + b.width / 2;
+  const cy = b.y + b.height / 2;
+  if (cx === 0 && cy === 0) return;
+  node.pivot.set(cx, cy);
+  // pivot을 옮기면 그만큼 그림이 왼쪽 위로 밀린다 — 현재 배율을 곱해 되돌린다
+  node.x += cx * node.scale.x;
+  node.y += cy * node.scale.y;
+}
+
 /** 저장된 표시 속성을 노드에 입힌다. 등록 때 한 번 부르면 새로고침 후에도 유지된다. */
 function applyStyle(e: Entry): void {
   const s = e.slot;
@@ -75,6 +97,8 @@ function applyStyle(e: Entry): void {
  * 저장된 표시 속성(숨김·배율·글자 크기·색)은 여기서 입힌다 — 화면 코드가 몰라도 된다.
  */
 export function editable(area: string, slot: UiSlot, node: Container): void {
+  // 기준점을 먼저 옮긴다 — baseX/baseY가 보정된 좌표를 기준으로 기록돼야 한다
+  centerPivot(node);
   const e: Entry = {
     area, slot, node,
     baseW: slot.w, baseH: slot.h,
@@ -214,7 +238,11 @@ function drawOutline(): void {
   const e = selected ? entries.get(selected) : null;
   if (!e || e.node.destroyed) return;
   const s = e.slot;
-  outline.rect(s.x, stageTop() + s.y, s.w, s.h)
+  // 배율이 걸려 있으면 실제로 보이는 크기를 그린다 — 상자만 그리면 어디가 잡혔는지 어긋난다
+  const k = s.scale ?? 1;
+  const w = s.w * k;
+  const h = s.h * k;
+  outline.rect(s.x + (s.w - w) / 2, stageTop() + s.y + (s.h - h) / 2, w, h)
     .fill({ color: 0xff2d2d, alpha: 0.06 })
     .stroke({ width: 2, color: 0xff2d2d, alpha: 0.95, alignment: 0 });
 }
