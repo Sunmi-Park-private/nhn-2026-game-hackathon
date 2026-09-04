@@ -2,8 +2,9 @@
 import { describe, it, expect } from "vitest";
 import {
   HEX_SIZE, CELL_W, COLS, ROWS, BOARD, ORIGIN, FIELD_INSET, CENTER_W, CENTER_H,
-  cellToScreen, launchOrigin,
+  cellToScreen, launchOrigin, launchOriginLocal,
 } from "../../src/ui/hex/geom";
+import { fromPixel } from "../../src/engine/hex/coords";
 
 describe("보드 상수", () => {
   it("7열이다", () => {
@@ -65,5 +66,28 @@ describe("launchOrigin", () => {
 
   it("발사 지점이 화면 안에 있다", () => {
     expect(launchOrigin().y).toBeLessThan(CENTER_H);
+  });
+});
+
+describe("launchOriginLocal", () => {
+  it("화면 좌표에서 ORIGIN을 뺀 값이다", () => {
+    const screen = launchOrigin();
+    const local = launchOriginLocal();
+    expect(local.x).toBeCloseTo(screen.x - ORIGIN.x, 5);
+    expect(local.y).toBeCloseTo(screen.y - ORIGIN.y, 5);
+  });
+
+  it("격자 아래에 놓인다 — 발사체가 판 밖에서 출발해야 한다", () => {
+    // simulateShot은 이 좌표계(셀 (0,0) 기준)로 궤적을 돈다.
+    // 여기가 격자 안이면 첫 스텝부터 충돌 판정에 걸린다.
+    const a = fromPixel(launchOriginLocal(), HEX_SIZE);
+    expect(a.r).toBeGreaterThanOrEqual(ROWS);
+  });
+
+  it("가로로는 판 중앙 열 부근이다", () => {
+    const a = fromPixel(launchOriginLocal(), HEX_SIZE);
+    const col = a.q + Math.floor(a.r / 2);
+    expect(col).toBeGreaterThanOrEqual(0);
+    expect(col).toBeLessThan(COLS);
   });
 });
