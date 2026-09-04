@@ -28,6 +28,16 @@ export interface SettingsTextures {
 /** 설정창이 닫히면서 호출자에게 넘기는 결정. */
 export type SettingsResult = "resume" | "lobby";
 
+export interface SettingsMenuOptions {
+  /**
+   * 「홈으로」를 누를 때 한 번 묻는다.
+   *
+   * **진행 중인 판이 있는 화면에서만 켠다.** 로비·월드 지도에서 켜면
+   * 잃을 것이 없는데 「지금 진행이 사라진다」고 거짓말하게 된다.
+   */
+  confirmHome?: boolean;
+}
+
 const AREA = "settings";
 const FALLBACK = {
   panel: { x: 60, y: 170, w: 330, h: 440 },
@@ -61,7 +71,11 @@ function label(text: string, size: number, x: number, y: number): Text {
  * 설정창을 띄우고 닫힐 때까지 기다린다.
  * 부모에 붙였다가 스스로 걷어내므로 호출자는 결과만 받으면 된다.
  */
-export function openSettings(parent: Container, tex: SettingsTextures): Promise<SettingsResult> {
+export function openSettings(
+  parent: Container,
+  tex: SettingsTextures,
+  opts: SettingsMenuOptions = {},
+): Promise<SettingsResult> {
   return new Promise<SettingsResult>((resolve) => {
     const root = new Container();
     parent.addChild(root);
@@ -166,11 +180,15 @@ export function openSettings(parent: Container, tex: SettingsTextures): Promise<
     root.addChild(plate(box("resume"), tex.resume, 0x3faa48, "▶ 계속하기"));
     root.addChild(hotspot(AREA, box("resume"), () => finish("resume")));
 
-    // 홈으로는 한 번 묻는다 — 판을 나가면 그 판의 진행이 사라진다.
+    // 판이 도는 중일 때만 한 번 묻는다 — 나가면 그 판의 진행이 사라진다.
     // asking 가드가 없으면 확인창이 뜬 채로 홈 버튼을 또 눌러 창이 겹친다.
     let asking = false;
     root.addChild(plate(box("home"), tex.home, 0x53341c, "🏠 홈으로"));
     root.addChild(hotspot(AREA, box("home"), () => {
+      if (!opts.confirmHome) {
+        finish("lobby");
+        return;
+      }
       if (asking) return;
       asking = true;
       void openConfirm(root, { message: "판을 나가면 지금 진행은 사라집니다.\n로비로 나갈까요?" })

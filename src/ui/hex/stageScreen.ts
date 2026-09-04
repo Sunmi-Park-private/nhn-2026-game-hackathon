@@ -239,15 +239,18 @@ export async function runStageScreen(
         cages.pause();
         launcher.pause();
         pauseBgm();
-        void openSettings(layer, ui).then((r) => {
+        void openSettings(layer, ui, { confirmHome: true }).then((r) => {
+          // BGM은 어느 쪽으로 나가든 되살린다. pauseBgm이 세우는 userPaused는
+          // 뷰가 아니라 audio 모듈의 전역이고 이걸 푸는 곳이 resumeBgm뿐이라,
+          // 로비로 나가는 길에서 건너뛰면 그 뒤로 판이든 로비든 영영 무음이 된다.
+          resumeBgm();
           if (r === "lobby") {
             finish("lobby");
             return;
           }
-          // finish 뒤에는 되살리지 않는다 — 이미 파괴된 뷰를 만지게 된다
+          // 뷰는 finish 뒤에 되살리지 않는다 — 이미 파괴된 것을 만지게 된다
           cages.resume();
           launcher.resume();
-          resumeBgm();
         });
       },
     });
