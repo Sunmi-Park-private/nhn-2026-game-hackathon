@@ -186,35 +186,34 @@ function makeCageBody(cage: Cage, tex: CageTextures): CageBody {
   const w = 2 * size;                    // flat-top: 가로가 꼭짓점 사이
   const h = Math.sqrt(3) * size;          // 세로가 수평 변 사이
 
+  // 그리는 순서가 곧 「갇혀 있다」를 만든다 — 동물을 먼저 깔고 창살을 그 위에 덮는다.
+  // 아트 경로에서 순서가 뒤집혀 동물이 창살 앞에 서 있었다.
   let closedSprite: Sprite | null = null;
   if (tex.closed) {
-    // 아트도 덩어리 전체를 덮는 큰 flat-top 육각 한 장이다 — 가로:세로 = 2 : √3
+    // 아트가 있으면: 그늘 → 동물 → 창살 한 장(안쪽이 비어 있어 동물이 비쳐 보인다)
+    box.addChild(new Graphics().poly(flatHexPoints(size - 1)).fill(CAGE_DARK));
+    box.addChild(makeAnimalView(cage, tex, w * 0.5, h * 0.5));
+
+    // 덩어리 전체를 덮는 큰 flat-top 육각 한 장 — 가로:세로 = 2 : √3
     closedSprite = new Sprite(tex.closed);
     closedSprite.anchor.set(0.5);
     closedSprite.width = w;
     closedSprite.height = h;
     box.addChild(closedSprite);
-  } else {
-    box.addChild(new Graphics().poly(flatHexPoints(size - 1)).fill(CAGE_DARK));
+    return { box, bars: null, lock: null, closedSprite, size };
   }
 
-  // 갇힌 동물 — 창살 뒤에 선다
+  // 아트가 없으면: 그늘 → 동물 → 코드가 그린 창살·자물쇠
+  box.addChild(new Graphics().poly(flatHexPoints(size - 1)).fill(CAGE_DARK));
   box.addChild(makeAnimalView(cage, tex, w * 0.62, h * 0.62));
 
-  let bars: Container | null = null;
-  let lock: Container | null = null;
-  if (!tex.closed) {
-    // 창살은 동물보다 위에 그린다 — 그래야 「갇혀 있다」로 읽힌다
-    const g = new Graphics();
-    drawBars(g, size, BAR_COLOR);
-    bars = g;
-    const l = new Graphics();
-    l.roundRect(-9, -6, 18, 13, 3).fill({ color: 0xe4ebf3 });
-    l.circle(0, 0, 3).fill({ color: CAGE_DARK });
-    l.y = h / 2 - 11;
-    lock = l;
-    box.addChild(g, l);
-  }
+  const bars = new Graphics();
+  drawBars(bars, size, BAR_COLOR);
+  const lock = new Graphics();
+  lock.roundRect(-9, -6, 18, 13, 3).fill({ color: 0xe4ebf3 });
+  lock.circle(0, 0, 3).fill({ color: CAGE_DARK });
+  lock.y = h / 2 - 11;
+  box.addChild(bars, lock);
 
   return { box, bars, lock, closedSprite, size };
 }
