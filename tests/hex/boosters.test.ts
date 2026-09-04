@@ -36,6 +36,7 @@ describe("hasBooster / consume", () => {
     run.boosters.bomb = 0;
     expect(hasBooster(run, "bomb")).toBe(false);
     expect(consume(run, "bomb")).toBe(false);
+    expect(run.boosters.bomb).toBe(0);   // 음수로 내려가지 않는다
   });
 });
 
@@ -57,8 +58,11 @@ describe("useHorseshoe", () => {
   it("이미 최고 티어면 쓸 수 없다", () => {
     const run = createRun(stage());
     run.loaded = 5;
+    const before = run.boosters.horseshoe;
     expect(useHorseshoe(run)).toBe(false);
     expect(run.loaded).toBe(5);
+    // 실패한 승급은 부스터를 태우지 않는다 — 티어 검사가 소모보다 먼저여야 한다
+    expect(run.boosters.horseshoe).toBe(before);
   });
 
   it("수량이 없으면 쓸 수 없다", () => {
@@ -103,6 +107,12 @@ describe("rainbowComponent", () => {
   it("케이지는 성분에 들어가지 않는다", () => {
     const cells = makeCells([[0, 0, 0]]);
     cells.set(key({ q: 1, r: 0 }), { kind: "cage", cageId: "c1" });
+    expect(rainbowComponent(cells, { q: 0, r: 0 })).toHaveLength(1);
+  });
+
+  it("말굽은 성분에 들어가지 않는다", () => {
+    const cells = makeCells([[0, 0, 0]]);
+    cells.set(key({ q: 1, r: 0 }), { kind: "horseshoe" });
     expect(rainbowComponent(cells, { q: 0, r: 0 })).toHaveLength(1);
   });
 });
