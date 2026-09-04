@@ -71,14 +71,18 @@ function parseAreas(raw: unknown): UiArea[] {
 
 export const uiAreas: UiArea[] = parseAreas(layoutJson);
 
-export const uiUploads: UiUpload[] = (() => {
-  const raw = (layoutJson as { uploads?: unknown }).uploads;
+function parseUploads(raw: unknown): UiUpload[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .map((u) => u as Record<string, unknown>)
     .filter((u) => typeof u.asset === "string")
     .map((u) => ({ label: String(u.label ?? u.asset), asset: String(u.asset), seq: u.seq === true }));
-})();
+}
+
+export const uiUploads: UiUpload[] = parseUploads((layoutJson as { uploads?: unknown }).uploads);
+
+/** 영상 슬롯 — 인트로·엔딩. 세로 화면 전체를 덮는다. */
+export const uiVideos: UiUpload[] = parseUploads((layoutJson as { videos?: unknown }).videos);
 
 /** 영역 안의 슬롯. 없으면 null — 호출부가 기본값으로 간다. */
 export function slot(areaId: string, slotId: string): UiSlot | null {

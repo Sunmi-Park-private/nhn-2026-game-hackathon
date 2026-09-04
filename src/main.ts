@@ -5,11 +5,12 @@
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
 import { Application, VideoSource } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
-import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths } from "./data/hexAssets";
+import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, videoAssetPaths } from "./data/hexAssets";
 import { loadSlots } from "./ui/skin";
 import { runLobby } from "./ui/lobbyScreen";
 import { parseProfile, serializeProfile, addClear, type Profile } from "./engine/profile";
 import { mountLayoutEditor } from "./ui/layoutEditor";
+import { playVideo } from "./ui/videoScreen";
 import { initAudioUnlock } from "./ui/audio";
 import { setStageExtra, setStageExtraX } from "./ui/stage";
 import { stages } from "./data/stages";
@@ -103,6 +104,12 @@ async function main(): Promise<void> {
     try { localStorage.setItem(PROFILE_KEY, serializeProfile(profile)); } catch { /* 무시 */ }
   };
 
+  // 인트로 — 파일이 없으면 그냥 지나간다. 에디터로 배치를 맞추는 중에는 방해가 되므로 건너뛴다.
+  if (!new URLSearchParams(location.search).has("editor")) {
+    mark("intro");
+    await playVideo(videoAssetPaths.intro);
+  }
+
   for (;;) {
     mark("lobby");
     await runLobby(app, profile, lobbyTextures);
@@ -115,8 +122,14 @@ async function main(): Promise<void> {
 
     const outcome = await runStageScreen(app, stage, profile.stageIndex, hexTextures, ui);
     if (outcome.result === "cleared") {
+      const last = profile.stageIndex >= stages.length - 1;
       profile = addClear(profile, outcome.rescued, outcome.horseshoes);
       save();
+      // 마지막 스테이지를 깨면 엔딩. 파일이 없으면 그냥 로비로 돌아간다.
+      if (last) {
+        mark("ending");
+        await playVideo(videoAssetPaths.ending, "닫기");
+      }
     }
     // failed·lobby는 프로필을 건드리지 않는다 — 다음 바퀴에서 같은 스테이지가 다시 나온다
   }

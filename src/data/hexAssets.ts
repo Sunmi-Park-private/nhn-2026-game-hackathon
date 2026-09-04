@@ -83,3 +83,11 @@ function pick<K extends string>(raw: unknown, block: string, keys: readonly K[])
 
 export const uiAssetPaths = pick(manifestJson, "ui", UI_SLOT_IDS);
 export const lobbyAssetPaths = pick(manifestJson, "lobby", LOBBY_SLOT_IDS);
+
+// ── 영상 ────────────────────────────────────────────────────
+// 인트로(프롤로그)와 엔딩. 세로 화면 전체를 덮는다. 파일이 없으면 그 단계를 건너뛴다.
+
+export const VIDEO_SLOT_IDS = ["intro", "ending"] as const;
+export type VideoSlotId = (typeof VIDEO_SLOT_IDS)[number];
+
+export const videoAssetPaths = pick(manifestJson, "video", VIDEO_SLOT_IDS);

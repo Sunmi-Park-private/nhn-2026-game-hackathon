@@ -47,5 +47,10 @@
     "navAnimals": "assets/lobby/nav-animals.png",
     "navEvents": "assets/lobby/nav-events.png",
     "navSoon": "assets/lobby/nav-soon.png"
+  },
+  "video": {
+    "_note": "세로 화면 전체를 덮는 영상. mp4·webm.",
+    "intro": "assets/video/intro.mp4",
+    "ending": "assets/video/ending.mp4"
   }
 }

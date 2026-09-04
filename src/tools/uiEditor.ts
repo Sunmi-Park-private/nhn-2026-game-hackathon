@@ -9,7 +9,7 @@
 //
 // uiLayout.json·assets.json은 vite watch에서 빠져 있다 — 번들 모듈이 옛 내용일 수
 // 있으므로 그리기 전에 디스크와 맞춘다(GET /__uilayout · /__assets).
-import { uiAreas, uiUploads, type UiArea, type UiSlot, type UiUpload } from "../data/uiLayout";
+import { uiAreas, uiUploads, uiVideos, type UiArea, type UiSlot, type UiUpload } from "../data/uiLayout";
 import assetsJson from "../data/assets.json";
 import { createHistory, restoreInto, type History } from "../ui/layoutHistory";
 
@@ -27,9 +27,13 @@ const CHECKER =
 interface State {
   areas: UiArea[];
   uploads: UiUpload[];
+  videos: UiUpload[];
   manifest: Record<string, unknown>;
   areaIndex: number;
+  /** 위치가 없는 게임 에셋 목록을 보고 있는가 */
   assetsTab: boolean;
+  /** 영상 목록을 보고 있는가 */
+  videoTab: boolean;
   selected: string | null;
   dirty: boolean;
 }
@@ -37,9 +41,11 @@ interface State {
 const state: State = {
   areas: uiAreas.map((a) => ({ ...a, slots: a.slots.map((s) => ({ ...s })) })),
   uploads: [...uiUploads],
+  videos: [...uiVideos],
   manifest: assetsJson as unknown as Record<string, unknown>,
   areaIndex: 0,
   assetsTab: false,
+  videoTab: false,
   selected: null,
   dirty: false,
 };
@@ -304,11 +310,16 @@ function renderTabs(): void {
     tabs.appendChild(b);
   };
   state.areas.forEach((a, i) => {
-    mk(`${a.label} (${a.slots.length})`, !state.assetsTab && i === state.areaIndex, () => {
-      state.areaIndex = i; state.assetsTab = false; state.selected = null; renderAll();
+    mk(`${a.label} (${a.slots.length})`, !state.assetsTab && !state.videoTab && i === state.areaIndex, () => {
+      state.areaIndex = i; state.assetsTab = false; state.videoTab = false; state.selected = null; renderAll();
     });
   });
-  mk(`게임 에셋 (${state.uploads.length})`, state.assetsTab, () => { state.assetsTab = true; renderAll(); });
+  mk(`게임 에셋 (${state.uploads.length})`, state.assetsTab, () => {
+    state.assetsTab = true; state.videoTab = false; renderAll();
+  });
+  mk(`영상 (${state.videos.length})`, state.videoTab, () => {
+    state.videoTab = true; state.assetsTab = false; renderAll();
+  });
 }
 
 function renderList(): void {
@@ -381,9 +392,30 @@ function renderAssets(): void {
   side.style.flexBasis = "100%";
 }
 
+function renderVideos(): void {
+  stageWrap.style.display = "none";
+  list.replaceChildren();
+  detail.replaceChildren();
+  const head2 = $("div", "margin-bottom:8px");
+  head2.append(
+    $("div", "font-weight:800", "영상"),
+    $("div", "color:#a8987c;font-size:11px",
+      "세로 화면 전체를 덮습니다. 인트로는 게임을 열 때, 엔딩은 마지막 스테이지를 깨면 재생됩니다. "
+      + "mp4·webm · 자동재생 정책 때문에 무음으로 시작하고 화면의 🔇 버튼으로 소리를 켭니다. "
+      + "파일이 없으면 그 단계를 건너뜁니다."),
+  );
+  detail.appendChild(head2);
+  const grid = $("div", "display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px");
+  for (const v of state.videos) grid.appendChild(card(v.label, v.asset));
+  detail.appendChild(grid);
+  side.style.maxWidth = "1100px";
+  side.style.flexBasis = "100%";
+}
+
 function renderAll(): void {
   renderTabs();
   paintHistButtons();
+  if (state.videoTab) { renderVideos(); return; }
   if (state.assetsTab) { renderAssets(); return; }
   stageWrap.style.display = "block";
   side.style.maxWidth = "560px";
@@ -475,9 +507,10 @@ async function syncFromDisk(): Promise<void> {
   try {
     const [l, a] = await Promise.all([fetch("/__uilayout"), fetch("/__assets")]);
     if (l.ok) {
-      const fresh = (await l.json()) as { areas?: UiArea[]; uploads?: UiUpload[] };
+      const fresh = (await l.json()) as { areas?: UiArea[]; uploads?: UiUpload[]; videos?: UiUpload[] };
       if (Array.isArray(fresh.areas)) state.areas = fresh.areas;
       if (Array.isArray(fresh.uploads)) state.uploads = fresh.uploads;
+      if (Array.isArray(fresh.videos)) state.videos = fresh.videos;
     }
     if (a.ok) state.manifest = (await a.json()) as Record<string, unknown>;
   } catch { /* dev 서버 밖 — 번들 값 그대로 */ }

@@ -307,5 +307,15 @@
       "asset": "hex.animals.monkey",
       "seq": true
     }
+  ],
+  "videos": [
+    {
+      "label": "인트로 (프롤로그)",
+      "asset": "video.intro"
+    },
+    {
+      "label": "엔딩",
+      "asset": "video.ending"
+    }
   ]
 }
