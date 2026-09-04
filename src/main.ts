@@ -1,7 +1,7 @@
 // main.ts — Pixi 부트스트랩 + 스테이지 루프.
 //
-// 부트 체인에서 프롤로그·로딩·타이틀을 뺐다. 셋 다 이전 화면의
-// 아트·내레이션이라 접속자가 1분 가까이 남의 게임을 본 뒤에야 이 게임에 도착했다.
+// 부트 체인에서 프롤로그·로딩·타이틀을 뺐다. 셋 다 이 게임의 화면이 아니라
+// 접속자가 1분 가까이 다른 화면을 본 뒤에야 게임에 도착했다.
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
 import { Application, VideoSource } from "pixi.js";
 import { loadHexAssets } from "./ui/assets";
