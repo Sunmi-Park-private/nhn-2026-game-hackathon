@@ -53,5 +53,16 @@
     "_note": "세로 화면 전체를 덮는 영상. mp4·webm.",
     "intro": "assets/video/intro.mp4",
     "ending": "assets/video/ending.mp4"
+  },
+  "audio": {
+    "_note": "BGM·효과음. 파일이 없으면 그 소리는 나지 않는다(게임은 정상 동작).",
+    "bgmLobby": "assets/audio/bgm-lobby.mp3",
+    "bgmStage": "assets/audio/bgm-stage.mp3",
+    "sfxShot": "assets/audio/sfx-shot.wav",
+    "sfxPop": "assets/audio/sfx-pop.wav",
+    "sfxRescue": "assets/audio/sfx-rescue.wav",
+    "sfxClear": "assets/audio/sfx-clear.wav",
+    "sfxFail": "assets/audio/sfx-fail.wav",
+    "sfxTap": "assets/audio/sfx-tap.wav"
   }
 }

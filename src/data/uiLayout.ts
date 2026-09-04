@@ -88,6 +88,9 @@ export const uiUploads: UiUpload[] = parseUploads((layoutJson as { uploads?: unk
 /** 영상 슬롯 — 인트로·엔딩. 세로 화면 전체를 덮는다. */
 export const uiVideos: UiUpload[] = parseUploads((layoutJson as { videos?: unknown }).videos);
 
+/** 오디오 슬롯 — BGM·효과음. 위치 개념이 없어 업로드 목록으로만 산다. */
+export const uiAudios: UiUpload[] = parseUploads((layoutJson as { audios?: unknown }).audios);
+
 /** 영역 안의 슬롯. 없으면 null — 호출부가 기본값으로 간다. */
 export function slot(areaId: string, slotId: string): UiSlot | null {
   const area = uiAreas.find((a) => a.id === areaId);

@@ -12,6 +12,7 @@ import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection } from "./collection";
 import { slot, type UiSlot } from "../data/uiLayout";
 import { buzz } from "./settings";
+import { playBgm, playSfx } from "./audio";
 import { editable, clearEditable } from "./layoutEditor";
 import type { Profile } from "../engine/profile";
 
@@ -74,7 +75,7 @@ function hotspot(
   if (onTap) {
     c.eventMode = "static";
     c.cursor = "pointer";
-    c.on("pointertap", () => { buzz(); onTap(); });
+    c.on("pointertap", () => { buzz(); playSfx("audio.sfxTap"); onTap(); });
     c.on("pointerdown", () => { c.alpha = 0.78; });
     const up = (): void => { c.alpha = 1; };
     c.on("pointerup", up);
@@ -112,6 +113,7 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
   return new Promise<void>((resolve) => {
     const layer = new Container();
     app.stage.addChild(layer);
+    playBgm("audio.bgmLobby");
 
     layer.addChild(fullRect(0x241a10));
     if (tex.bg) layer.addChild(coverBox(tex.bg));

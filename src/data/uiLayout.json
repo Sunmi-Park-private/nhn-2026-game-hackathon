@@ -368,5 +368,39 @@
       "label": "엔딩",
       "asset": "video.ending"
     }
+  ],
+  "audios": [
+    {
+      "label": "로비 BGM",
+      "asset": "audio.bgmLobby"
+    },
+    {
+      "label": "인게임 BGM",
+      "asset": "audio.bgmStage"
+    },
+    {
+      "label": "발사",
+      "asset": "audio.sfxShot"
+    },
+    {
+      "label": "터짐",
+      "asset": "audio.sfxPop"
+    },
+    {
+      "label": "구출",
+      "asset": "audio.sfxRescue"
+    },
+    {
+      "label": "클리어",
+      "asset": "audio.sfxClear"
+    },
+    {
+      "label": "실패",
+      "asset": "audio.sfxFail"
+    },
+    {
+      "label": "버튼",
+      "asset": "audio.sfxTap"
+    }
   ]
 }

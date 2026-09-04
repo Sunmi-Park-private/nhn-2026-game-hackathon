@@ -10,6 +10,7 @@ import { stageTop, stageHeight, stageLeft, stageWidth } from "./stage";
 import { fitSprite } from "./skin";
 import { slot } from "../data/uiLayout";
 import { settings, toggle, buzz, type Settings } from "./settings";
+import { playSfx } from "./audio";
 import { editable, clearEditable } from "./layoutEditor";
 
 export interface SettingsTextures {
@@ -61,7 +62,7 @@ function hotspot(
   if (b.id) editable(AREA, { id: b.id, label: b.label ?? b.id, x: b.x, y: b.y, w: b.w, h: b.h }, c);
   c.eventMode = "static";
   c.cursor = "pointer";
-  c.on("pointertap", () => { buzz(); onTap(); });
+  c.on("pointertap", () => { buzz(); playSfx("audio.sfxTap"); onTap(); });
   c.on("pointerdown", () => { c.alpha = 0.75; });
   const up = (): void => { c.alpha = 1; };
   c.on("pointerup", up);

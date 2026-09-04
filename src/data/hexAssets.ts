@@ -91,3 +91,14 @@ export const VIDEO_SLOT_IDS = ["intro", "ending"] as const;
 export type VideoSlotId = (typeof VIDEO_SLOT_IDS)[number];
 
 export const videoAssetPaths = pick(manifestJson, "video", VIDEO_SLOT_IDS);
+
+// ── 소리 ────────────────────────────────────────────────────
+// BGM 2종과 효과음 6종. 파일이 없는 슬롯은 그냥 소리가 안 난다 — 게임은 정상 동작한다.
+
+export const AUDIO_SLOT_IDS = [
+  "bgmLobby", "bgmStage",
+  "sfxShot", "sfxPop", "sfxRescue", "sfxClear", "sfxFail", "sfxTap",
+] as const;
+export type AudioSlotId = (typeof AUDIO_SLOT_IDS)[number];
+
+export const audioAssetPaths = pick(manifestJson, "audio", AUDIO_SLOT_IDS);
