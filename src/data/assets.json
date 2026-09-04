@@ -2,11 +2,11 @@
   "_note": "에셋 슬롯 매니페스트 — 파일이 public/ 아래 경로에 존재하면 자동 반영, 없으면 폴백. 디자이너는 파일만 드롭.",
   "hex": {
     "tiles": [
-      "assets/hex/tile-red.png",
+      "assets/hex/tile-red.webp",
       "assets/hex/tile-yellow.webp",
-      "assets/hex/tile-green.png",
-      "assets/hex/tile-blue.png",
-      "assets/hex/tile-purple.png",
+      "assets/hex/tile-green.webp",
+      "assets/hex/tile-blue.webp",
+      "assets/hex/tile-purple.webp",
       "assets/hex/tile-gold.png"
     ],
     "horseshoe": "assets/hex/tile-horseshoe.png",
@@ -32,21 +32,22 @@
   "ui": {
     "_note": "공용 UI 슬롯. 파일이 없으면 코드가 그린 도형으로 폴백한다.",
     "settingsPanel": "assets/ui/settings-panel.webp",
-    "settingsClose": "assets/ui/settings-close.png",
+    "settingsClose": "assets/ui/settings-close.webp",
     "toggleOn": "assets/ui/toggle-on.png",
     "toggleOff": "assets/ui/toggle-off.png",
-    "btnResume": "assets/ui/btn-resume.png",
-    "btnHome": "assets/ui/btn-home.png",
-    "gear": "assets/ui/btn-settings.png"
+    "btnResume": "assets/ui/btn-resume.webp",
+    "btnHome": "assets/ui/btn-home.webp",
+    "gear": "assets/ui/btn-settings.webp"
   },
   "lobby": {
     "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다.",
     "bg": "assets/lobby/bg.png",
+    "topStats": "assets/lobby/top-stats.webp",
     "play": "assets/lobby/btn-play.webp",
-    "navHome": "assets/lobby/nav-home.png",
-    "navAnimals": "assets/lobby/nav-animals.png",
-    "navEvents": "assets/lobby/nav-events.png",
-    "navSoon": "assets/lobby/nav-soon.png"
+    "navHome": "assets/lobby/nav-home.webp",
+    "navAnimals": "assets/lobby/nav-animals.webp",
+    "navEvents": "assets/lobby/nav-events.webp",
+    "navSoon": "assets/lobby/nav-soon.webp"
   },
   "video": {
     "_note": "세로 화면 전체를 덮는 영상. mp4·webm.",
