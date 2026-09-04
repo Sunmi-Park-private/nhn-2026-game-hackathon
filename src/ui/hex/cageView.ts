@@ -13,7 +13,16 @@ export interface CageTextures {
 
 export interface CageView {
   root: Container;
+  /** 케이지 목록과 화면을 맞춘다.
+   *  **주의 — 호출 순서 계약:** state.rescued에 들어간 케이지는 여기서 파괴된다.
+   *  구출 연출을 보여주려면 이 함수보다 playRescue를 **먼저** 불러야 한다.
+   *  (연출 중인 케이지는 animating 가드가 지켜주지만, 연출이 시작조차 안 했으면
+   *   지켜줄 것이 없다.) */
   sync(state: RunState): void;
+  /** 구출 연출을 재생하고, 끝나면 몸체를 스스로 치운다.
+   *  연출이 끝날 때 resolve된다 — 호출자가 순차로 await할 수 있다.
+   *  **sync가 이미 그 케이지를 지웠다면 아무 일도 하지 않고 즉시 resolve한다** —
+   *  이 경우 연출은 보이지 않는다. 위 sync의 순서 계약 참조. */
   playRescue(cage: Cage): Promise<void>;
   destroy(): void;
 }
@@ -50,9 +59,9 @@ function makeCageBody(cage: Cage, tex: CageTextures): Container {
       const x = -w / 2 + (w / 4) * i;
       g.moveTo(x, -h / 2 + 5).lineTo(x, h / 2 - 5).stroke({ width: 2, color: 0x8f9bab });
     }
-    // 자물쇠 — 아트가 오기 전 폴백. 구출 전 상태임을 알리는 최소 표식이다
-    g.roundRect(-9, h / 2 - 12, 18, 14, 3).fill({ color: 0xc9d1da });
-    g.circle(0, h / 2 - 6, 3).fill({ color: 0x2b3440 });
+    // 자물쇠 — 프레임 안쪽에 들어오도록 아래 여백을 둔다
+    g.roundRect(-9, h / 2 - 18, 18, 14, 3).fill({ color: 0xc9d1da });
+    g.circle(0, h / 2 - 12, 3).fill({ color: 0x2b3440 });
     box.addChild(g);
   }
 
