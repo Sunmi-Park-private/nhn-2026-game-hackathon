@@ -5,7 +5,10 @@
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
 import { Application, VideoSource } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
-import { hexAssetPaths } from "./data/hexAssets";
+import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths } from "./data/hexAssets";
+import { loadSlots } from "./ui/skin";
+import { runLobby } from "./ui/lobbyScreen";
+import { parseProfile, serializeProfile, addClear, type Profile } from "./engine/profile";
 import { initAudioUnlock } from "./ui/audio";
 import { setStageExtra, setStageExtraX } from "./ui/stage";
 import { stages } from "./data/stages";
@@ -60,18 +63,64 @@ async function main(): Promise<void> {
   // E2E 테스트용 씬 마커 — 현재 단계 노출 (게임 로직에선 미사용)
   const mark = (s: string): void => { (window as unknown as { __scene?: string }).__scene = s; };
 
-  // 스테이지 연속 플레이 — 클리어하면 다음 스테이지, 실패하면 같은 스테이지 재도전
+  // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
-  const hexTextures = await loadHexAssets(hexAssetPaths); // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
-  let stageIndex = 0;
+  const [hexTextures, uiSlots, lobbySlots] = await Promise.all([
+    loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
+    loadSlots(uiAssetPaths),
+    loadSlots(lobbyAssetPaths),
+  ]);
+  // 설정창이 쓰는 묶음. 스테이지 화면도 같은 것을 그대로 넘겨받는다.
+  const ui = {
+    panel: uiSlots.settingsPanel,
+    close: uiSlots.settingsClose,
+    toggleOn: uiSlots.toggleOn,
+    toggleOff: uiSlots.toggleOff,
+    resume: uiSlots.btnResume,
+    home: uiSlots.btnHome,
+    settingsButton: uiSlots.gear,
+  };
+  const lobbyTextures = {
+    bg: lobbySlots.bg,
+    play: lobbySlots.play,
+    gear: uiSlots.gear,
+    icons: {
+      railMissions: lobbySlots.railMissions ?? null,
+      railCollection: lobbySlots.railCollection ?? null,
+      railShop: lobbySlots.railShop ?? null,
+      railWorld: lobbySlots.railWorld ?? null,
+      navHome: lobbySlots.navHome ?? null,
+      navAnimals: lobbySlots.navAnimals ?? null,
+      navEvents: lobbySlots.navEvents ?? null,
+      navSoon: lobbySlots.navSoon ?? null,
+    },
+    animals: hexTextures.animals,
+    ui,
+  };
+
+  const PROFILE_KEY = "redhorserescue.profile";
+  let profile: Profile = parseProfile(localStorage.getItem(PROFILE_KEY));
+  const save = (): void => {
+    // 저장이 막혀 있어도(사파리 프라이빗 등) 게임은 계속 굴러가야 한다
+    try { localStorage.setItem(PROFILE_KEY, serializeProfile(profile)); } catch { /* 무시 */ }
+  };
+
   for (;;) {
-    const stage = stages[stageIndex];
-    if (!stage) {
-      stageIndex = 0; // 마지막 스테이지를 넘으면 처음으로 되돌린다
-      continue;
+    mark("lobby");
+    await runLobby(app, profile, lobbyTextures);
+
+    mark("game");
+    // 마지막 스테이지를 넘으면 처음으로 되돌린다
+    if (!stages[profile.stageIndex]) profile = { ...profile, stageIndex: 0 };
+    const stage = stages[profile.stageIndex];
+    if (!stage) break; // 스테이지가 하나도 없다 — 로비에 머무를 수 없으니 여기서 끝낸다
+
+    const outcome = await runStageScreen(app, stage, profile.stageIndex, hexTextures, ui);
+    if (outcome.result === "cleared") {
+      profile = addClear(profile, outcome.rescued, outcome.horseshoes);
+      save();
     }
-    const result = await runStageScreen(app, stage, stageIndex, hexTextures);
-    if (result === "cleared") stageIndex += 1;
+    // failed·lobby는 프로필을 건드리지 않는다 — 다음 바퀴에서 같은 스테이지가 다시 나온다
   }
 }
 

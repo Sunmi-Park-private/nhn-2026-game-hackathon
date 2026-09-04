@@ -70,6 +70,8 @@ src/data/stages/*.json  →  src/engine/hex/  →  src/ui/hex/
 |---|---|
 | `engine/hex/` | 축좌표계 · 그리드 · 색 판정과 제거 · 낙하 · 궤적과 스냅 · 케이지 6면 분할 · 런 상태 · 부스터 · 스테이지 검증 |
 | `ui/hex/` | 보드 렌더 · 케이지와 구출 연출 · HUD · 런처 · 화면 조립 |
+| `ui/` | 로비 · 설정창 · 도감 · 스킨 슬롯 · 설정 저장 |
+| `tools/` | UI 배치 에디터 (`/ui.html`) |
 
 ## 화면 구성
 
@@ -94,6 +96,8 @@ src/data/stages/*.json  →  src/engine/hex/  →  src/ui/hex/
 아트가 하나도 없어도 게임이 성립하고 일부만 도착해도 정상 동작합니다.
 
 제작 사양은 `docs/ART_SPEC.md`에 있습니다.
+UI 배치는 브라우저 에디터 `/ui.html`에서 조정합니다 — 로비·인게임·설정창 탭이
+한 페이지에 있고, 저장하면 `src/data/uiLayout.json`이 갱신됩니다.
 
 ## 문서
 

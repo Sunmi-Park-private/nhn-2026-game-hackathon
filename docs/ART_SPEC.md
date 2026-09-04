@@ -225,3 +225,44 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 
 **작동할 것:** `PLAY` · `ANIMALS`(도감) · 목장의 구출 동물 · 말굽 재화 · 설정
 **보이되 작동하지 않을 것:** `MISSIONS` · `SHOP` · `WORLD` · `EVENTS` · 코인 · 젬
+
+---
+
+## 11. UI · 로비 · 설정창 (2026-09-05 추가)
+
+**배치는 `/ui.html` 에디터에서 조정한다.** 한 페이지에 **로비 · 인게임 · 설정창** 탭이 있고,
+사각형을 끌어 옮기거나 크기를 바꾼 뒤 저장하면 게임에 그대로 반영된다.
+좌표계는 중앙 콘텐츠 컬럼 **450 × 800**이다.
+
+### 로비 — `public/assets/lobby/`
+
+| 파일 | 내용 |
+|---|---|
+| `bg.png` | **시안 전체를 담은 한 장** (9:16). 배경·간판·동물·버튼 그림이 다 들어간다 |
+| `btn-play.png` | PLAY 버튼 |
+| `btn-missions.png` · `btn-collection.png` · `btn-shop.png` · `btn-world.png` | 우측 레일 4종 |
+| `nav-home.png` · `nav-animals.png` · `nav-events.png` · `nav-soon.png` | 하단 4종 |
+
+> **`bg.png` 한 장만 있어도 화면이 완성된다.** 버튼이 배경에 그려져 있으면 코드는
+> 그 자리에 **투명한 히트 영역만** 얹는다. 개별 버튼 파일은 눌렀을 때 모양이 바뀌거나
+> 배경과 따로 움직여야 할 때만 넣는다.
+
+### 설정창 — `public/assets/ui/`
+
+| 파일 | 내용 |
+|---|---|
+| `settings-panel.png` | 나무 패널 한 장 (SOUND·MUSIC·VIBRATION 줄 배경 포함) |
+| `settings-close.png` | 우상단 X |
+| `toggle-on.png` · `toggle-off.png` | 말굽 토글 — **금색=켜짐, 회색=꺼짐** |
+| `btn-resume.png` | 초록 RESUME |
+| `btn-home.png` | HOME |
+| `btn-settings.png` | 톱니 버튼 (로비·인게임 공용) |
+
+### 동작하는 것 · 자리만 채우는 것
+
+| | 동작 |
+|---|---|
+| **동작함** | PLAY · ANIMALS(도감) · HOME · 설정창 5종 전부(SOUND·MUSIC·VIBRATION·RESUME·HOME) |
+| **목업** | MISSIONS · COLLECTION · SHOP · WORLD · EVENTS · SOON · 코인 · 젬 |
+
+목업 버튼도 **아트는 시안 그대로** 넣으면 된다. 눌러도 반응만 없다.

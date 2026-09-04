@@ -1,6 +1,7 @@
 // ui/hex/hudView.ts — 상단 스테이지·목표 카운터, 우측 NEXT·부스터.
 import { Container, Graphics, Text } from "pixi.js";
-import { CENTER_W, RAIL_W, RAIL_MARGIN } from "./geom";
+
+import { slot } from "../../data/uiLayout";
 import { TIER_COLORS, drawTileFallback } from "./tileArt";
 import type { RunState } from "../../engine/hex/types";
 
@@ -14,16 +15,20 @@ function panel(w: number, h: number): Graphics {
   return new Graphics().roundRect(0, 0, w, h, 10).fill({ color: 0x4a3320, alpha: 0.9 });
 }
 
+/** 인게임 슬롯 하나. 에디터가 고친 값이 없으면 기본 배치로 간다. */
+function box(id: string, fx: number, fy: number, fw: number, fh: number): { x: number; y: number; w: number; h: number } {
+  return slot("ingame", id) ?? { x: fx, y: fy, w: fw, h: fh };
+}
+
 export function createHudView(stageIndex: number): HudView {
   const root = new Container();
 
-  // 상단 — 스테이지 번호 + 목표 카운터
-  // Ruling Q: 중앙 컬럼 450 기준으로 좌표 유도
-  const HUD_W = 220;
-  const HUD_X = (CENTER_W - HUD_W) / 2; // 115
-  const top = panel(HUD_W, 40);
-  top.x = HUD_X;
-  top.y = 28;
+  // 배치는 data/uiLayout.json이 들고 있다 — /ui.html 에디터의 「인게임」 탭에서 조정한다.
+  // 여기 하드코딩된 숫자는 슬롯이 지워졌을 때만 쓰이는 기본값이다.
+  const bar = box("stageBar", 115, 28, 220, 40);
+  const top = panel(bar.w, bar.h);
+  top.x = bar.x;
+  top.y = bar.y;
   root.addChild(top);
 
   const title = new Text({
@@ -31,8 +36,8 @@ export function createHudView(stageIndex: number): HudView {
     style: { fontSize: 17, fill: 0xffffff, fontWeight: "bold" },
   });
   title.anchor.set(0, 0.5);
-  title.x = HUD_X + 15; // 130
-  title.y = 48;
+  title.x = bar.x + 15;
+  title.y = bar.y + bar.h / 2;
   root.addChild(title);
 
   const counter = new Text({
@@ -40,67 +45,63 @@ export function createHudView(stageIndex: number): HudView {
     style: { fontSize: 17, fill: 0xffd76a, fontWeight: "bold" },
   });
   counter.anchor.set(1, 0.5);
-  counter.x = HUD_X + HUD_W - 15; // 320
-  counter.y = 48;
+  counter.x = bar.x + bar.w - 15;
+  counter.y = bar.y + bar.h / 2;
   root.addChild(counter);
 
   // 샷 잔량
-  const shots = new Text({
-    text: "",
-    style: { fontSize: 14, fill: 0xffffff },
-  });
+  const shotsBox = box("shots", 155, 72, 140, 20);
+  const shots = new Text({ text: "", style: { fontSize: 14, fill: 0xffffff } });
   shots.anchor.set(0.5, 0);
-  shots.x = CENTER_W / 2; // 225
-  shots.y = 74;
+  shots.x = shotsBox.x + shotsBox.w / 2;
+  shots.y = shotsBox.y;
   root.addChild(shots);
 
-  // 우측 레일 — NEXT 슬롯과 부스터가 같은 세로선에 정렬된다
-  // RAIL_W·RAIL_MARGIN은 geom.ts에서 가져온다 — 판 폭 계산이 같은 상수를 쓰지 않으면
-  // 둘이 어긋나 판이 레일 밑으로 파고들 수 있다.
-  const RAIL_X = CENTER_W - RAIL_MARGIN - RAIL_W; // 382
-  const RAIL_CX = RAIL_X + RAIL_W / 2; // 410
-
-  const nextPanel = panel(RAIL_W, 68);
-  nextPanel.x = RAIL_X;
-  nextPanel.y = 300;
+  // 우측 레일 — NEXT 슬롯과 부스터
+  const nextBox = box("nextPanel", 382, 300, 56, 68);
+  const nextPanel = panel(nextBox.w, nextBox.h);
+  nextPanel.x = nextBox.x;
+  nextPanel.y = nextBox.y;
   root.addChild(nextPanel);
 
   const nextLabel = new Text({ text: "NEXT", style: { fontSize: 10, fill: 0xffffff } });
   nextLabel.anchor.set(0.5, 0);
-  nextLabel.x = RAIL_CX;
-  nextLabel.y = 306;
+  nextLabel.x = nextBox.x + nextBox.w / 2;
+  nextLabel.y = nextBox.y + 6;
   root.addChild(nextLabel);
 
   const nextSlot = new Container();
-  nextSlot.x = RAIL_CX;
-  nextSlot.y = 342;
+  nextSlot.x = nextBox.x + nextBox.w / 2;
+  nextSlot.y = nextBox.y + nextBox.h * 0.62;
   root.addChild(nextSlot);
 
   // 우측 — 부스터 3종
-  const boosterLabels: Array<{ id: "bomb" | "rainbow" | "horseshoe"; glyph: string }> = [
-    { id: "bomb", glyph: "B" },
-    { id: "rainbow", glyph: "R" },
-    { id: "horseshoe", glyph: "U" },
+  const boosterLabels: Array<{ id: "bomb" | "rainbow" | "horseshoe"; glyph: string; slotId: string; fy: number }> = [
+    { id: "bomb", glyph: "B", slotId: "boosterBomb", fy: 378 },
+    { id: "rainbow", glyph: "R", slotId: "boosterRainbow", fy: 434 },
+    { id: "horseshoe", glyph: "U", slotId: "boosterHorseshoe", fy: 490 },
   ];
   const boosterTexts = new Map<string, Text>();
-  boosterLabels.forEach((b, i) => {
-    const y = 400 + i * 56;
-    const slot = new Graphics().circle(RAIL_CX, y, 22).fill({ color: 0x4a3320, alpha: 0.9 });
-    root.addChild(slot);
+  for (const b of boosterLabels) {
+    const bb = box(b.slotId, 388, b.fy, 44, 44);
+    const cx = bb.x + bb.w / 2;
+    const cy = bb.y + bb.h / 2;
+    const slotGfx = new Graphics().circle(cx, cy, Math.min(bb.w, bb.h) / 2).fill({ color: 0x4a3320, alpha: 0.9 });
+    root.addChild(slotGfx);
 
     const glyph = new Text({ text: b.glyph, style: { fontSize: 16, fill: 0xffffff, fontWeight: "bold" } });
     glyph.anchor.set(0.5);
-    glyph.x = RAIL_CX;
-    glyph.y = y;
+    glyph.x = cx;
+    glyph.y = cy;
     root.addChild(glyph);
 
     const count = new Text({ text: "0", style: { fontSize: 11, fill: 0xffffff, fontWeight: "bold" } });
     count.anchor.set(0.5);
-    count.x = RAIL_CX + 16; // 426
-    count.y = y + 16;
+    count.x = cx + bb.w * 0.36;
+    count.y = cy + bb.h * 0.36;
     root.addChild(count);
     boosterTexts.set(b.id, count);
-  });
+  }
 
   let lastNextTier = -1;
 

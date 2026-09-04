@@ -10,8 +10,25 @@ import { createBoardView } from "./boardView";
 import { createCageView } from "./cageView";
 import { createHudView } from "./hudView";
 import { createLauncher } from "./launcher";
+import { makeButton } from "../skin";
+import { openSettings, type SettingsTextures } from "../settingsMenu";
+import { slot } from "../../data/uiLayout";
 
-export type StageResult = "cleared" | "failed" | "quit";
+/** 스테이지가 끝난 이유. 호출자(main)가 다음 화면을 정한다. */
+export type StageResult = "cleared" | "failed" | "lobby";
+
+/** 한 판의 결과. 누적 진행(프로필)에 넣을 값이 함께 나온다 —
+ *  스테이지 정의가 아니라 **실제로 구한 것**을 세야 한다. 목표만 채우고 끝낼 수도 있다. */
+export interface StageOutcome {
+  result: StageResult;
+  /** 이번 판에서 실제로 구출한 동물 id */
+  rescued: string[];
+  /** 이번 판에서 회수한 말굽 */
+  horseshoes: number;
+}
+
+/** 세팅 모달과 톱니 버튼이 쓰는 슬롯. 스테이지 화면은 내용을 모르고 넘기기만 한다. */
+export type StageUiTextures = SettingsTextures & { settingsButton?: import("pixi.js").Texture };
 
 export interface StageTextures {
   tiles: Array<Texture | null>;
@@ -68,7 +85,8 @@ export async function runStageScreen(
   stage: StageDef,
   stageIndex: number,
   textures: StageTextures,
-): Promise<StageResult> {
+  ui: StageUiTextures = {},
+): Promise<StageOutcome> {
   const state: RunState = createRun(stage);
 
   const layer = new Container();
@@ -113,12 +131,17 @@ export async function runStageScreen(
 
   let busy = false;
 
-  return await new Promise<StageResult>((resolve) => {
+  return await new Promise<StageOutcome>((resolve) => {
     let finished = false;
 
     function finish(result: StageResult): void {
       if (finished) return;
       finished = true;
+      const outcome: StageOutcome = {
+        result,
+        rescued: [...state.rescued],
+        horseshoes: state.horseshoes,
+      };
       input.off("pointerdown", onDown);
       input.off("pointermove", onMove);
       input.off("pointerup", onUpWrapped);
@@ -128,7 +151,7 @@ export async function runStageScreen(
       cages.destroy();
       board.destroy();
       layer.destroy({ children: true });
-      resolve(result);
+      resolve(outcome);
     }
 
     // 새 터치의 첫 접촉 — 조준선을 그 자리에 바로 맞춘다.
@@ -185,6 +208,21 @@ export async function runStageScreen(
     // finish()의 .off는 동일 참조여야 실제로 제거된다 — 익명 래퍼를 그때그때 만들면
     // EventEmitter는 참조가 달라 지우지 못한다(Container.destroy가 가려줄 뿐 무동작이었다).
     const onUpWrapped = (e: FederatedPointerEvent): void => void onUp(e);
+    // 설정 — 상단 우측. 열려 있는 동안 모달이 입력을 먹으므로 발사가 나가지 않는다
+    const gear = makeButton({
+      label: "⚙", w: 36, h: 36, tex: ui.settingsButton, fill: 0x4a3320,
+      onTap: () => {
+        if (busy || finished) return;
+        void openSettings(layer, ui).then((r) => {
+          if (r === "lobby") finish("lobby");
+        });
+      },
+    });
+    const gearBox = slot("ingame", "gear") ?? { x: 398, y: 12, w: 36, h: 36 };
+    gear.x = gearBox.x + gearBox.w / 2;
+    gear.y = stageTop() + gearBox.y + gearBox.h / 2;
+    layer.addChild(gear);
+
     input.on("pointerdown", onDown);
     input.on("pointermove", onMove);
     input.on("pointerup", onUpWrapped);

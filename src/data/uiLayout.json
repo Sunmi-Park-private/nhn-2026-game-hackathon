@@ -1,0 +1,48 @@
+{
+  "_note": "UI 슬롯 배치. 좌표계는 중앙 콘텐츠 컬럼 450×800이다. /ui.html 에디터로 조정하고 저장한다.",
+  "areas": [
+    {
+      "id": "lobby",
+      "label": "로비",
+      "slots": [
+        { "id": "topStats",   "label": "상단 재화 바",   "x": 30,  "y": 12, "w": 300, "h": 34 },
+        { "id": "gear",       "label": "설정",          "x": 396, "y": 12, "w": 40,  "h": 40 },
+        { "id": "railMissions","label": "MISSIONS",     "x": 384, "y": 70,  "w": 56, "h": 56 },
+        { "id": "railCollection","label": "COLLECTION", "x": 384, "y": 134, "w": 56, "h": 56 },
+        { "id": "railShop",   "label": "SHOP",          "x": 384, "y": 198, "w": 56, "h": 56 },
+        { "id": "railWorld",  "label": "WORLD",         "x": 384, "y": 262, "w": 56, "h": 56 },
+        { "id": "play",       "label": "PLAY",          "x": 138, "y": 646, "w": 174, "h": 54 },
+        { "id": "navHome",    "label": "HOME",          "x": 18,  "y": 738, "w": 96, "h": 50 },
+        { "id": "navAnimals", "label": "ANIMALS",       "x": 122, "y": 738, "w": 96, "h": 50 },
+        { "id": "navEvents",  "label": "EVENTS",        "x": 226, "y": 738, "w": 96, "h": 50 },
+        { "id": "navSoon",    "label": "SOON",          "x": 330, "y": 738, "w": 96, "h": 50 }
+      ]
+    },
+    {
+      "id": "ingame",
+      "label": "인게임",
+      "slots": [
+        { "id": "stageBar",   "label": "스테이지 바",    "x": 115, "y": 28,  "w": 220, "h": 40 },
+        { "id": "shots",      "label": "남은 발사",      "x": 155, "y": 72,  "w": 140, "h": 20 },
+        { "id": "gear",       "label": "설정",          "x": 398, "y": 12,  "w": 36,  "h": 36 },
+        { "id": "nextPanel",  "label": "NEXT",          "x": 382, "y": 300, "w": 56,  "h": 68 },
+        { "id": "boosterBomb","label": "부스터 폭탄",    "x": 388, "y": 378, "w": 44,  "h": 44 },
+        { "id": "boosterRainbow","label": "부스터 레인보우","x": 388, "y": 434, "w": 44, "h": 44 },
+        { "id": "boosterHorseshoe","label": "부스터 말굽","x": 388, "y": 490, "w": 44, "h": 44 }
+      ]
+    },
+    {
+      "id": "settings",
+      "label": "설정창",
+      "slots": [
+        { "id": "panel",     "label": "패널",       "x": 60,  "y": 170, "w": 330, "h": 440 },
+        { "id": "close",     "label": "닫기 X",     "x": 356, "y": 158, "w": 52,  "h": 52 },
+        { "id": "rowSound",  "label": "SOUND",     "x": 84,  "y": 262, "w": 282, "h": 56 },
+        { "id": "rowMusic",  "label": "MUSIC",     "x": 84,  "y": 324, "w": 282, "h": 56 },
+        { "id": "rowVibration","label": "VIBRATION","x": 84, "y": 386, "w": 282, "h": 56 },
+        { "id": "resume",    "label": "RESUME",    "x": 92,  "y": 462, "w": 266, "h": 56 },
+        { "id": "home",      "label": "HOME",      "x": 130, "y": 530, "w": 190, "h": 44 }
+      ]
+    }
+  ]
+}
