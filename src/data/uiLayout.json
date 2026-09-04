@@ -34,12 +34,11 @@
         {
           "id": "play",
           "label": "PLAY",
-          "x": 60,
-          "y": 610,
+          "x": 140,
+          "y": 620,
           "w": 174,
           "h": 54,
-          "asset": "lobby.play",
-          "scale": 1.9
+          "asset": "lobby.play"
         },
         {
           "id": "navHome",

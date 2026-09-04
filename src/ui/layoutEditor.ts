@@ -12,9 +12,10 @@
 //   · 값이 바뀌면 자동 저장, 「지금 저장」으로 즉시 반영
 //
 // 저장은 /ui.html과 같은 파일(src/data/uiLayout.json)로 간다 — 두 에디터가 같은 값을 만진다.
-import { Container, Graphics, Text } from "pixi.js";
-import { uiAreas, type UiSlot } from "../data/uiLayout";
+import { Container, Graphics, Text, type FederatedPointerEvent } from "pixi.js";
+import { uiAreas, type UiArea, type UiSlot } from "../data/uiLayout";
 import { BASE_W, stageTop, stageHeight } from "./stage";
+import { createHistory, restoreInto, type History } from "./layoutHistory";
 
 const on = typeof location !== "undefined" && new URLSearchParams(location.search).has("editor");
 export const layoutEditorEnabled = (): boolean => on;
@@ -99,6 +100,7 @@ let statusEl: HTMLElement | null = null;
 let saveStatus = "";
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 let altHeld = false;
+let history: History<UiArea[]> | null = null;
 
 export const inputBlocked = (): boolean => on && !interact;
 
@@ -234,6 +236,34 @@ function setStatus(text: string, color: string): void {
   if (statusEl) { statusEl.textContent = text; statusEl.style.color = color; }
 }
 
+/** 지금 배치를 히스토리에 남긴다. 편집이 끝난 지점마다 부른다. */
+function commit(): void {
+  history?.record(uiAreas);
+  renderPanel(); // 되돌리기 버튼의 활성 상태를 바로 반영한다
+}
+
+/** 되돌린 값을 화면에 다시 입힌다 — 등록된 노드 전부에 적용하고 저장까지 예약한다. */
+function applyAll(): void {
+  for (const e of live()) apply(e);
+  drawOutline();
+  renderPanel();
+  scheduleSave();
+}
+
+function doUndo(): void {
+  const snap = history?.undo();
+  if (!snap) return;
+  restoreInto(uiAreas as never, snap as never);
+  applyAll();
+}
+
+function doRedo(): void {
+  const snap = history?.redo();
+  if (!snap) return;
+  restoreInto(uiAreas as never, snap as never);
+  applyAll();
+}
+
 function scheduleSave(): void {
   setStatus("변경됨 — 곧 저장", "#f0c96a");
   if (saveTimer !== undefined) clearTimeout(saveTimer);
@@ -349,22 +379,23 @@ function buildRow(e: Entry): HTMLElement {
   spacer.style.cssText = "flex:1";
 
   head.append(label, copy, spacer,
-    mkNum(e.slot.x, "x", (n) => { e.slot.x = n; apply(e); scheduleSave(); }),
-    mkNum(e.slot.y, "y", (n) => { e.slot.y = n; apply(e); scheduleSave(); }),
+    mkNum(e.slot.x, "x", (n) => { e.slot.x = n; apply(e); commit(); scheduleSave(); }),
+    mkNum(e.slot.y, "y", (n) => { e.slot.y = n; apply(e); commit(); scheduleSave(); }),
   );
   wrap.appendChild(head);
 
   const line2 = document.createElement("div");
   line2.style.cssText = "display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap";
   line2.append(
-    mkNum(e.slot.w, "w", (n) => { e.slot.w = Math.max(1, n); apply(e); scheduleSave(); }),
-    mkNum(e.slot.h, "h", (n) => { e.slot.h = Math.max(1, n); apply(e); scheduleSave(); }),
+    mkNum(e.slot.w, "w", (n) => { e.slot.w = Math.max(1, n); apply(e); commit(); scheduleSave(); }),
+    mkNum(e.slot.h, "h", (n) => { e.slot.h = Math.max(1, n); apply(e); commit(); scheduleSave(); }),
   );
   if (visual) {
     line2.appendChild(mkNum(e.slot.scale ?? 1, "배율", (n) => {
       if (!(n > 0)) return;
       e.slot.scale = n === 1 ? undefined : n;
       apply(e);
+      commit();
       scheduleSave();
     }, 0.05));
   }
@@ -375,6 +406,7 @@ function buildRow(e: Entry): HTMLElement {
   hide.onclick = (): void => {
     e.slot.hidden = e.slot.hidden ? undefined : true;
     apply(e);
+    commit();
     scheduleSave();
     renderPanel();
   };
@@ -390,6 +422,7 @@ function buildRow(e: Entry): HTMLElement {
       if (!(n > 0)) return;
       e.slot.fontSize = n;
       for (const t of texts) t.style.fontSize = n;
+      commit();
       scheduleSave();
     }));
     const sw = document.createElement("span");
@@ -403,6 +436,7 @@ function buildRow(e: Entry): HTMLElement {
       b.onclick = (): void => {
         e.slot.color = hex;
         for (const t of texts) t.style.fill = hex;
+        commit();
         scheduleSave();
         renderPanel();
       };
@@ -417,6 +451,7 @@ function buildRow(e: Entry): HTMLElement {
       reset.onclick = (): void => {
         e.slot.color = undefined;
         e.slot.fontSize = undefined;
+        commit();
         scheduleSave();
         renderPanel();
       };
@@ -459,6 +494,24 @@ function renderPanel(): void {
     : "<b>✋ 편집 중</b> — 초록 격자가 보입니다<br><span style='opacity:.85;font-size:11px'>드래그로 옮기고 10px에 붙어요 (Alt = 1px)<br><b>`</b> 또는 여기를 눌러 조작으로 (화면 진행)</span>";
   mode.onclick = (): void => setInteract(!interact);
   head.appendChild(mode);
+
+  const hist = document.createElement("div");
+  hist.style.cssText = "display:flex;gap:6px;margin-top:8px";
+  const mkHist = (text: string, title: string, enabled: boolean, fn: () => void): void => {
+    const b = document.createElement("button");
+    b.textContent = text;
+    b.title = title;
+    b.disabled = !enabled;
+    b.style.cssText = "flex:1;padding:6px;border:1px solid #4a3320;border-radius:7px;font-weight:700;font-size:11px;"
+      + `background:${enabled ? "#2b1d10" : "#1c150d"};color:${enabled ? "#e8dcc8" : "#6b5c46"};`
+      + `cursor:${enabled ? "pointer" : "default"}`;
+    b.onclick = fn;
+    hist.appendChild(b);
+  };
+  mkHist("↩ 되돌리기", "⌘Z", history?.canUndo() === true, doUndo);
+  mkHist("↪ 다시", "⇧⌘Z", history?.canRedo() === true, doRedo);
+  head.appendChild(hist);
+
   panel.appendChild(head);
 
   const rows = live();
@@ -513,10 +566,20 @@ export function mountLayoutEditor(stage: Container): void {
 
   mountGrid();
 
+  history = createHistory<UiArea[]>(uiAreas);
+
   // ` 키로 편집 ⇄ 조작 — 손이 자주 오간다
   window.addEventListener("keydown", (ev) => {
     if (ev.key === "Alt") altHeld = true;
     if (ev.key === "`") { ev.preventDefault(); setInteract(!interact); }
+    // 입력칸 안에서는 브라우저의 글자 되돌리기를 그대로 둔다
+    const act = document.activeElement;
+    if (act instanceof HTMLInputElement || act instanceof HTMLTextAreaElement) return;
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "z") {
+      ev.preventDefault();
+      if (ev.shiftKey) doRedo(); else doUndo();
+    }
+    if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "y") { ev.preventDefault(); doRedo(); }
   });
   window.addEventListener("keyup", (ev) => { if (ev.key === "Alt") altHeld = false; });
 
@@ -541,16 +604,21 @@ export function mountLayoutEditor(stage: Container): void {
     drawOutline();
     renderPanel();
   });
-  shield.on("globalpointermove", (ev) => {
+  const onMove = (ev: FederatedPointerEvent): void => {
     if (!dragging) return;
     const p = ev.getLocalPosition(layer);
     dragging.slot.x = snap(ox + (p.x - startX));
     dragging.slot.y = snap(oy + (p.y - startY));
     apply(dragging);
-  });
+  };
+  // 실드 위에서 오는 이동과, 커서가 잠깐 벗어났을 때 오는 전역 이동을 둘 다 받는다.
+  // 전역 것만 쓰면 브라우저·버전에 따라 안 오는 경우가 있어 드래그가 먹히지 않는다.
+  shield.on("pointermove", onMove);
+  shield.on("globalpointermove", onMove);
   const stop = (): void => {
     if (!dragging) return;
     dragging = null;
+    commit(); // 드래그 한 번이 되돌리기 한 단계다
     scheduleSave();
     renderPanel();
   };

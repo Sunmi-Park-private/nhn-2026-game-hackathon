@@ -11,6 +11,7 @@
 // 있으므로 그리기 전에 디스크와 맞춘다(GET /__uilayout · /__assets).
 import { uiAreas, uiUploads, type UiArea, type UiSlot, type UiUpload } from "../data/uiLayout";
 import assetsJson from "../data/assets.json";
+import { createHistory, restoreInto, type History } from "../ui/layoutHistory";
 
 const W = 450;
 const H = 800;
@@ -110,11 +111,37 @@ const list = $("div", "display:flex;flex-direction:column;gap:3px;margin-bottom:
 const detail = $("div", "");
 const actions = $("div", "display:flex;gap:8px;align-items:center;margin-bottom:12px");
 const saveBtn = $("button", "background:#3faa48;color:#fff;border:0;border-radius:6px;padding:9px 18px;font-weight:800;cursor:pointer;font-size:13px", "배치 저장");
+const undoBtn = $("button", "", "↩ 되돌리기");
+const redoBtn = $("button", "", "↪ 다시");
+undoBtn.title = "⌘Z";
+redoBtn.title = "⇧⌘Z";
+undoBtn.onclick = (): void => applySnapshot(history?.undo() ?? null);
+redoBtn.onclick = (): void => applySnapshot(history?.redo() ?? null);
+
+function paintHistButtons(): void {
+  for (const [b, ok] of [[undoBtn, history?.canUndo() === true], [redoBtn, history?.canRedo() === true]] as const) {
+    (b as HTMLButtonElement).disabled = !ok;
+    b.setAttribute("style",
+      "border:1px solid #4a3320;border-radius:6px;padding:9px 12px;font-weight:700;font-size:12px;"
+      + `background:${ok ? "#2b1d10" : "#1c150d"};color:${ok ? "#e8dcc8" : "#6b5c46"};cursor:${ok ? "pointer" : "default"}`);
+  }
+}
 const status = $("span", "color:#a8987c;font-size:12px");
-actions.append(saveBtn, status);
+actions.append(saveBtn, undoBtn, redoBtn, status);
 side.append(actions, list, detail);
 
 const area = (): UiArea => state.areas[state.areaIndex]!;
+
+/** 되돌리기·다시. 배치만 다룬다 — 업로드는 파일이 이미 디스크에 있으므로 되돌리지 않는다. */
+let history: History<UiArea[]> | null = null;
+const commit = (): void => { history?.record(state.areas); paintHistButtons(); };
+
+function applySnapshot(snap: UiArea[] | null): void {
+  if (!snap) return;
+  restoreInto(state.areas as never, snap as never);
+  markDirty();
+  renderAll();
+}
 const markDirty = (): void => {
   state.dirty = true;
   status.textContent = "배치 저장 안 됨";
@@ -315,6 +342,8 @@ function renderDetail(): void {
     input.type = "number";
     input.value = String(Math.round(s[k]));
     input.setAttribute("style", "background:#14100c;color:#e8dcc8;border:1px solid #4a3320;border-radius:4px;padding:5px;width:100%;font-size:12px");
+    // 타이핑 중에는 화면만 따라가고, 값이 확정될 때 한 단계로 남긴다 —
+    // 키 하나마다 기록하면 되돌리기가 글자 단위가 되어 쓸모없어진다
     input.oninput = (): void => {
       const v = Number(input.value);
       if (!Number.isFinite(v)) return;
@@ -323,6 +352,7 @@ function renderDetail(): void {
       renderStage();
       renderList();
     };
+    input.onchange = (): void => commit();
     lab.appendChild(input);
     grid.appendChild(lab);
   });
@@ -353,6 +383,7 @@ function renderAssets(): void {
 
 function renderAll(): void {
   renderTabs();
+  paintHistButtons();
   if (state.assetsTab) { renderAssets(); return; }
   stageWrap.style.display = "block";
   side.style.maxWidth = "560px";
@@ -389,7 +420,10 @@ function attachDrag(el: HTMLElement, grip: HTMLElement, s: UiSlot): void {
     renderStage();
     renderList();
   });
-  window.addEventListener("pointerup", () => { mode = null; });
+  window.addEventListener("pointerup", () => {
+    if (mode) commit(); // 드래그 한 번이 되돌리기 한 단계다
+    mode = null;
+  });
 }
 
 // ── 저장 ────────────────────────────────────
@@ -422,6 +456,20 @@ async function currentLayout(): Promise<Record<string, unknown>> {
 
 window.addEventListener("beforeunload", (e) => { if (state.dirty) e.preventDefault(); });
 
+window.addEventListener("keydown", (e) => {
+  // 입력칸 안에서는 브라우저의 글자 되돌리기를 그대로 둔다
+  const act = document.activeElement;
+  if (act instanceof HTMLInputElement || act instanceof HTMLTextAreaElement) return;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+    e.preventDefault();
+    applySnapshot(e.shiftKey ? (history?.redo() ?? null) : (history?.undo() ?? null));
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "y") {
+    e.preventDefault();
+    applySnapshot(history?.redo() ?? null);
+  }
+});
+
 /** 그리기 전에 디스크와 맞춘다 — 두 JSON은 watch 제외라 번들 모듈이 옛 내용일 수 있다. */
 async function syncFromDisk(): Promise<void> {
   try {
@@ -435,4 +483,8 @@ async function syncFromDisk(): Promise<void> {
   } catch { /* dev 서버 밖 — 번들 값 그대로 */ }
 }
 
-void syncFromDisk().then(() => { renderAll(); status.textContent = ""; });
+void syncFromDisk().then(() => {
+  history = createHistory<UiArea[]>(state.areas); // 디스크와 맞춘 뒤가 시작점이다
+  renderAll();
+  status.textContent = "";
+});
