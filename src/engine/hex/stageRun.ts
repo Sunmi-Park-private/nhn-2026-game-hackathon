@@ -1,10 +1,10 @@
 // engine/hex/stageRun.ts — 한 판의 진행. 발사 → 합체 → 낙하 → 구출을 한 번에 묶는다.
 import { key } from "./coords";
-import { buildCells, cageNeighbors, isOccupied, placeTile } from "./grid";
+import { buildCells, cageNeighbors, clearCell, cellAt, isOccupied, placeTile } from "./grid";
 import { resolveMerges, type MergeStep } from "./merge";
-import { dropFloating } from "./gravity";
+import { findFloating } from "./gravity";
 import { simulateShot, type BoardGeom } from "./shot";
-import type { Axial, Cage, Cell, RunState, StageDef } from "./types";
+import type { Axial, Cage, RunState, StageDef } from "./types";
 
 /** 스테이지 정의로 새 런을 만든다. */
 export function createRun(stage: StageDef): RunState {
@@ -24,7 +24,6 @@ export function createRun(stage: StageDef): RunState {
 export function pendingRescues(state: RunState): Cage[] {
   const out: Cage[] = [];
   for (const cage of state.stage.cages) {
-    if (state.rescued.includes(cage.animalId)) continue;
     // 이미 셀 맵에서 사라진(=구출된) 케이지는 건너뛴다
     if (!cage.cells.some((c) => isOccupied(state.cells, c))) continue;
     const blocked = cageNeighbors(cage).some((n) => isOccupied(state.cells, n));
@@ -70,11 +69,8 @@ export function fireAt(
   placeTile(state.cells, snap, state.loaded);
 
   const steps = resolveMerges(state.cells, snap);
-  const dropped = dropFloating(state.cells);
-
-  // 낙하한 말굽을 회수한다 — dropFloating이 지우기 전 종류를 알 수 없으므로
-  // 여기서는 좌표만 받고, 말굽 회수는 낙하 직전 스냅샷으로 센다.
-  state.horseshoes += countHorseshoes(state, dropped);
+  const { dropped, shoes } = collectDrops(state);
+  state.horseshoes += shoes;
 
   const rescued = applyRescues(state);
 
@@ -84,12 +80,17 @@ export function fireAt(
   return { snapped: snap, steps, dropped, rescued };
 }
 
-/** dropFloating은 이미 셀을 지웠으므로, 말굽 수는 낙하 목록과
- *  스테이지 정의를 대조해 센다. 스테이지의 말굽 위치는 고정이다. */
-function countHorseshoes(state: RunState, dropped: Axial[]): number {
-  if (dropped.length === 0) return 0;
-  const shoeKeys = new Set(state.stage.horseshoes.map(key));
-  return dropped.filter((a) => shoeKeys.has(key(a))).length;
+/** 낙하 처리. 지우기 전에 셀의 종류를 읽어 말굽을 센다 —
+ *  좌표만으로 스테이지 데이터와 대조하면, 이미 회수한 말굽 자리에 나중에 놓인
+ *  타일이 떨어질 때 말굽으로 또 세어진다. */
+export function collectDrops(state: RunState): { dropped: Axial[]; shoes: number } {
+  const floating = findFloating(state.cells);
+  let shoes = 0;
+  for (const a of floating) {
+    if (cellAt(state.cells, a)?.kind === "horseshoe") shoes += 1;
+    clearCell(state.cells, a);
+  }
+  return { dropped: floating, shoes };
 }
 
 export function isCleared(state: RunState): boolean {

@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { key, toPixel } from "../../src/engine/hex/coords";
 import { placeTile } from "../../src/engine/hex/grid";
 import {
-  createRun, pendingRescues, applyRescues, fireAt, isCleared, isFailed,
+  createRun, pendingRescues, applyRescues, fireAt, isCleared, isFailed, collectDrops,
 } from "../../src/engine/hex/stageRun";
 import type { BoardGeom } from "../../src/engine/hex/shot";
 import type { StageDef } from "../../src/engine/hex/types";
@@ -154,5 +154,25 @@ describe("isCleared / isFailed", () => {
 
   it("샷이 남아 있으면 실패가 아니다", () => {
     expect(isFailed(createRun(stage({ objective: 1, shots: 3 })))).toBe(false);
+  });
+});
+
+describe("collectDrops", () => {
+  it("떨어진 말굽을 센다", () => {
+    const run = createRun(stage({ horseshoes: [{ q: 4, r: 4 }] }));
+    // 천장과 이어지지 않았으므로 낙하한다
+    const out = collectDrops(run);
+    expect(out.shoes).toBe(1);
+    expect(run.cells.has(key({ q: 4, r: 4 }))).toBe(false);
+  });
+
+  it("이미 회수한 말굽 자리에 놓인 타일은 말굽으로 세지 않는다", () => {
+    // 스테이지 정의상 말굽 자리지만, 지금 그 칸에 있는 것은 타일이다
+    const run = createRun(stage({ horseshoes: [{ q: 4, r: 4 }] }));
+    collectDrops(run);                       // 말굽을 먼저 회수해 칸을 비운다
+    placeTile(run.cells, { q: 4, r: 4 }, 0); // 그 자리에 타일이 놓인다
+    const out = collectDrops(run);
+    expect(out.shoes).toBe(0);               // 좌표가 아니라 종류로 세야 한다
+    expect(out.dropped).toHaveLength(1);     // 타일 자체는 떨어진다
   });
 });
