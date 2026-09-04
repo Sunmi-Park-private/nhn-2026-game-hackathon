@@ -17,6 +17,14 @@ async function loadFrames(urls: readonly string[]): Promise<Texture[]> {
   return out.filter((t): t is Texture => t !== null);
 }
 
+/** 개발 중에는 매번 새로 받는다.
+ *  에디터로 같은 경로에 덮어써도 브라우저가 옛 그림을 들고 있으면 「업로드가 안 먹는다」로 보인다.
+ *  빌드본에는 붙지 않는다 — 파일 이름이 곧 버전이다. */
+function bust(url: string): string {
+  return import.meta.env.DEV ? `${url}${url.includes("?") ? "&" : "?"}v=${BOOT}` : url;
+}
+const BOOT = Date.now();
+
 async function load(url: string | undefined): Promise<Texture | null> {
   if (!url) return null;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -25,7 +33,7 @@ async function load(url: string | undefined): Promise<Texture | null> {
   });
   try {
     return await Promise.race([
-      Assets.load<Texture>(url).catch(() => null),
+      Assets.load<Texture>(bust(url)).catch(() => null),
       timeout,
     ]);
   } finally {

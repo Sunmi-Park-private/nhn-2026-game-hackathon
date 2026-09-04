@@ -110,17 +110,6 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     statText.y = stats.y + stats.h / 2;
     layer.addChild(statText);
 
-    // ── 우측 레일 — 전부 목업 ─────────────────────
-    for (const [id, fb] of [
-      ["railMissions", { x: 384, y: 70, w: 56, h: 56 }],
-      ["railCollection", { x: 384, y: 134, w: 56, h: 56 }],
-      ["railShop", { x: 384, y: 198, w: 56, h: 56 }],
-      ["railWorld", { x: 384, y: 262, w: 56, h: 56 }],
-    ] as const) {
-      const b = box(id, fb);
-      layer.addChild(hotspot(b, tex.icons[id], null, 0x53341c));
-    }
-
     // ── PLAY ────────────────────────────────────
     const play = box("play", { x: 138, y: 646, w: 174, h: 54 });
     layer.addChild(hotspot(play, tex.play, () => finish(), 0x3faa48));

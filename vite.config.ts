@@ -1,11 +1,32 @@
 // 데이터 주도 웹 게임. engine=순수 TS, ui=Pixi.
 import { defineConfig, type Plugin, type ViteDevServer } from 'vite'
 import fs from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 
 const LAYOUT_FILE = path.resolve('src/data/uiLayout.json')
 const ASSETS_FILE = path.resolve('src/data/assets.json')
 const PUBLIC_DIR = path.resolve('public')
+
+/**
+ * png·jpg를 webp로 바꾼다. 용량이 줄고 디코딩도 빨라진다.
+ *
+ * `-lossless`로 원본 픽셀을 그대로 두고, `-exact`로 **투명 픽셀의 RGB까지 보존**한다.
+ * 이 옵션이 없으면 알파 0인 자리의 색이 뭉개져 확대했을 때 가장자리에 얼룩이 남는다.
+ * cwebp가 없는 환경이면 조용히 원본을 그대로 쓴다 — 업로드가 실패하면 안 된다.
+ */
+function toWebp(abs: string): string | null {
+  if (!/\.(png|jpe?g)$/i.test(abs)) return null
+  const out = abs.replace(/\.[^./]+$/, '.webp')
+  try {
+    execFileSync('cwebp', ['-quiet', '-lossless', '-exact', '-q', '100', abs, '-o', out])
+  } catch {
+    return null // cwebp 없음·변환 실패 — 원본을 그대로 둔다
+  }
+  if (!fs.existsSync(out) || fs.statSync(out).size === 0) return null
+  fs.unlinkSync(abs)
+  return out
+}
 
 /** 업로드를 허용하는 확장자. 그 외는 거부한다 — 공개 디렉터리에 아무거나 쓰이면 곤란하다. */
 const ALLOWED = new Set(['png', 'webp', 'jpg', 'jpeg', 'gif', 'mp4', 'webm', 'mp3', 'wav'])
@@ -158,18 +179,23 @@ function assetUploadPlugin(): Plugin {
           fs.mkdirSync(path.dirname(abs), { recursive: true })
           fs.writeFileSync(abs, buf)
 
+          // png·jpg는 webp로 바꾼다 — 매니페스트에 들어가는 이름도 그 결과를 따른다
+          const converted = toWebp(abs)
+          const finalRel = converted ? rel.replace(/\.[^./]+$/, '.webp') : rel
+          const finalExt = converted ? 'webp' : ext
+
           if (isSeq) {
             // 프레임이 다 올라온 뒤에 한 번만 쓴다 — 중간에 쓰면 게임이 반쪽 시퀀스를 읽는다
             if (seqIndex === seqTotal - 1) {
-              const list = Array.from({ length: seqTotal }, (_, i) => `${base}_f${String(i).padStart(3, '0')}.${ext}`)
+              const list = Array.from({ length: seqTotal }, (_, i) => `${base}_f${String(i).padStart(3, '0')}.${finalExt}`)
               setPath(manifest, dotted, list as unknown as string)
               fs.writeFileSync(ASSETS_FILE, JSON.stringify(manifest, null, 2) + '\n')
               // 예전에 스틸로 올렸던 파일이 남아 있으면 지운다 — 안 쓰는데 리포에 남는다
-              const stale = path.resolve(PUBLIC_DIR, `${base}.${ext}`)
+              const stale = path.resolve(PUBLIC_DIR, `${base}.${finalExt}`)
               if (stale.startsWith(PUBLIC_DIR + path.sep) && fs.existsSync(stale)) fs.unlinkSync(stale)
             }
-          } else if (rel !== current) {
-            setPath(manifest, dotted, rel)
+          } else if (finalRel !== current) {
+            setPath(manifest, dotted, finalRel)
             fs.writeFileSync(ASSETS_FILE, JSON.stringify(manifest, null, 2) + '\n')
           }
 
@@ -180,7 +206,11 @@ function assetUploadPlugin(): Plugin {
 
           res.statusCode = 200
           res.setHeader('content-type', 'application/json')
-          res.end(JSON.stringify({ file: rel, bytes: buf.length }))
+          res.end(JSON.stringify({
+            file: finalRel,
+            bytes: fs.existsSync(path.resolve(PUBLIC_DIR, finalRel)) ? fs.statSync(path.resolve(PUBLIC_DIR, finalRel)).size : buf.length,
+            converted: converted !== null,
+          }))
         }).catch((err: unknown) => { res.statusCode = 400; res.end(String(err)) })
       })
     },

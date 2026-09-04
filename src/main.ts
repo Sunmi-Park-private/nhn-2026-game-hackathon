@@ -87,10 +87,6 @@ async function main(): Promise<void> {
     play: lobbySlots.play,
     gear: uiSlots.gear,
     icons: {
-      railMissions: lobbySlots.railMissions ?? null,
-      railCollection: lobbySlots.railCollection ?? null,
-      railShop: lobbySlots.railShop ?? null,
-      railWorld: lobbySlots.railWorld ?? null,
       navHome: lobbySlots.navHome ?? null,
       navAnimals: lobbySlots.navAnimals ?? null,
       navEvents: lobbySlots.navEvents ?? null,

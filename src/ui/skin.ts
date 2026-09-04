@@ -9,6 +9,14 @@ import { Assets, Container, Graphics, Sprite, Text, type Texture } from "pixi.js
  *  Pixi가 그 HTML을 이미지로 디코드하려다 멈출 수 있다 — 화면 전체를 막지 않는다. */
 const LOAD_TIMEOUT_MS = 4000;
 
+/** 개발 중에는 매번 새로 받는다.
+ *  에디터로 같은 경로에 덮어써도 브라우저가 옛 그림을 들고 있으면 「업로드가 안 먹는다」로 보인다.
+ *  빌드본에는 붙지 않는다 — 파일 이름이 곧 버전이다. */
+function bust(url: string): string {
+  return import.meta.env.DEV ? `${url}${url.includes("?") ? "&" : "?"}v=${BOOT}` : url;
+}
+const BOOT = Date.now();
+
 export async function loadTexture(url: string | undefined): Promise<Texture | null> {
   if (!url) return null;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -16,7 +24,7 @@ export async function loadTexture(url: string | undefined): Promise<Texture | nu
     timer = setTimeout(() => resolve(null), LOAD_TIMEOUT_MS);
   });
   try {
-    return await Promise.race([Assets.load<Texture>(url).catch(() => null), timeout]);
+    return await Promise.race([Assets.load<Texture>(bust(url)).catch(() => null), timeout]);
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
@@ -36,13 +44,26 @@ export async function loadSlots<K extends string>(
   return out;
 }
 
-/** 지정한 크기에 맞춘 스프라이트. 중심 정렬. */
+/**
+ * 지정한 상자 **안에** 원본 비율 그대로 넣는다. 중심 정렬.
+ *
+ * width/height를 따로 넣으면 상자 비율과 다른 그림이 좌우나 상하로 찌그러진다.
+ * 슬롯 비율은 배치용 값이고 아트의 비율은 디자이너가 정하는 것이라, 둘이 다를 때
+ * 늘리는 쪽이 아니라 **맞춰 넣는 쪽**이 맞다. 남는 자리는 비워 둔다.
+ */
 export function fitSprite(tex: Texture, w: number, h: number): Sprite {
   const s = new Sprite(tex);
   s.anchor.set(0.5);
-  s.width = w;
-  s.height = h;
+  fitContain(s, w, h);
   return s;
+}
+
+/** 이미 만든 스프라이트를 상자 안에 비율 그대로 맞춘다. */
+export function fitContain(s: Sprite, w: number, h: number): void {
+  const tw = s.texture.width || 1;
+  const th = s.texture.height || 1;
+  const k = Math.min(w / tw, h / th);
+  s.scale.set(k);
 }
 
 export interface ButtonOpts {

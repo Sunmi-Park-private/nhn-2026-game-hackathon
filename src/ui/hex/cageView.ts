@@ -10,6 +10,7 @@
 //             아트가 오면 여기가 **동물 시퀀스 묶음** 자리다.
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { makeSequence, type SequenceView } from "../sequence";
+import { fitContain } from "../skin";
 import { cellToScreen, HEX_SIZE, CENTER_H } from "./geom";
 import type { Cage, RunState } from "../../engine/hex/types";
 import { cageProgress } from "../../engine/hex/cageFaces";
@@ -201,8 +202,7 @@ function makeCageBody(cage: Cage, tex: CageTextures): CageBody {
     // 덩어리 전체를 덮는 큰 flat-top 육각 한 장 — 가로:세로 = 2 : √3
     closedSprite = new Sprite(tex.closed);
     closedSprite.anchor.set(0.5);
-    closedSprite.width = w;
-    closedSprite.height = h;
+    fitContain(closedSprite, w, h); // 원본 비율 유지
     box.addChild(closedSprite);
     return { box, bars: null, lock: null, closedSprite, size };
   }

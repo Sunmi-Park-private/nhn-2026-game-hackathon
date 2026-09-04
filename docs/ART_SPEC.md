@@ -278,8 +278,14 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 
 두 에디터는 **같은 파일**(`src/data/uiLayout.json`)을 고친다.
 
+> **모든 아트는 원본 비율 그대로 들어간다.** 슬롯 크기는 「이 상자 안에 넣는다」는 뜻이지
+> 「이 크기로 늘린다」가 아니다. 비율이 달라도 찌그러지지 않고, 남는 자리는 비워 둔다.
+>
 > 파일을 직접 `public/assets/` 아래에 드롭해도 된다 — 에디터는 같은 자리에 쓸 뿐이다.
-> 확장자가 달라도 된다(`png`를 `webp`로 올려도 매니페스트가 따라간다).
+> **png·jpg로 올리면 게임이 자동으로 webp로 바꾼다.** 무손실이고 투명 픽셀의 색까지
+> 보존하므로(`-exact`) 가장자리 얼룩이 생기지 않는다. 용량이 크게 줄고 디코딩도 빨라진다.
+> webp로 직접 올려도 된다.
+>
 > 허용: `png webp jpg jpeg gif mp4 webm mp3 wav` · 한 파일 최대 20MB.
 > **업로드는 개발 서버에서만 동작한다** — 배포본에는 저장 기능이 없다.
 
@@ -289,7 +295,6 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 |---|---|
 | `bg.png` | **시안 전체를 담은 한 장** (9:16). 배경·간판·동물·버튼 그림이 다 들어간다 |
 | `btn-play.png` | PLAY 버튼 |
-| `btn-missions.png` · `btn-collection.png` · `btn-shop.png` · `btn-world.png` | 우측 레일 4종 |
 | `nav-home.png` · `nav-animals.png` · `nav-events.png` · `nav-soon.png` | 하단 4종 |
 
 > **슬롯마다 따로 판단한다.** 그 슬롯의 파일이 있으면 그걸 그리고, 없으면 코드가
@@ -314,7 +319,11 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 
 | | 동작 |
 |---|---|
-| **동작함** | PLAY · ANIMALS(도감) · HOME · 설정창 5종 전부(SOUND·MUSIC·VIBRATION·RESUME·HOME) |
-| **목업** | MISSIONS · COLLECTION · SHOP · WORLD · EVENTS · SOON · 코인 · 젬 |
+| **동작함** | PLAY · ANIMALS(도감) · HOME · 설정(톱니) · 설정창 5종 전부(SOUND·MUSIC·VIBRATION·RESUME·HOME) |
+| **목업** | EVENTS · SOON · 코인 · 젬 |
+| **뺐음** | MISSIONS · COLLECTION · SHOP · WORLD — 우측 레일 4종은 기능째 제거했다 |
 
 목업 버튼도 **아트는 시안 그대로** 넣으면 된다. 눌러도 반응만 없다.
+우측 레일 4종은 배경 아트에 그려 넣어도 되지만, 게임은 그 자리를 모른다.
+
+> **설정(톱니)은 로비와 인게임이 같은 자리·같은 크기다.** 화면이 바뀌어도 움직이지 않는다.

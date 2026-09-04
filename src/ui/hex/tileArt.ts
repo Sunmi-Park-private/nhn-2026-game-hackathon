@@ -1,6 +1,7 @@
 // ui/hex/tileArt.ts — 타일 그리기. 아트가 없으면 색 육각으로 폴백한다.
 // 디자이너 아트를 기다리지 않고 개발할 수 있게 하는 장치다.
 import { Graphics, Sprite, Texture, Container } from "pixi.js";
+import { fitContain } from "../skin";
 import { HEX_SIZE } from "./geom";
 import type { Tier } from "../../engine/hex/types";
 
@@ -39,8 +40,8 @@ export function makeTileView(tier: Tier, tex: Texture | null): Container {
   if (tex) {
     const s = new Sprite(tex);
     s.anchor.set(0.5);
-    s.width = Math.sqrt(3) * HEX_SIZE;
-    s.height = 2 * HEX_SIZE;
+    // 원본 비율 유지 — 아트가 √3:2가 아니어도 찌그러지지 않고 칸 안에 들어간다
+    fitContain(s, Math.sqrt(3) * HEX_SIZE, 2 * HEX_SIZE);
     return s;
   }
   return drawTileFallback(TIER_COLORS[tier] ?? 0x888888);
@@ -50,8 +51,7 @@ export function makeHorseshoeView(tex: Texture | null): Container {
   if (tex) {
     const s = new Sprite(tex);
     s.anchor.set(0.5);
-    s.width = Math.sqrt(3) * HEX_SIZE;
-    s.height = 2 * HEX_SIZE;
+    fitContain(s, Math.sqrt(3) * HEX_SIZE, 2 * HEX_SIZE);
     return s;
   }
   return drawTileFallback(HORSESHOE_COLOR);

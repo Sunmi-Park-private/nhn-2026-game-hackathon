@@ -213,9 +213,11 @@ export async function runStageScreen(
     // finish()의 .off는 동일 참조여야 실제로 제거된다 — 익명 래퍼를 그때그때 만들면
     // EventEmitter는 참조가 달라 지우지 못한다(Container.destroy가 가려줄 뿐 무동작이었다).
     const onUpWrapped = (e: FederatedPointerEvent): void => void onUp(e);
-    // 설정 — 상단 우측. 열려 있는 동안 모달이 입력을 먹으므로 발사가 나가지 않는다
+    // 설정 — 로비와 **같은 자리·같은 크기**다. 화면이 바뀌어도 톱니가 움직이지 않아야
+    // 손이 기억한 자리를 누를 수 있다. 배치는 uiLayout의 ingame/gear 슬롯이 정한다.
+    const gearBox = slot("ingame", "gear") ?? { x: 396, y: 12, w: 40, h: 40 };
     const gear = makeButton({
-      label: "⚙", w: 36, h: 36, tex: ui.settingsButton, fill: 0x4a3320,
+      label: "⚙", w: gearBox.w, h: gearBox.h, tex: ui.settingsButton, fill: 0x4a3320,
       onTap: () => {
         if (busy || finished) return;
         void openSettings(layer, ui).then((r) => {
@@ -223,7 +225,6 @@ export async function runStageScreen(
         });
       },
     });
-    const gearBox = slot("ingame", "gear") ?? { x: 398, y: 12, w: 36, h: 36 };
     gear.x = gearBox.x + gearBox.w / 2;
     gear.y = stageTop() + gearBox.y + gearBox.h / 2;
     layer.addChild(gear);

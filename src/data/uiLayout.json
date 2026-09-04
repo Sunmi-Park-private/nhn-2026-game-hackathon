@@ -32,42 +32,6 @@
           "asset": "ui.gear"
         },
         {
-          "id": "railMissions",
-          "label": "MISSIONS",
-          "x": 384,
-          "y": 70,
-          "w": 56,
-          "h": 56,
-          "asset": "lobby.railMissions"
-        },
-        {
-          "id": "railCollection",
-          "label": "COLLECTION",
-          "x": 384,
-          "y": 134,
-          "w": 56,
-          "h": 56,
-          "asset": "lobby.railCollection"
-        },
-        {
-          "id": "railShop",
-          "label": "SHOP",
-          "x": 384,
-          "y": 198,
-          "w": 56,
-          "h": 56,
-          "asset": "lobby.railShop"
-        },
-        {
-          "id": "railWorld",
-          "label": "WORLD",
-          "x": 384,
-          "y": 262,
-          "w": 56,
-          "h": 56,
-          "asset": "lobby.railWorld"
-        },
-        {
           "id": "play",
           "label": "PLAY",
           "x": 138,
@@ -137,10 +101,10 @@
         {
           "id": "gear",
           "label": "설정",
-          "x": 398,
+          "x": 396,
           "y": 12,
-          "w": 36,
-          "h": 36,
+          "w": 40,
+          "h": 40,
           "asset": "ui.gear"
         },
         {
