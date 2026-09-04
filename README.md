@@ -96,8 +96,9 @@ src/data/stages/*.json  →  src/engine/hex/  →  src/ui/hex/
 아트가 하나도 없어도 게임이 성립하고 일부만 도착해도 정상 동작합니다.
 
 제작 사양은 `docs/ART_SPEC.md`에 있습니다.
-UI 배치는 브라우저 에디터 `/ui.html`에서 조정합니다 — 로비·인게임·설정창 탭이
-한 페이지에 있고, 저장하면 `src/data/uiLayout.json`이 갱신됩니다.
+UI 배치와 에셋 업로드는 브라우저 에디터 `/ui.html`에서 합니다 — 로비·인게임·설정창·게임 에셋
+탭이 한 페이지에 있고, 저장하면 `src/data/uiLayout.json`이 갱신됩니다.
+`/?editor=1`을 열면 **도는 게임 위에서** 항목을 직접 끌어 옮길 수 있습니다(자동 저장).
 
 ## 문서
 

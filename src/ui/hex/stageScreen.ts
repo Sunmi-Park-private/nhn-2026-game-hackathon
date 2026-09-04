@@ -13,6 +13,7 @@ import { createLauncher } from "./launcher";
 import { makeButton } from "../skin";
 import { openSettings, type SettingsTextures } from "../settingsMenu";
 import { slot } from "../../data/uiLayout";
+import { editable } from "../layoutEditor";
 
 /** 스테이지가 끝난 이유. 호출자(main)가 다음 화면을 정한다. */
 export type StageResult = "cleared" | "failed" | "lobby";
@@ -222,6 +223,7 @@ export async function runStageScreen(
     gear.x = gearBox.x + gearBox.w / 2;
     gear.y = stageTop() + gearBox.y + gearBox.h / 2;
     layer.addChild(gear);
+    editable("ingame", { id: "gear", label: "설정", ...gearBox }, gear);
 
     input.on("pointerdown", onDown);
     input.on("pointermove", onMove);

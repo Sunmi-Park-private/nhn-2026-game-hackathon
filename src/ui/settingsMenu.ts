@@ -10,6 +10,7 @@ import { stageTop, stageHeight, stageLeft, stageWidth } from "./stage";
 import { fitSprite } from "./skin";
 import { slot } from "../data/uiLayout";
 import { settings, toggle, buzz, type Settings } from "./settings";
+import { editable, clearEditable } from "./layoutEditor";
 
 export interface SettingsTextures {
   panel?: Texture;
@@ -35,13 +36,14 @@ const FALLBACK = {
   home: { x: 130, y: 530, w: 190, h: 44 },
 } as const;
 
-function box(id: keyof typeof FALLBACK): { x: number; y: number; w: number; h: number } {
-  return slot(AREA, id) ?? FALLBACK[id];
+function box(id: keyof typeof FALLBACK): { x: number; y: number; w: number; h: number; id: string; label: string } {
+  const s = slot(AREA, id);
+  return s ? { ...s } : { ...FALLBACK[id], id, label: id };
 }
 
 /** 누를 수 있는 영역. 아트가 있으면 그 위에 투명하게 얹고, 없으면 형태를 그려 준다. */
 function hotspot(
-  b: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number; id?: string; label?: string },
   onTap: () => void,
   draw?: (g: Graphics) => void,
 ): Container {
@@ -53,6 +55,7 @@ function hotspot(
   // 투명이어도 히트 판정을 받으려면 실제로 채워야 한다(alpha 0)
   g.rect(0, 0, b.w, b.h).fill({ color: 0xffffff, alpha: 0 });
   c.addChild(g);
+  if (b.id) editable(AREA, { id: b.id, label: b.label ?? b.id, x: b.x, y: b.y, w: b.w, h: b.h }, c);
   c.eventMode = "static";
   c.cursor = "pointer";
   c.on("pointertap", () => { buzz(); onTap(); });
@@ -109,6 +112,7 @@ export function openSettings(parent: Container, tex: SettingsTextures): Promise<
     const finish = (r: SettingsResult): void => {
       if (done) return;
       done = true;
+      clearEditable(AREA);
       root.destroy({ children: true });
       resolve(r);
     };

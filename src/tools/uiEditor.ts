@@ -75,11 +75,17 @@ const isVideo = (file: string): boolean => VID_EXTS.some((e) => file.split("?")[
 const app = document.getElementById("app")!;
 app.setAttribute("style", "font:13px/1.5 system-ui,-apple-system,sans-serif;color:#e8dcc8;padding:16px 20px");
 
+const openInGame = $("a", "display:inline-block;background:#2b1d10;color:#f0c96a;border:1px solid #4a3320;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;text-decoration:none;margin-top:8px",
+  "🎮 게임 화면에서 편집 열기");
+(openInGame as HTMLAnchorElement).href = "/?editor=1";
+(openInGame as HTMLAnchorElement).target = "_blank";
+
 const head = $("div", "margin-bottom:12px");
 head.append(
   $("div", "font-size:19px;font-weight:800", "🎛 UI 에디터"),
   $("div", "color:#a8987c;font-size:12px;margin-top:2px",
     "사각형을 끌어 옮기고 모서리로 크기 조정 · 카드를 클릭하거나 파일을 떨어뜨리면 업로드 · 업로드는 즉시 게임에 반영"),
+  openInGame,
 );
 const tabs = $("div", "display:flex;gap:6px;margin:12px 0;flex-wrap:wrap");
 const body = $("div", "display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap");

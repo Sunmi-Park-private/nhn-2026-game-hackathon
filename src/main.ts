@@ -9,6 +9,7 @@ import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths } from "./data/hexAssets";
 import { loadSlots } from "./ui/skin";
 import { runLobby } from "./ui/lobbyScreen";
 import { parseProfile, serializeProfile, addClear, type Profile } from "./engine/profile";
+import { mountLayoutEditor } from "./ui/layoutEditor";
 import { initAudioUnlock } from "./ui/audio";
 import { setStageExtra, setStageExtraX } from "./ui/stage";
 import { stages } from "./data/stages";
@@ -59,6 +60,7 @@ async function main(): Promise<void> {
   fit();
   window.addEventListener("resize", fit);
   initAudioUnlock(); // 첫 제스처에서 재생 언락 (자동재생 정책)
+  mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다
 
   // E2E 테스트용 씬 마커 — 현재 단계 노출 (게임 로직에선 미사용)
   const mark = (s: string): void => { (window as unknown as { __scene?: string }).__scene = s; };

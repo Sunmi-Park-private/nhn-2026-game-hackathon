@@ -12,6 +12,7 @@ import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection } from "./collection";
 import { slot, type UiSlot } from "../data/uiLayout";
 import { buzz } from "./settings";
+import { editable, clearEditable } from "./layoutEditor";
 import type { Profile } from "../engine/profile";
 
 export interface LobbyTextures {
@@ -69,6 +70,7 @@ function hotspot(
   // 투명이어도 히트 판정을 받으려면 실제로 채워야 한다(alpha 0)
   c.addChild(new Graphics().rect(0, 0, b.w, b.h).fill({ color: 0xffffff, alpha: 0 }));
 
+  editable(AREA, b, c); // 인게임 레이아웃 에디터가 이 노드를 잡는다
   if (onTap) {
     c.eventMode = "static";
     c.cursor = "pointer";
@@ -148,6 +150,7 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     function finish(): void {
       if (done) return;
       done = true;
+      clearEditable(AREA); // 파괴된 노드를 에디터가 계속 잡고 있으면 안 된다
       layer.destroy({ children: true });
       resolve();
     }
