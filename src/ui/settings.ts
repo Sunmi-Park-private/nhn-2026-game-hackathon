@@ -1,32 +1,20 @@
 // ui/settings.ts — 사용자 설정. 화면과 오디오가 함께 읽는 단일 창구.
 //
-// 값은 localStorage에 남는다. 저장이 막힌 환경(프라이빗 모드 등)에서도
-// 게임은 그대로 굴러가야 하므로 읽기·쓰기를 모두 감싼다.
+// 값의 형태와 해석은 engine/settings.ts가 갖는다(헤드리스 테스트 대상).
+// 여기 남는 것은 브라우저에 묶인 것뿐이다 — localStorage 저장, 구독, 진동.
+// 저장이 막힌 환경(프라이빗 모드 등)에서도 게임은 그대로 굴러가야 하므로
+// 읽기·쓰기를 모두 감싼다.
+import { DEFAULT_SETTINGS, parseSettings, serializeSettings, type Settings } from "../engine/settings";
 
-export interface Settings {
-  /** 효과음 */
-  sound: boolean;
-  /** 배경음악 */
-  music: boolean;
-  /** 진동 */
-  vibration: boolean;
-}
+export type { Settings };
 
 const KEY = "redhorserescue.settings";
 
 function read(): Settings {
-  const fallback: Settings = { sound: true, music: true, vibration: true };
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return fallback;
-    const o = JSON.parse(raw) as Partial<Settings>;
-    return {
-      sound: typeof o.sound === "boolean" ? o.sound : fallback.sound,
-      music: typeof o.music === "boolean" ? o.music : fallback.music,
-      vibration: typeof o.vibration === "boolean" ? o.vibration : fallback.vibration,
-    };
+    return parseSettings(localStorage.getItem(KEY));
   } catch {
-    return fallback;
+    return { ...DEFAULT_SETTINGS }; // localStorage 접근 자체가 막힌 환경
   }
 }
 
@@ -40,7 +28,7 @@ export function settings(): Settings {
 /** 값 하나를 뒤집고 저장한 뒤, 듣고 있는 쪽에 알린다. */
 export function toggle(key: keyof Settings): boolean {
   current = { ...current, [key]: !current[key] };
-  try { localStorage.setItem(KEY, JSON.stringify(current)); } catch { /* 저장 실패는 무시 */ }
+  try { localStorage.setItem(KEY, serializeSettings(current)); } catch { /* 저장 실패는 무시 */ }
   for (const fn of listeners) fn(current);
   return current[key];
 }
