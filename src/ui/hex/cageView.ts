@@ -42,7 +42,7 @@ function makeCageBody(cage: Cage, tex: CageTextures): Container {
     s.height = h;
     box.addChild(s);
   } else {
-    // 폴백 — 창살 느낌의 사각 프레임
+    // 폴백 — 창살 느낌의 사각 프레임과 자물쇠
     const g = new Graphics();
     g.roundRect(-w / 2, -h / 2, w, h, 6).fill({ color: 0x2b3440 });
     g.roundRect(-w / 2 + 3, -h / 2 + 3, w - 6, h - 6, 4).stroke({ width: 2, color: 0x8f9bab });
@@ -50,6 +50,9 @@ function makeCageBody(cage: Cage, tex: CageTextures): Container {
       const x = -w / 2 + (w / 4) * i;
       g.moveTo(x, -h / 2 + 5).lineTo(x, h / 2 - 5).stroke({ width: 2, color: 0x8f9bab });
     }
+    // 자물쇠 — 아트가 오기 전 폴백. 구출 전 상태임을 알리는 최소 표식이다
+    g.roundRect(-9, h / 2 - 12, 18, 14, 3).fill({ color: 0xc9d1da });
+    g.circle(0, h / 2 - 6, 3).fill({ color: 0x2b3440 });
     box.addChild(g);
   }
 
@@ -74,6 +77,7 @@ function makeCageBody(cage: Cage, tex: CageTextures): Container {
 export function createCageView(textures: CageTextures): CageView {
   const root = new Container();
   const bodies = new Map<string, Container>();
+  const animating = new Set<string>();
 
   return {
     root,
@@ -84,6 +88,8 @@ export function createCageView(textures: CageTextures): CageView {
         const existing = bodies.get(cage.id);
 
         if (rescued) {
+          // 구출 연출이 도는 중이면 건드리지 않는다 — playRescue가 끝내고 스스로 치운다
+          if (animating.has(cage.id)) continue;
           if (existing) {
             existing.destroy();
             bodies.delete(cage.id);
@@ -104,23 +110,39 @@ export function createCageView(textures: CageTextures): CageView {
     async playRescue(cage: Cage): Promise<void> {
       const body = bodies.get(cage.id);
       if (!body) return;
-      // 짧게 튕겨 올라가며 사라진다 — 상세 연출은 fx.ts가 맡는다
-      const start = performance.now();
-      const from = body.y;
-      await new Promise<void>((resolve) => {
-        const tick = (): void => {
-          const t = Math.min(1, (performance.now() - start) / 420);
-          body.y = from - 40 * t;
-          body.alpha = 1 - t;
-          body.scale.set(1 + 0.25 * t);
-          if (t < 1) requestAnimationFrame(tick);
-          else resolve();
-        };
-        tick();
-      });
+
+      animating.add(cage.id);
+      try {
+        await new Promise<void>((resolve) => {
+          const start = performance.now();
+          const from = body.y;
+          const tick = (): void => {
+            // 연출 도중 몸체가 파괴됐으면 조용히 끝낸다 — Pixi가 _position을 null로
+            // 만들어 두므로 여기서 막지 않으면 rAF 콜백 안에서 예외가 터지고
+            // resolve가 영영 호출되지 않는다.
+            if (body.destroyed) {
+              resolve();
+              return;
+            }
+            const t = Math.min(1, (performance.now() - start) / 420);
+            body.y = from - 40 * t;
+            body.alpha = 1 - t;
+            body.scale.set(1 + 0.25 * t);
+            if (t < 1) requestAnimationFrame(tick);
+            else resolve();
+          };
+          tick();
+        });
+      } finally {
+        // 연출이 끝났으니 스스로 치운다 — 이후 sync가 다시 그리지 않는다
+        animating.delete(cage.id);
+        if (!body.destroyed) body.destroy();
+        bodies.delete(cage.id);
+      }
     },
 
     destroy(): void {
+      animating.clear();
       for (const b of bodies.values()) b.destroy();
       bodies.clear();
       root.destroy({ children: true });
