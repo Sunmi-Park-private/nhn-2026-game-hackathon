@@ -11,6 +11,14 @@ export interface UiSlot {
   y: number;
   w: number;
   h: number;
+  /** assets.json 안의 위치(점 경로). 아트가 없는 슬롯은 비어 있다. */
+  asset?: string;
+}
+
+/** 위치 개념이 없는 업로드 전용 항목 — 타일·동물·배경처럼 자리가 코드에 고정된 것들. */
+export interface UiUpload {
+  label: string;
+  asset: string;
 }
 
 export interface UiArea {
@@ -38,6 +46,7 @@ function parseAreas(raw: unknown): UiArea[] {
           id: String(t.id ?? ""),
           label: String(t.label ?? t.id ?? ""),
           x: num(t.x, 0), y: num(t.y, 0), w: num(t.w, 40), h: num(t.h, 40),
+          asset: typeof t.asset === "string" ? t.asset : undefined,
         };
       }),
     };
@@ -45,6 +54,15 @@ function parseAreas(raw: unknown): UiArea[] {
 }
 
 export const uiAreas: UiArea[] = parseAreas(layoutJson);
+
+export const uiUploads: UiUpload[] = (() => {
+  const raw = (layoutJson as { uploads?: unknown }).uploads;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((u) => u as Record<string, unknown>)
+    .filter((u) => typeof u.asset === "string")
+    .map((u) => ({ label: String(u.label ?? u.asset), asset: String(u.asset) }));
+})();
 
 /** 영역 안의 슬롯. 없으면 null — 호출부가 기본값으로 간다. */
 export function slot(areaId: string, slotId: string): UiSlot | null {

@@ -3,8 +3,9 @@
 // 게임 좌표계(중앙 콘텐츠 450×800)를 그대로 화면에 띄우고, 슬롯을 사각형으로 얹는다.
 // 끌어서 옮기고 모서리를 끌어서 크기를 바꾼 뒤 저장하면 src/data/uiLayout.json이 갱신된다.
 // dev 서버에서만 동작한다 — 저장 엔드포인트가 vite 플러그인이다.
-import { uiAreas, type UiArea, type UiSlot } from "../data/uiLayout";
+import { uiAreas, uiUploads, type UiArea, type UiSlot } from "../data/uiLayout";
 import layoutJson from "../data/uiLayout.json";
+import assetsJson from "../data/assets.json";
 
 const W = 450;
 const H = 800;
@@ -22,6 +23,8 @@ interface State {
   areaIndex: number;
   selected: string | null;
   dirty: boolean;
+  /** 위치가 없는 게임 에셋 목록을 보고 있는가 */
+  assetsTab: boolean;
 }
 
 const state: State = {
@@ -29,6 +32,7 @@ const state: State = {
   areaIndex: 0,
   selected: null,
   dirty: false,
+  assetsTab: false,
 };
 
 const $ = (tag: string, style: string, text = ""): HTMLElement => {
@@ -77,14 +81,22 @@ function markDirty(): void {
 // ── 렌더 ────────────────────────────────────
 function renderTabs(): void {
   tabs.replaceChildren();
+  const mk = (label: string, on: boolean, onClick: () => void): void => {
+    const b = $("button",
+      `background:${on ? "#c98a3c" : "#2b1d10"};color:${on ? "#241a10" : "#e8dcc8"};border:1px solid #4a3320;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:13px`,
+      label);
+    b.onclick = onClick;
+    tabs.appendChild(b);
+  };
   state.areas.forEach((a, i) => {
     const on = i === state.areaIndex;
     const b = $("button",
       `background:${on ? "#c98a3c" : "#2b1d10"};color:${on ? "#241a10" : "#e8dcc8"};border:1px solid #4a3320;border-radius:6px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:13px`,
       `${a.label} (${a.slots.length})`);
-    b.onclick = (): void => { state.areaIndex = i; state.selected = null; renderAll(); };
+    b.onclick = (): void => { state.areaIndex = i; state.assetsTab = false; state.selected = null; renderAll(); };
     tabs.appendChild(b);
   });
+  mk(`게임 에셋 (${uiUploads.length})`, state.assetsTab, () => { state.assetsTab = true; renderAll(); });
 }
 
 function renderStage(): void {
@@ -121,11 +133,70 @@ function renderList(): void {
   }
 }
 
+/** assets.json 안의 점 경로를 읽는다. */
+function assetPath(dotted: string): string | null {
+  const v = dotted.split(".").reduce<unknown>((acc, k) => {
+    if (acc === null || typeof acc !== "object") return undefined;
+    return (acc as Record<string, unknown>)[k];
+  }, assetsJson as unknown);
+  return typeof v === "string" ? v : null;
+}
+
+/** 슬롯 하나의 업로드 줄. 현재 파일 미리보기 + 파일 고르기. */
+function uploadRow(label: string, dotted: string): HTMLElement {
+  const wrap = $("div", "display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #3a2a18");
+  const rel = assetPath(dotted);
+
+  const thumb = document.createElement("div");
+  thumb.setAttribute("style", "width:52px;height:52px;flex:0 0 auto;border:1px solid #4a3320;border-radius:6px;background:#14100c center/contain no-repeat");
+  if (rel) thumb.style.backgroundImage = `url("${rel}")`;
+
+  const info = $("div", "flex:1 1 auto;min-width:0");
+  info.appendChild($("div", "font-weight:700;font-size:12px", label));
+  const pathEl = $("div", "font-size:11px;color:#a8987c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap", rel ?? "(매니페스트에 없음)");
+  info.appendChild(pathEl);
+
+  const btn = $("label", "background:#c98a3c;color:#241a10;border-radius:6px;padding:7px 12px;font-weight:700;cursor:pointer;font-size:12px;flex:0 0 auto", "업로드");
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*,video/mp4,video/webm,audio/*";
+  input.style.display = "none";
+  btn.appendChild(input);
+
+  input.onchange = async (): Promise<void> => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+    pathEl.textContent = "올리는 중…";
+    try {
+      const res = await fetch(`/__upload?asset=${encodeURIComponent(dotted)}&ext=${encodeURIComponent(ext)}`, {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream" },
+        body: await file.arrayBuffer(),
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(text);
+      const out = JSON.parse(text) as { file: string; bytes: number };
+      // 같은 경로에 덮어써도 새 그림이 보이도록 캐시를 우회한다
+      thumb.style.backgroundImage = `url("${out.file}?t=${Date.now()}")`;
+      pathEl.textContent = `${out.file}  ·  ${Math.round(out.bytes / 1024)}KB`;
+      pathEl.style.color = "#8fdc8f";
+    } catch (err) {
+      pathEl.textContent = `실패: ${String(err)}`;
+      pathEl.style.color = "#ff8f7a";
+    }
+    input.value = "";
+  };
+
+  wrap.append(thumb, info, btn);
+  return wrap;
+}
+
 function renderDetail(): void {
   detail.replaceChildren();
   const s = area().slots.find((x) => x.id === state.selected);
   if (!s) {
-    detail.appendChild($("div", "color:#a8987c", "슬롯을 고르면 숫자로 조정할 수 있습니다."));
+    detail.appendChild($("div", "color:#a8987c", "슬롯을 고르면 숫자로 조정하고 에셋을 올릴 수 있습니다."));
     return;
   }
   detail.appendChild($("div", "font-weight:700;margin-bottom:8px", `${s.label}  (${s.id})`));
@@ -149,10 +220,23 @@ function renderDetail(): void {
     grid.appendChild(wrap);
   });
   detail.appendChild(grid);
+
+  if (s.asset) detail.appendChild(uploadRow(s.label, s.asset));
+  else detail.appendChild($("div", "color:#a8987c;font-size:11px;padding-top:8px;border-top:1px solid #3a2a18;margin-top:8px", "이 슬롯은 아트 없이 코드가 그립니다."));
 }
 
 function renderAll(): void {
   renderTabs();
+  if (state.assetsTab) {
+    stageWrap.style.display = "none";
+    list.replaceChildren();
+    detail.replaceChildren();
+    detail.appendChild($("div", "font-weight:700;margin-bottom:6px", "게임 에셋"));
+    detail.appendChild($("div", "color:#a8987c;font-size:11px;margin-bottom:6px", "자리가 코드에 고정된 것들입니다. 올리면 게임 탭이 바로 새로고침됩니다."));
+    for (const u of uiUploads) detail.appendChild(uploadRow(u.label, u.asset));
+    return;
+  }
+  stageWrap.style.display = "block";
   renderStage();
   renderList();
   renderDetail();
