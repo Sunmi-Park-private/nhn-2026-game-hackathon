@@ -13,7 +13,7 @@
 //
 // 저장은 /ui.html과 같은 파일(src/data/uiLayout.json)로 간다 — 두 에디터가 같은 값을 만진다.
 import { Container, Graphics, Text, type FederatedPointerEvent } from "pixi.js";
-import { uiAreas, type UiArea, type UiSlot } from "../data/uiLayout";
+import { uiAreas, parseAreas, type UiArea, type UiSlot } from "../data/uiLayout";
 import { BASE_W, stageTop, stageHeight } from "./stage";
 import { createHistory, restoreInto, type History } from "./layoutHistory";
 
@@ -125,6 +125,21 @@ let saveStatus = "";
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 let altHeld = false;
 let history: History<UiArea[]> | null = null;
+/** 지금 들고 있는 배치를 읽어 온 시점의 서버 리비전.
+ *  저장할 때 함께 보내면 서버가 「그 뒤로 누가 썼나」를 쓰기 직전에 판정한다.
+ *  이것이 없던 동안 이 창의 자동 저장이 /ui.html의 편집을 통째로 덮었다. */
+let layoutRev = "";
+/** 저장되지 않은 편집이 있나. 이게 서 있으면 다른 창의 배치를 **받아들이지 않는다** —
+ *  받아들이면 방금 끈 값이 디스크 값으로 되돌아가고, 뒤이어 뜨는 자동 저장이
+ *  그 되돌려진 값을 새 리비전으로 써서 「저장됨」이라고 말한다. */
+let unsaved = false;
+/** 마지막 저장이 409로 막혔나. 「지금 저장」이 덮어쓰기로 바뀐다. */
+let conflicted = false;
+/** 지금 끌고 있는 항목. mountLayoutEditor 안에서 쓰지만 따라잡기 판단에도 쓰여
+ *  모듈 자리에 둔다 — 끄는 도중에 슬롯을 갈아끼우면 손 밑에서 값이 바뀐다. */
+let dragging: Entry | null = null;
+/** 이 창의 표식 — 서버가 저장 알림에 실어 돌려주므로 자기 메아리를 거른다. */
+const CLIENT_ID = `game-${Math.random().toString(36).slice(2)}`;
 
 export const inputBlocked = (): boolean => on && !interact;
 
@@ -293,25 +308,109 @@ function doRedo(): void {
 }
 
 function scheduleSave(): void {
+  unsaved = true;
   setStatus("변경됨 — 곧 저장", "#f0c96a");
   if (saveTimer !== undefined) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { void flushSave(); }, 600);
 }
 
-async function flushSave(): Promise<void> {
+async function flushSave(force = false): Promise<void> {
+  if (saveTimer !== undefined) { clearTimeout(saveTimer); saveTimer = undefined; }
   setStatus("저장 중…", "#a8987c");
   try {
     const cur = await fetch("/__uilayout").then((r) => (r.ok ? r.json() : {})) as Record<string, unknown>;
-    const res = await fetch("/__uilayout", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...cur, areas: uiAreas }),
-    });
+    const res = await fetch(
+      `/__uilayout?by=${encodeURIComponent(CLIENT_ID)}&rev=${encodeURIComponent(force ? "force" : layoutRev)}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...cur, areas: uiAreas }),
+      },
+    );
+    // 읽어 온 뒤로 파일이 바뀌었다. **여기 값을 밀어 넣지 않는다** — uiAreas는
+    // 이 페이지를 열 때의 전체 배치라, 그냥 쓰면 저쪽 편집이 통째로 사라진다.
+    // 리비전도 따라가지 않는다: 따라가면 다음 저장이 검사를 통과해 같은 일이 난다.
+    if (res.status === 409) {
+      conflicted = true;
+      setStatus("저장 안 됨 — 파일이 더 새롭습니다. 「덮어써서 저장」이나 새로고침", "#f0c96a");
+      renderPanel();
+      return;
+    }
     if (!res.ok) throw new Error(await res.text());
+    layoutRev = res.headers.get("x-layout-rev") ?? layoutRev;
+    unsaved = false;
+    conflicted = false;
     setStatus("저장됨", "#8fdc8f");
+    renderPanel();
   } catch (err) {
     setStatus(`실패: ${String(err)}`, "#ff8f7a");
   }
+}
+
+/** 열 때 디스크의 리비전을 받아 둔다. 이 값이 있어야 저장이 판정을 받는다. */
+async function readRev(): Promise<void> {
+  try {
+    const r = await fetch("/__uilayout");
+    if (r.ok) layoutRev = r.headers.get("x-layout-rev") ?? "";
+  } catch { /* dev 서버 밖 — 저장도 안 된다 */ }
+}
+
+/** 다른 창이 쓴 배치를 따라간다.
+ *
+ *  **받아들이지 않는 경우가 받아들이는 경우보다 중요하다.** 편집이 남아 있거나
+ *  끄는 중이면 손대지 않고 리비전도 올리지 않는다 — 올리면 뒤이어 뜨는 저장이
+ *  검사를 통과해 저쪽 편집을 지운다. 슬롯 구성이 다를 때도 마찬가지다:
+ *  restoreInto는 양쪽에 다 있는 슬롯만 갱신하므로 디스크에 새로 생긴 슬롯을
+ *  못 받는데, 리비전만 올리면 다음 저장이 그 슬롯을 파일에서 지운다. */
+async function catchUpLayout(): Promise<void> {
+  if (!on) return;
+  try {
+    const r = await fetch("/__uilayout");
+    if (!r.ok) return;
+    const fresh = parseAreas(await r.json());
+    if (fresh.length === 0) return;
+    const rev = r.headers.get("x-layout-rev") ?? "";
+    if (rev === layoutRev) return;
+
+    if (unsaved || dragging) {
+      setStatus("다른 창에서 배치가 바뀌었습니다 — 저장하거나 새로고침해 맞추세요", "#f0c96a");
+      return;
+    }
+    if (!sameShape(uiAreas, fresh)) {
+      setStatus("파일의 슬롯 구성이 달라졌습니다 — 새로고침해야 합니다", "#f0c96a");
+      return;
+    }
+    // 배열을 갈아끼우지 않는다 — 화면이 들고 있는 슬롯 참조가 끊긴다
+    restoreInto(uiAreas as never, fresh as never);
+    layoutRev = rev;
+    conflicted = false;
+    for (const e of live()) apply(e);
+    drawOutline();
+    history?.reset(uiAreas);
+    renderPanel();
+    setStatus("다른 창의 배치를 읽었습니다", "#8fdc8f");
+  } catch { /* dev 서버 밖 */ }
+}
+
+/** 영역·슬롯 구성이 같은가. restoreInto가 값만 옮길 수 있는 조건이다. */
+function sameShape(a: readonly UiArea[], b: readonly UiArea[]): boolean {
+  const shape = (areas: readonly UiArea[]): string =>
+    areas.map((ar) => `${ar.id}:${ar.slots.map((sl) => sl.id).join(",")}`).join("|");
+  return shape(a) === shape(b);
+}
+
+/** 다른 창의 저장을 듣는다. 알림이 안 오는 변경(손편집·git checkout)도 있어
+ *  창을 다시 볼 때마다 한 번 더 확인한다 — 안 그러면 리비전이 어긋난 채로
+ *  이후 모든 자동 저장이 409에 막히고 사람은 이유를 모른다. */
+function watchLayout(): void {
+  import.meta.hot?.on("layout-updated", (d: { by?: string }) => {
+    if (d?.by === CLIENT_ID) return;
+    void catchUpLayout();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") void catchUpLayout();
+  });
+  window.addEventListener("focus", () => { void catchUpLayout(); });
 }
 
 // ── 모드 ────────────────────────────────────
@@ -559,16 +658,21 @@ function renderPanel(): void {
   panel.appendChild(status);
 
   const save = document.createElement("button");
-  save.textContent = "💾 지금 저장";
-  save.title = "자동 저장을 기다리지 않고 바로 반영";
+  save.textContent = conflicted ? "💾 덮어써서 저장" : "💾 지금 저장";
+  save.title = conflicted
+    ? "파일이 더 새롭습니다 — 알고도 이 화면의 값으로 덮어씁니다"
+    : "자동 저장을 기다리지 않고 바로 반영";
   save.style.cssText = "margin-top:4px;width:100%;padding:7px;border:0;border-radius:8px;background:#c98a3c;color:#241a10;font-weight:800;cursor:pointer";
-  save.onclick = (): void => { void flushSave(); };
+  save.onclick = (): void => { void flushSave(conflicted); };
   panel.appendChild(save);
 }
 
 /** 게임 화면 위에 에디터를 얹는다. main이 부트 직후 한 번 부른다. */
 export function mountLayoutEditor(stage: Container): void {
   if (!on) return;
+
+  void readRev(); // 저장이 판정을 받으려면 지금 디스크의 리비전을 알아야 한다
+  watchLayout();  // /ui.html이 쓰면 따라간다
 
   const layer = new Container();
   layer.label = "layout-editor";
@@ -612,7 +716,6 @@ export function mountLayoutEditor(stage: Container): void {
   window.addEventListener("keyup", (ev) => { if (ev.key === "Alt") altHeld = false; });
 
   // ── 드래그 ────────────────────────────────
-  let dragging: Entry | null = null;
   let startX = 0, startY = 0, ox = 0, oy = 0;
   const snap = (v: number): number => (altHeld ? Math.round(v) : Math.round(v / GRID_MINOR) * GRID_MINOR);
 
@@ -649,9 +752,12 @@ export function mountLayoutEditor(stage: Container): void {
     commit(); // 드래그 한 번이 되돌리기 한 단계다
     scheduleSave();
     renderPanel();
+    void catchUpLayout(); // 끄는 동안 미뤄 둔 따라잡기를 지금 한다
   };
   shield.on("pointerup", stop);
   shield.on("pointerupoutside", stop);
+  // 창을 벗어난 채 손을 떼면 위 둘이 오지 않는다 — 걸린 채로 두면 따라잡기가 영영 멎는다
+  window.addEventListener("blur", stop);
 
   // 화면이 바뀌면 목록도 바뀐다 — 등록은 화면이 하므로 주기적으로 다시 그린다
   setInterval(() => { renderPanel(); paintGrid(); }, 700);

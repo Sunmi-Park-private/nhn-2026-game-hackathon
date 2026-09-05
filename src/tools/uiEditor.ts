@@ -11,7 +11,7 @@
 //
 // uiLayout.json·assets.json은 vite watch에서 빠져 있다 — 번들 모듈이 옛 내용일 수
 // 있으므로 그리기 전에 디스크와 맞춘다(GET /__uilayout · /__assets).
-import { uiAreas, uiUploads, uiVideos, uiAudios, type UiArea, type UiSlot, type UiUpload } from "../data/uiLayout";
+import { uiAreas, uiUploads, uiVideos, uiAudios, sameAreas, parseAreas, type UiArea, type UiSlot, type UiUpload } from "../data/uiLayout";
 import assetsJson from "../data/assets.json";
 import { frameIndex } from "../data/hexAssets";
 import { createHistory, restoreInto, type History } from "../ui/layoutHistory";
@@ -43,6 +43,10 @@ interface State {
   audioTab: boolean;
   selected: string | null;
   dirty: boolean;
+  /** 디스크에 있다고 믿는 배치. 배너를 띄울지 판단할 때 쓴다 */
+  baseline: UiArea[];
+  /** 그 배치를 읽어 온 시점의 서버 리비전. 저장할 때 함께 보내면 서버가 판정한다 */
+  rev: string;
 }
 
 const state: State = {
@@ -57,7 +61,32 @@ const state: State = {
   audioTab: false,
   selected: null,
   dirty: false,
+  baseline: uiAreas.map((a) => ({ ...a, slots: a.slots.map((sl) => ({ ...sl })) })),
+  rev: "",
 };
+
+/** 이 탭의 표식. 서버가 저장 알림에 실어 돌려주므로 자기 메아리를 걸러낼 수 있다. */
+const CLIENT_ID = `ui-${Math.random().toString(36).slice(2)}`;
+
+const cloneAreas = (areas: readonly UiArea[]): UiArea[] =>
+  areas.map((a) => ({ ...a, slots: (a.slots ?? []).map((sl) => ({ ...sl })) }));
+
+/** 지금 슬롯을 끌고 있는 손가락 수. 0보다 크면 화면을 갈아끼우지 않는다 —
+ *  끌던 슬롯 객체가 화면에서 떨어져 나가면 그 뒤 pointermove가 유령을 고친다.
+ *
+ *  **0으로 돌아오지 못하면 catchUp이 영영 멈춘다** — 이 PR이 고치려는 버그가
+ *  그대로 되살아난다. 창 밖에서 손을 떼면 pointerup이 이 페이지로 오지 않으므로
+ *  pointercancel과 창 blur에서도 반드시 푼다. */
+let dragging = 0;
+
+/** catchUp 요청 표. 늦게 떠난 응답이 먼저 온 응답을 덮지 않게 한다 —
+ *  ws·visibilitychange·focus 셋이 겹쳐 부르므로 실제로 엇갈린다. */
+let pullSeq = 0;
+
+/** 저장이 날아가 있는 동안 또 누르지 못하게 한다. 두 번 누르면 같은 rev로 두 번
+ *  POST해서 둘째가 검사에 걸리고, 일어나지도 않은 충돌을 배너로 알리며
+ *  이미 맞는 값을 강제로 덮어쓰라고 권하게 된다. */
+let saving = false;
 
 const $ = (tag: string, style: string, text = ""): HTMLElement => {
   const el = document.createElement(tag);
@@ -145,9 +174,24 @@ function paintHistButtons(): void {
 }
 const status = $("span", "color:#a8987c;font-size:12px");
 actions.append(saveBtn, undoBtn, redoBtn, status);
+
+/** 게임 화면에서 배치가 바뀌었는데 여기 저장 안 된 변경이 있을 때만 뜬다.
+ *  어느 쪽을 버릴지는 사람이 고른다 — 코드가 말없이 고르면 한쪽 작업이 사라진다. */
+const conflict = $("div",
+  "display:none;background:#3a2a18;border:1px solid #c98a3c;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px");
+const conflictText = $("div", "color:#f0c96a;font-weight:700;margin-bottom:7px");
+const reloadBtn = $("button",
+  "background:#c98a3c;color:#241a10;border:0;border-radius:6px;padding:6px 12px;font-weight:800;cursor:pointer;font-size:12px",
+  "새로 읽기");
+// 버리는 쪽만 주면 그건 선택이 아니라 막다른 길이다 — 여기서 한 작업을
+// 살리려면 배너를 무시하는 수밖에 없게 된다
+const overwriteBtn = $("button",
+  "background:#2b1d10;color:#e8dcc8;border:1px solid #4a3320;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer;font-size:12px;margin-left:6px",
+  "이쪽 값으로 덮어쓰기");
+conflict.append(conflictText, reloadBtn, overwriteBtn);
 /** 고른 슬롯과 별개로, 그 영역 전체에 걸린 묶음 업로드가 들어가는 자리. */
 const extras = $("div", "margin-top:12px");
-side.append(actions, list, detail, extras);
+side.append(actions, conflict, list, detail, extras);
 
 const area = (): UiArea => state.areas[state.areaIndex]!;
 
@@ -584,6 +628,7 @@ function attachDrag(el: HTMLElement, grip: HTMLElement, s: UiSlot): void {
   const down = (e: PointerEvent, m: "move" | "resize"): void => {
     e.preventDefault();
     e.stopPropagation();
+    if (mode === null) dragging += 1; // 끄는 동안 catchUp이 슬롯을 갈아끼우지 못하게
     mode = m;
     startX = e.clientX; startY = e.clientY;
     ox = s.x; oy = s.y; ow = s.w; oh = s.h;
@@ -603,10 +648,15 @@ function attachDrag(el: HTMLElement, grip: HTMLElement, s: UiSlot): void {
     renderStage();
     renderList();
   });
-  window.addEventListener("pointerup", () => {
-    if (mode) commit(); // 드래그 한 번이 되돌리기 한 단계다
+  const release = (): void => {
+    if (!mode) return;
+    commit(); // 드래그 한 번이 되돌리기 한 단계다
     mode = null;
-  });
+    dragging = Math.max(0, dragging - 1);
+    void catchUp(); // 끄는 동안 미뤄 둔 따라잡기를 지금 한다
+  };
+  window.addEventListener("pointerup", release);
+  window.addEventListener("pointercancel", release);
 }
 
 // ── 저장 ────────────────────────────────────
@@ -628,7 +678,19 @@ function mergeAreas(disk: UiArea[], mine: UiArea[]): UiArea[] {
   });
 }
 
-saveBtn.onclick = async (): Promise<void> => {
+/** 배치를 쓴다. force면 충돌을 알고도 이쪽 값으로 덮는다(사람이 눌렀을 때만).
+ *
+ *  **판정은 서버가 한다.** 예전엔 여기서 디스크를 읽어 견주고 나서 POST했는데,
+ *  그 사이(게임 화면의 자동 저장 한 번이면 충분하다)에 들어온 쓰기는 검사를
+ *  통과해 통째로 덮였다. 지금은 읽어 온 시점의 rev를 함께 보내고 서버가
+ *  쓰기 직전에 본다.
+ *
+ *  rev 검사와 mergeAreas는 **다른 것을 막는다.** rev는 내가 아는 슬롯을 저쪽이
+ *  옮겼을 때, merge는 내가 모르는 슬롯이 디스크에 생겼을 때다. 덮어쓰기(force)로
+ *  갈 때도 merge는 남는다 — 알고 덮는 것은 내가 본 슬롯까지지, 못 본 슬롯이 아니다. */
+async function saveLayout(force = false): Promise<void> {
+  if (saving) return;
+  saving = true;
   status.textContent = "저장 중…";
   status.style.color = "#a8987c";
   try {
@@ -639,26 +701,44 @@ saveBtn.onclick = async (): Promise<void> => {
     // currentLayout()은 dev 서버 밖일 때만 {}를 주는 것이 아니라 GET이 실패하면
     // 무엇이든 {}로 삼킨다. 그런데 서버의 GET은 readFileSync를 감싸지 않아,
     // 다른 탭이 쓰는 중이면 500이 날 수 있다 — 여러 탭이 얽히는 바로 그 상황이다.
-    // 그때 디스크를 빈 것으로 보고 진행하면 이 함수가 막으려던 전체 덮어쓰기가
-    // 그대로 되살아나고, disk가 {}라 uploads·videos·audios까지 통째로 날아간다.
-    // 서버는 파일을 전부 다시 쓰기 때문이다. 실패는 조용히 넘기지 말고 세운다.
+    // 그때 디스크를 빈 것으로 보고 진행하면 전체 덮어쓰기가 그대로 되살아나고,
+    // disk가 {}라 uploads·videos·audios까지 통째로 날아간다. 조용히 넘기지 않는다.
     if (diskAreas.length === 0) {
       throw new Error("디스크의 배치를 읽지 못했습니다 — 저장하지 않았습니다. 새로고침 뒤 다시 시도하세요");
     }
-    const res = await fetch("/__uilayout", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...disk, areas: mergeAreas(diskAreas, state.areas) }),
-    });
+    const merged = mergeAreas(diskAreas, state.areas);
+    const res = await fetch(
+      `/__uilayout?by=${encodeURIComponent(CLIENT_ID)}&rev=${encodeURIComponent(force ? "force" : state.rev)}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...disk, areas: merged }),
+      },
+    );
+    if (res.status === 409) {
+      showConflict("다른 창에서 배치가 바뀌어 저장하지 않았습니다. 새로 읽거나, 알고도 이쪽 값으로 덮어쓰세요.");
+      status.textContent = "저장 안 함 — 디스크가 더 새롭습니다";
+      status.style.color = "#f0c96a";
+      return;
+    }
     if (!res.ok) throw new Error(await res.text());
     state.dirty = false;
+    // 기준점은 내가 들고 있는 것이 아니라 **실제로 쓴 것**이다 —
+    // merge가 얹은 「내가 모르는 슬롯」까지 디스크에 있다
+    state.baseline = cloneAreas(merged);
+    state.rev = res.headers.get("x-layout-rev") ?? state.rev;
+    hideConflict();
     status.textContent = "저장됨";
     status.style.color = "#8fdc8f";
   } catch (err) {
     status.textContent = `실패: ${String(err)}`;
     status.style.color = "#ff8f7a";
+  } finally {
+    saving = false;
   }
-};
+}
+
+saveBtn.onclick = (): void => { void saveLayout(); };
 
 async function currentLayout(): Promise<Record<string, unknown>> {
   try {
@@ -690,9 +770,10 @@ async function syncFromDisk(): Promise<void> {
     const [l, a] = await Promise.all([fetch("/__uilayout"), fetch("/__assets")]);
     if (l.ok) {
       const fresh = (await l.json()) as {
-        areas?: UiArea[]; uploads?: UiUpload[]; videos?: UiUpload[]; audios?: UiUpload[];
+        uploads?: UiUpload[]; videos?: UiUpload[]; audios?: UiUpload[];
       };
-      if (Array.isArray(fresh.areas)) state.areas = fresh.areas;
+      const areas = parseAreas(fresh);
+      if (areas.length > 0) adoptAreas(areas, l.headers.get("x-layout-rev") ?? "");
       if (Array.isArray(fresh.uploads)) state.uploads = fresh.uploads;
       if (Array.isArray(fresh.videos)) state.videos = fresh.videos;
       if (Array.isArray(fresh.audios)) state.audios = fresh.audios;
@@ -701,8 +782,116 @@ async function syncFromDisk(): Promise<void> {
   } catch { /* dev 서버 밖 — 번들 값 그대로 */ }
 }
 
+// ── 게임 화면의 편집을 따라잡기 ───────────────
+// 이 탭은 부팅 때 한 번 읽고 끝이었다. 게임 화면(?editor=1)에서 고친 배치가
+// 여기 보이지 않았고, 저장을 누르면 낡은 메모리 값이 그 편집을 덮어썼다.
+//
+// 알림(ws)과 탭 포커스 **둘 다**에서 따라잡는다. 알림 하나만 두면 서버가
+// 다시 뜬 뒤 이 탭의 ws가 끊긴 채로 남았을 때 영영 낡은 값을 들게 된다.
+
+/** 디스크에서 온 배치를 받아들이고 기준점·히스토리를 새로 잡는다. */
+function adoptAreas(areas: UiArea[], rev: string): void {
+  state.areas = areas;
+  state.baseline = cloneAreas(areas);
+  state.rev = rev;
+  // 영역이 줄어든 파일을 읽으면 보고 있던 탭이 사라진다 — 없는 칸을 가리키면
+  // area()의 ! 단언이 undefined를 통과시켜 그리는 쪽에서 터진다
+  if (state.areaIndex >= state.areas.length) state.areaIndex = 0;
+  // 고르고 있던 슬롯이 아직 있으면 그대로 둔다 — 저쪽 창이 자동 저장할 때마다
+  // 선택이 풀리면 여기서 숫자를 맞추던 사람의 자리가 계속 사라진다
+  const keep = state.areas[state.areaIndex]?.slots.some((sl) => sl.id === state.selected) === true;
+  if (!keep) state.selected = null;
+  // 새로 만들지 않고 시작점만 옮긴다 — 히스토리 객체를 갈면 되돌리기가 통째로 날아간다
+  if (history) history.reset(state.areas);
+  else history = createHistory<UiArea[]>(state.areas);
+}
+
+interface DiskLayout { areas: UiArea[]; rev: string }
+
+/** 디스크의 배치를 읽는다. 반드시 파서를 지난다 — 손으로 고친 파일이
+ *  슬롯을 빠뜨려도 화면이 아니라 여기서 흡수한다. dev 서버 밖이면 null. */
+async function fetchLayout(): Promise<DiskLayout | null> {
+  try {
+    const r = await fetch("/__uilayout");
+    if (!r.ok) return null;
+    const raw: unknown = await r.json();
+    const areas = parseAreas(raw);
+    if (areas.length === 0) return null;
+    return { areas, rev: r.headers.get("x-layout-rev") ?? "" };
+  } catch { return null; }
+}
+
+function showConflict(text: string): void {
+  conflictText.textContent = text;
+  conflict.style.display = "block";
+}
+
+const hideConflict = (): void => { conflict.style.display = "none"; };
+
+function announce(text: string): void {
+  status.textContent = text;
+  status.style.color = "#8fdc8f";
+}
+
+/** 디스크가 내가 읽어 온 뒤로 바뀌었나 확인하고 따라잡는다.
+ *  저장 안 된 변경이 여기 있으면 **말없이 버리지 않는다** — 사람이 고르게 둔다. */
+async function catchUp(): Promise<void> {
+  if (dragging > 0) return; // 끌고 있는 중이면 건드리지 않는다 — pointerup이 다시 부른다
+  const seq = ++pullSeq;
+  const disk = await fetchLayout();
+  if (!disk) return;
+  if (seq !== pullSeq) return; // 나보다 늦게 떠난 요청이 이미 왔다 — 내 값은 헌 값이다
+  if (dragging > 0) return;    // 기다리는 사이에 끌기 시작했다
+  if (sameAreas(disk.areas, state.baseline)) {
+    state.rev = disk.rev; // 뜻은 그대로여도 파일은 다시 쓰였다 — 리비전만 따라간다
+    hideConflict();
+    return;
+  }
+  if (state.dirty) {
+    showConflict("다른 창에서 배치가 바뀌었습니다. 새로 읽으면 여기서 저장하지 않은 변경은 사라지고, 덮어쓰면 저 변경이 사라집니다.");
+    return;
+  }
+  adoptAreas(disk.areas, disk.rev);
+  hideConflict();
+  renderAll();
+  announce("다른 창의 배치를 읽었습니다");
+}
+
+reloadBtn.onclick = (): void => {
+  const seq = ++pullSeq; // catchUp과 같은 규칙으로 줄을 선다 — await 뒤에 잡으면
+  void fetchLayout().then((disk) => { //  나보다 늦게 떠난 응답에 밀린다
+    if (!disk || seq !== pullSeq) return;
+    adoptAreas(disk.areas, disk.rev);
+    state.dirty = false;
+    hideConflict();
+    renderAll();
+    announce("다른 창의 배치를 읽었습니다");
+  });
+};
+
+/** 충돌을 알고도 이쪽 값을 쓰겠다는 선택. 버튼이 없으면 여기서 한 작업을
+ *  살릴 길이 배너를 무시하는 것밖에 없다 — 그건 선택이 아니라 막다른 길이다. */
+overwriteBtn.onclick = (): void => { void saveLayout(true); };
+
+if (import.meta.hot) {
+  import.meta.hot.on("layout-updated", (d: { by?: string }) => {
+    if (d?.by === CLIENT_ID) return; // 방금 내가 쓴 것 — 다시 읽을 이유가 없다
+    void catchUp();
+  });
+}
+// 탭을 다시 보는 순간이 게임 화면에서 돌아오는 순간이다. focus도 함께 듣는다 —
+// 두 창을 나란히 띄워 두면 탭이 숨지 않아 visibilitychange가 오지 않는다.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") void catchUp();
+});
+window.addEventListener("focus", () => { void catchUp(); });
+// 창을 벗어난 채 손을 떼면 pointerup이 이 페이지로 오지 않는다 — 걸쇠를 여기서 푼다.
+// 끌던 값은 화면에 이미 반영돼 있고 저장 안 됨 표시도 서 있으므로 잃는 것이 없다.
+window.addEventListener("blur", () => { dragging = 0; });
+
 void syncFromDisk().then(() => {
-  history = createHistory<UiArea[]>(state.areas); // 디스크와 맞춘 뒤가 시작점이다
+  // dev 서버 밖이면 adoptAreas가 안 불렸다 — 번들 값 그대로가 시작점이다
+  history ??= createHistory<UiArea[]>(state.areas);
   renderAll();
   status.textContent = "";
 });
