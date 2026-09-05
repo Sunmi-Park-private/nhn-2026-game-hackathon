@@ -6,8 +6,9 @@
 //
 // 배경 아트가 오면 버튼 모양은 아트가 그린다 — 그때 이 코드는 히트 영역만 얹는다.
 // 아트가 없으면 자리와 이름이 보이도록 폴백을 그린다.
-import { Application, Container, Graphics, Text, type Texture } from "pixi.js";
+import { Application, Container, Graphics, Rectangle, Text, type Texture } from "pixi.js";
 import { BASE_W, stageTop, stageHeight, coverBox, contentRect } from "./stage";
+import { slotHitRect } from "./slotHitRect";
 import { fitSprite, loadTexture, playVideoTexture, VIDEO_LOAD_TIMEOUT_MS } from "./skin";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection, type CollectionTextures } from "./collection";
@@ -97,6 +98,12 @@ function hotspot(
   if (onTap) {
     c.eventMode = "static";
     c.cursor = "pointer";
+    // 터치 영역을 **슬롯 상자 그대로** 못박는다. 자식으로 둔 투명 사각형은 노드에 걸린
+    // 배율(nav 4종은 2.3)에 함께 끌려가 96×50이 220×115가 됐고, 겹치면 나중에 붙은
+    // 것이 잡히므로 HOME을 눌러도 RACE가 열렸다. editable() 뒤에 읽어야 pivot·배율이
+    // 이미 입혀진 값이다.
+    const r = slotHitRect(b, { x: c.x, y: c.y, scale: c.scale.x, pivotX: c.pivot.x, pivotY: c.pivot.y });
+    c.hitArea = new Rectangle(r.x, r.y, r.w, r.h);
     c.on("pointertap", () => { buzz(); playSfx("audio.sfxTap"); onTap(); });
     c.on("pointerdown", () => { c.alpha = 0.78; });
     const up = (): void => { c.alpha = 1; };
