@@ -88,7 +88,7 @@
     "gear": "assets/ui/btn-settings.webp"
   },
   "lobby": {
-    "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다. friends는 로비 배경 영상 6종 — 구출 마릿수마다 한 편이다. 키는 data/animals.ts 순서를 재활용할 뿐이고, 키의 동물과 그 장면의 동물은 무관하다(scene-1 = 1마리 구출 상태).",
+    "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다. friends는 로비 배경 영상 6종 — 구출 마릿수마다 한 편이다. horse가 0마리(말 혼자), 나머지는 data/animals.ts 순서를 재활용할 뿐이다 — 키의 동물과 그 장면의 동물은 무관하다(scene-3 = 3마리 구출 상태).",
     "bg": "assets/lobby/bg.png",
     "topStats": "assets/lobby/top-stats.webp",
     "play": "assets/lobby/btn-play.webp",
@@ -97,6 +97,7 @@
     "navAnimals": "assets/lobby/nav-animals.webp",
     "navEvents": "assets/lobby/nav-events.webp",
     "friends": {
+      "horse": "assets/lobby/scene-0.webm",
       "rabbit": "assets/lobby/scene-1.webm",
       "monkey": "assets/lobby/scene-2.webm",
       "deer": "assets/lobby/scene-3.webm",

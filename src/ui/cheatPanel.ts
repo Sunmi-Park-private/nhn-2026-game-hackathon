@@ -9,7 +9,7 @@
 // 규약 6조 — 치트는 devMode 게이트 뒤에만 산다. 제출 빌드에서는 뜨지 않는다.
 import { isDevMode } from "./devMode";
 import { ANIMALS } from "../data/animals";
-import { sceneCandidates } from "../data/lobbyScene";
+import { sceneCandidates, SCENE_KEYS } from "../data/lobbyScene";
 import { parseProfile, serializeProfile, PROFILE_KEY, type Profile } from "../engine/profile";
 
 const CSS = {
@@ -22,9 +22,6 @@ const CSS = {
     + "padding:2px 8px;cursor:pointer;font-size:11px;font-weight:700",
   note: "color:#a8987c;font-size:11px;margin-bottom:8px",
   row: "display:flex;flex-direction:column;gap:4px",
-  quick: "display:flex;gap:6px;margin:8px 0 6px",
-  small: "flex:1;background:#2b1d10;color:#e8dcc8;border:1px solid #4a3320;border-radius:6px;"
-    + "padding:5px 0;cursor:pointer;font-size:11px;font-weight:700",
   state: "margin-top:8px;padding-top:8px;border-top:1px solid #4a3320;color:#a8987c;font-size:11px",
 } as const;
 
@@ -35,9 +32,11 @@ function el(tag: string, css: string, text = ""): HTMLElement {
   return node;
 }
 
-/** 켜짐/꺼짐이 한눈에 보여야 한다 — 색만으로도 구분되게 글머리도 함께 바꾼다. */
-function paintToggle(b: HTMLElement, on: boolean, label: string): void {
-  b.textContent = `${on ? "☑" : "☐"} ${label}`;
+/** 고른 것이 한눈에 보여야 한다 — 색만으로도 구분되게 글머리도 함께 바꾼다.
+ *  **하나만 고른다**: 로비 배경은 「몇 마리 구했나」 하나로 정해지므로
+ *  여러 개를 켜는 것은 뜻이 없다. */
+function paintRadio(b: HTMLElement, on: boolean, label: string): void {
+  b.textContent = `${on ? "◉" : "○"} ${label}`;
   b.style.cssText = "text-align:left;border:1px solid #4a3320;border-radius:6px;padding:6px 9px;"
     + "cursor:pointer;font-size:12px;font-weight:700;"
     + (on ? "background:#3faa48;color:#0f1a0f" : "background:#2b1d10;color:#a8987c");
@@ -71,13 +70,9 @@ export function mountCheatPanel(): void {
   panel.append(head);
 
   const body = el("div", "");
-  body.append(el("div", CSS.note, "구출한 동물을 직접 켜고 끈다. 판을 깨지 않고 로비를 확인할 때 쓴다."));
-
-  const quick = el("div", CSS.quick);
-  const none = el("button", CSS.small, "전부 끄기");
-  const all = el("button", CSS.small, "전부 켜기");
-  quick.append(none, all);
-  body.append(quick);
+  body.append(el("div", CSS.note,
+    "구출 단계를 고른다. 판을 깨지 않고 로비를 확인할 때 쓴다. "
+    + "영상 한 편에 그 단계까지의 동물이 다 들어 있어서 단계는 하나만 고른다."));
 
   const rows = el("div", CSS.row);
   body.append(rows);
@@ -88,35 +83,32 @@ export function mountCheatPanel(): void {
 
   function render(): void {
     const p = read();
-    const on = new Set(p.rescued);
+
+    const n = p.rescued.length;
 
     rows.replaceChildren();
-    for (const a of ANIMALS) {
+    // 0마리부터 6마리까지. 고른 단계 = 앞에서부터 그만큼 구출한 상태다 —
+    // 장면 번호가 곧 마릿수이므로 순서도 animals.ts 순서를 그대로 따른다.
+    for (let step = 0; step <= ANIMALS.length; step += 1) {
       const b = el("button", "");
-      paintToggle(b, on.has(a.id), `${a.glyph} ${a.name}`);
+      const faces = ANIMALS.slice(0, step).map((a) => a.glyph).join("");
+      paintRadio(b, step === n, step === 0 ? "0마리 · 말 혼자" : `${step}마리 · ${faces}`);
       b.onclick = (): void => {
-        // 구출 순서가 곧 마릿수라, 켤 때는 뒤에 붙이고 끌 때만 빼낸다
-        const next = on.has(a.id) ? p.rescued.filter((x) => x !== a.id) : [...p.rescued, a.id];
-        apply({ ...p, rescued: next });
+        if (step === n) return; // 같은 단계를 다시 눌러 새로고침만 하지 않는다
+        apply({ ...p, rescued: ANIMALS.slice(0, step).map((a) => a.id) });
       };
       rows.append(b);
     }
 
-    // 무엇이 나올지 미리 말해 준다 — 켜 놓고 「왜 그대로지」 하는 일이 없게.
+    // 무엇이 나올지 미리 말해 준다 — 골라 놓고 「왜 그대로지」 하는 일이 없게.
     // 파일이 실제로 있는지는 여기서 알 수 없다(받아 봐야 안다). 그래서 후보를 적는다.
-    const n = p.rescued.length;
     const first = sceneCandidates(n)[0];
-    state.textContent = n === 0
-      ? "구출 0마리 — 배경은 스틸(bg)"
-      : `구출 ${n}마리 — 배경 영상 ${SCENE_NO[first ?? ""] ?? "?"}번부터 아래로 찾는다`;
+    state.textContent = `구출 ${n}마리 — 배경 영상 ${SCENE_NO[first ?? ""] ?? "?"}번부터 아래로 찾는다`;
   }
 
-  /** 장면 키 → 사람이 읽는 번호. 키 이름의 동물과 그 장면의 동물은 무관하다. */
+  /** 장면 키 → 사람이 읽는 번호(=마릿수). 키 이름의 동물과 그 장면의 동물은 무관하다. */
   const SCENE_NO: Record<string, number> = {};
-  ANIMALS.forEach((a, i) => { SCENE_NO[a.id] = i + 1; });
-
-  none.onclick = (): void => apply({ ...read(), rescued: [] });
-  all.onclick = (): void => apply({ ...read(), rescued: ANIMALS.map((a) => a.id) });
+  SCENE_KEYS.forEach((k, i) => { SCENE_NO[k] = i; });
 
   fold.onclick = (): void => {
     const hidden = body.style.display === "none";

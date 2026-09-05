@@ -45,35 +45,38 @@ describe("게임 에셋 업로드 목록", () => {
 });
 
 describe("로비 배경 영상", () => {
-  it("장면 키마다 경로가 있다 — 키는 동물 목록을 재활용한다", () => {
-    expect(Object.keys(lobbySceneVideoPaths).sort()).toEqual([...ids].sort());
+  it("장면 키마다 경로가 있다 — [0]은 말 혼자, 그 뒤가 동물 순서다", () => {
+    expect(Object.keys(lobbySceneVideoPaths).sort()).toEqual([...SCENE_KEYS].sort());
+    expect(SCENE_KEYS).toHaveLength(7);
   });
 
   it("전부 webm이다 — mp4(h.264)는 이 렌더러에서 첫 프레임에 멎는다(실측)", () => {
-    for (const id of ids) expect(lobbySceneVideoPaths[id], id).toMatch(/\.webm$/);
+    for (const key of SCENE_KEYS) expect(lobbySceneVideoPaths[key], key).toMatch(/\.webm$/);
   });
 
-  it("장면 키 순서대로 scene-1 … scene-6을 가리킨다", () => {
+  it("장면 번호가 곧 마릿수다 — scene-0 … scene-6", () => {
     SCENE_KEYS.forEach((key, i) => {
-      expect(lobbySceneVideoPaths[key], key).toBe(`assets/lobby/scene-${i + 1}.webm`);
+      expect(lobbySceneVideoPaths[key], key).toBe(`assets/lobby/scene-${i}.webm`);
     });
   });
 
   it("장면마다 로비 슬롯이 있고 그 장면의 에셋을 가리킨다", () => {
     const lobby = uiAreas.find((a) => a.id === "lobby");
     expect(lobby).toBeDefined();
-    for (const id of ids) {
-      const s = lobby!.slots.find((x) => x.id === `friend${cap(id)}`);
-      expect(s, id).toBeDefined();
-      expect(s!.asset).toBe(`lobby.friends.${id}`);
+    for (const key of SCENE_KEYS) {
+      const s = lobby!.slots.find((x) => x.id === `friend${cap(key)}`);
+      expect(s, key).toBeDefined();
+      expect(s!.asset).toBe(`lobby.friends.${key}`);
     }
   });
 
   it("슬롯 라벨이 마릿수를 말한다 — 이름의 동물을 올리면 안 되기 때문이다", () => {
     const lobby = uiAreas.find((a) => a.id === "lobby")!;
-    SCENE_KEYS.forEach((key, i) => {
-      const s = lobby.slots.find((x) => x.id === `friend${cap(key)}`);
-      expect(s!.label, key).toBe(`로비 배경 · ${i + 1}마리 구출`);
+    const label = (key: string): string | undefined =>
+      lobby.slots.find((x) => x.id === `friend${cap(key)}`)?.label;
+    expect(label(SCENE_KEYS[0]!)).toBe("로비 배경 · 0마리 · 말 혼자");
+    SCENE_KEYS.slice(1).forEach((key, i) => {
+      expect(label(key), key).toBe(`로비 배경 · ${i + 1}마리 구출`);
     });
   });
 
