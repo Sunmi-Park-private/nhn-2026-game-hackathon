@@ -5,11 +5,13 @@ import { createRun, fireAt, isCleared, isFailed } from "../../engine/hex/stageRu
 import { simulateShot } from "../../engine/hex/shot";
 import type { RunState, StageDef } from "../../engine/hex/types";
 import { fullRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
-import { BOARD, launchOriginLocal } from "./geom";
+import { BOARD, launchOrigin, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
 import { createCageView } from "./cageView";
 import { createHudView } from "./hudView";
 import { createLauncher } from "./launcher";
+import { createDragAim } from "./dragAim";
+import { createPowerGauge } from "./powerGauge";
 import { makeButton } from "../skin";
 import { openSettings, type SettingsTextures } from "../settingsMenu";
 import { slot } from "../../data/uiLayout";
@@ -48,6 +50,8 @@ export interface StageTextures {
   animals: Record<string, Texture[]>;
   /** 화면 하단 붉은말 — 시퀀스 */
   horse: Texture[];
+  /** 그 시퀀스에서 팔이 최대로 접힌 프레임(0-based) */
+  horseHold: number;
   bg: { board: Texture | null; panelLeft: Texture | null; panelRight: Texture | null };
 }
 
@@ -112,14 +116,17 @@ export async function runStageScreen(
     animals: textures.animals,
   });
   const hud = createHudView(stageIndex, { stageBar: ui.stageBar });
-  const launcher = createLauncher(textures.horse);
+  const launcher = createLauncher(textures.horse, textures.horseHold);
+  const gauge = createPowerGauge();
+  // 앵커는 붉은말의 발 밑이다 — 새총의 고정점이 눈에 보이는 자리와 같아야 한다
+  const aimer = createDragAim(launchOrigin());
 
   // 케이지는 타일보다 뒤에 둬서 타일이 케이지를 파묻게 하고, 발사대·HUD는 맨 앞에 둔다
   // 순서 = z. 케이지를 타일보다 **위**에 둔다 — 큰 창살이 둘레 타일의 가장자리를
   // 덮으면서 「타일 무리 위에 얹힌 물건」으로 읽힌다. 아래에 두면 작은 타일들이
   // 창살을 파고들어 케이지 윤곽이 끊겨 보였다.
   // 발사체(launcher)는 케이지보다 위다 — 창살 앞을 지나가는 것이 맞다.
-  layer.addChild(board.root, cages.root, launcher.root, hud.root);
+  layer.addChild(board.root, cages.root, launcher.root, hud.root, gauge.root);
   app.stage.addChild(layer);
 
   /** 케이지를 뺀 나머지 갱신. 구출 연출 전에는 이것만 부른다 —
@@ -159,7 +166,9 @@ export async function runStageScreen(
       input.off("pointermove", onMove);
       input.off("pointerup", onUpWrapped);
       input.off("pointerupoutside", onUpWrapped);
+      aimer.cancel();
       launcher.destroy();
+      gauge.destroy();
       hud.destroy();
       cages.destroy();
       board.destroy();
@@ -167,12 +176,12 @@ export async function runStageScreen(
       resolve(outcome);
     }
 
-    // 새 터치의 첫 접촉 — 조준선을 그 자리에 바로 맞춘다.
-    // 이어지는 pointermove는 상한 속도로 부드럽게 따라간다.
     function onDown(e: FederatedPointerEvent): void {
       if (busy) return;
       const p = e.getLocalPosition(layer);
-      launcher.aimAt(p.x, p.y, state.cells, true);
+      aimer.down(p);
+      launcher.setAim(aimer.current(), state.cells);
+      gauge.set(aimer.current()?.power ?? null);
     }
 
     function onMove(e: FederatedPointerEvent): void {
@@ -180,26 +189,30 @@ export async function runStageScreen(
       // e.global은 렌더러(화면) 좌표계다 — app.stage.x가 0이 아닌 넓은 화면에서는
       // 그대로 쓰면 발사대 기준점이 수백 px 어긋난다. layer 로컬 좌표로 변환해야 한다.
       const p = e.getLocalPosition(layer);
-      launcher.aimAt(p.x, p.y, state.cells);
+      aimer.move(p);
+      launcher.setAim(aimer.current(), state.cells);
+      gauge.set(aimer.current()?.power ?? null);
     }
 
     async function onUp(e: FederatedPointerEvent): Promise<void> {
       if (busy || finished) return;
-      const p = e.getLocalPosition(layer);
-      launcher.aimAt(p.x, p.y, state.cells, true); // 손을 뗀 자리로 확정 — 조준선과 실제 발사가 어긋나지 않게
-      const angle = launcher.angle();
-      launcher.clearAim();
+      const aim = aimer.up(e.getLocalPosition(layer));
+      gauge.set(null);
+      // 데드존 안에서 뗐다 — 쏘지 않고 자세만 되돌린다
+      if (!aim) { launcher.settleBack(); return; }
 
       busy = true;
       try {
         // 비행 경로를 먼저 얻어 연출하고, 그 뒤 상태를 확정한다
         const firedTier = state.loaded;
-        const { path } = simulateShot(state.cells, BOARD, launchOriginLocal(), angle);
+        const { path } = simulateShot(state.cells, BOARD, launchOriginLocal(), aim.angle, aim.power);
         playSfx("audio.sfxShot");
         buzz();
-        await launcher.playFlight(path, firedTier);
+        // 토스와 비행을 **동시에** 돌린다 — 기다리면 타일이 앞발에 붙어 있다가
+        // 뒤늦게 떠나 어색하다
+        await Promise.all([launcher.playToss(), launcher.playFlight(path, firedTier)]);
 
-        const outcome = fireAt(state, BOARD, launchOriginLocal(), angle);
+        const outcome = fireAt(state, BOARD, launchOriginLocal(), aim.angle, aim.power);
         if (outcome.steps.length > 0) playSfx("audio.sfxPop");
         redrawExceptCages(); // 타일·HUD는 즉시 반영 — 케이지는 아직 건드리지 않는다
 
@@ -238,6 +251,9 @@ export async function runStageScreen(
         // 진짜 멈춘다 — 막이 입력을 먹는 것만으로는 케이지 흔들림과 조준선이 계속 돈다.
         // 「멈춘 게임」 위에서 뒤 배경만 살아 움직이면 설정창이 겹쳐 뜬 것으로만 읽힌다.
         cages.pause();
+        aimer.cancel();
+        gauge.set(null);
+        launcher.setAim(null, state.cells);
         launcher.pause();
         pauseBgm();
         void openSettings(layer, ui, { confirmHome: true }).then((r) => {

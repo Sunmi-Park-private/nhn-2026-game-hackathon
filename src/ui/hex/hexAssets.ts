@@ -77,5 +77,5 @@ export async function loadHexAssets(paths: HexAssetPaths): Promise<StageTextures
     ]);
   const horse = await loadFrames(paths.horse);
 
-  return { tiles, horseshoe, cageLocked, cageOpen, animals, horse, bg: { board, panelLeft, panelRight } };
+  return { tiles, horseshoe, cageLocked, cageOpen, animals, horse, horseHold: paths.horseHold, bg: { board, panelLeft, panelRight } };
 }
