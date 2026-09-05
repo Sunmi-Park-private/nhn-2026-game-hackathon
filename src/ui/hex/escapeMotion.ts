@@ -58,8 +58,6 @@ export const CAGE_TOTAL_MS = CAGE_SHAKE_MS + CAGE_DROP_MS;
 // ── 동물 ────────────────────────────────────────────────────
 /** 한 창살에서 나오는 마릿수. */
 export const ANIMAL_COUNT = 4;
-/** 마리마다 나오는 간격(ms). 한꺼번에 쏟아지면 마릿수가 안 읽힌다. */
-export const ANIMAL_STAGGER_MS = 130;
 /** 바닥까지 떨어지는 시간(ms). */
 export const FALL_MS = 620;
 /** 출발 배율. 1이면 **격자 한 칸**이다 — 창살 안에 있던 크기 그대로 나온다. */
@@ -81,6 +79,35 @@ export const WALK_SPEED = 265;
 /** 걸을 때 위아래로 흔들리는 폭(px)과 진동수(Hz). 발소리 대신이다. */
 export const WALK_BOB_PX = 3.2;
 export const WALK_BOB_HZ = 4.4;
+
+/** 떨어지는 동안 좌우로 벌어지는 거리(px, 가운데에서 ±). 앵커는 하나다. */
+export const SPREAD_PX = 34;
+/** 착지한 몸의 화면 폭(px). 격자 한 칸 × 착지 배율 ≈ 268px. */
+export const ANIMAL_BODY_W = CELL_W * LAND_SCALE;
+/**
+ * 걷는 동안 옆 마리와 **최대로** 겹쳐도 되는 비율.
+ *
+ * 넷이 한 덩어리로 몰려 나가 마릿수가 안 읽혔다(본선 QA). 예전 간격 130ms로는
+ * 실제 간격이 11.8px, 몸 폭 268px 대비 **96% 겹침**이었다 — 사실상 한 마리로 보인다.
+ */
+export const MAX_WALK_OVERLAP = 0.3;
+
+/**
+ * 마리마다 나오는 간격(ms). 숫자를 고르지 않고 **겹침 규칙에서 거꾸로 구한다** —
+ * 배율(LAND_SCALE)이나 걷는 속도가 바뀌어도 겹침 비율은 따라온다.
+ *
+ * 걷기 시작하는 시점이 stagger만큼 벌어지므로 간격은 `속도 × stagger`인데,
+ * 뒷마리가 낙하 중에 **오른쪽으로** 벌어져 나오므로(spread) 그만큼 다시 좁혀진다.
+ * 그 몫까지 더해 필요한 간격을 채운다.
+ */
+export const ANIMAL_STAGGER_MS = Math.ceil(
+  ((ANIMAL_BODY_W * (1 - MAX_WALK_OVERLAP) + (2 * SPREAD_PX) / (ANIMAL_COUNT - 1)) / WALK_SPEED) * 1000 +
+    1000 / 60,
+);
+
+// 마지막 항은 프레임 한 장이다. 걷기 시작하는 시점은 프레임 경계로 밀리므로,
+// 앞마리가 뒷마리보다 더 밀리면 그만큼 간격이 좁아진다. 최대 한 프레임 × 속도
+// (60fps에서 4.4px)라 그만큼 미리 벌려 둔다 — 규칙을 프레임률에 맡기지 않는다.
 
 /**
  * 걸어 나가는 끝 지점. **판의 오른쪽 벽이 아니라 콘텐츠 컬럼의 경계**를 쓴다.
@@ -141,7 +168,7 @@ export function spawnEscape(i: number, count: number, arena: EscapeArena): Escap
     phase: "wait",
     age: 0,
     delay: i * ANIMAL_STAGGER_MS,
-    spread: t * 34,
+    spread: t * SPREAD_PX,
   };
 }
 
