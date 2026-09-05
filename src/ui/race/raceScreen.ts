@@ -109,13 +109,6 @@ export function openRace(
       t.text = "ANIMAL RACE";
       selectScreen.addChild(t);
     }
-    if (tex.ui.prompt) {
-      selectScreen.addChild(hotspot(B.select.prompt, tex.ui.prompt, 0x8a5a2b, () => {}, regSelect));
-    } else {
-      const t = slotText(B.select.prompt, 17, 0xfff3dc);
-      t.text = "달릴 동물을 선택하세요!";
-      selectScreen.addChild(t);
-    }
 
     const picker = createCardPicker({
       box: B.select.cardGrid,
@@ -171,7 +164,6 @@ export function openRace(
     });
     trackScreen.addChild(track.node, runners.node);
     trackScreen.addChild(createLaneFlags({ box: B.track.laneFlags, laneY: track.laneY, tex: tex.flags }));
-    trackScreen.addChild(hotspot(B.track.startSign, tex.ui.startSign, 0x8a5a2b, () => {}, regTrack));
     trackScreen.addChild(hud.node, hud.countdown);
 
     const btnRace = hotspot(B.track.btnRace, tex.ui.btnRace, 0x3faa48, () => {
@@ -218,8 +210,7 @@ export function openRace(
       resultScreen.addChild(buildRaceResult({
         slots: B.result as unknown as Record<string, UiSlot>,
         tex: {
-          title: tex.ui.resultTitle, podium: tex.ui.podium,
-          signLeft: tex.ui.signLeft, signRight: tex.ui.signRight,
+          podium: tex.ui.podium,
           rowFirst: tex.row.first, rowRest: tex.row.rest,
           medal: tex.medal, winner: champ ? tex.winner[champ.id] : undefined,
           btnRetry: tex.ui.btnRetry, btnClose: tex.ui.btnClose,

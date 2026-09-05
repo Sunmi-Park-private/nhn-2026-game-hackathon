@@ -9,7 +9,7 @@ describe("레이스 매니페스트", () => {
     expect(raceAssetPaths.bg.raceScene).toBeTruthy();
     expect(raceAssetPaths.bg.resultScene).toBeTruthy();
     expect(raceAssetPaths.bg.trackTile).toBeTruthy();
-    expect(Object.keys(raceAssetPaths.ui)).toHaveLength(13);
+    expect(Object.keys(raceAssetPaths.ui)).toHaveLength(8);
   });
 
   it("동물 아트가 세 벌 — 달리기·얼굴·1위", () => {

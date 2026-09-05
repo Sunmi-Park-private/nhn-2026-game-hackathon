@@ -16,7 +16,6 @@ const SELECT = {
   back: [16, 22, 58, 42],
   gear: [384, 22, 50, 42],
   title: [100, 12, 240, 176],
-  prompt: [112, 200, 220, 44],
   cardGrid: [40, 260, 364, 308],
   btnSelect: [112, 632, 228, 60],
 } as const satisfies Record<string, Box>;
@@ -25,8 +24,6 @@ const TRACK = {
   bg: [0, 0, 450, 800],
   back: [16, 22, 58, 42],
   gear: [384, 22, 50, 42],
-  title: [148, 12, 142, 108],
-  startSign: [12, 180, 164, 48],
   laneFlags: [52, 256, 34, 376],
   trackArea: [100, 248, 340, 392],
   countdown: [185, 380, 80, 120],
@@ -38,11 +35,8 @@ const TRACK = {
 
 const RESULT = {
   bg: [0, 0, 450, 800],
-  title: [100, 40, 248, 100],
   winner: [172, 136, 108, 144],
   podium: [148, 280, 132, 40],
-  signLeft: [4, 224, 68, 56],
-  signRight: [360, 224, 76, 56],
   resultList: [44, 332, 360, 316],
   btnRetry: [44, 680, 176, 48],
   btnClose: [228, 680, 156, 48],

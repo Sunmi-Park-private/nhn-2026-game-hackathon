@@ -20,10 +20,7 @@ export interface ResultRow {
 }
 
 export interface ResultTextures {
-  title?: Texture;
   podium?: Texture;
-  signLeft?: Texture;
-  signRight?: Texture;
   rowFirst?: Texture;
   rowRest?: Texture;
   medal: Partial<Record<"gold" | "silver" | "bronze", Texture>>;
@@ -177,9 +174,7 @@ export function buildRaceResult(o: {
     return { rank: i + 1, name: a.name, glyph: a.glyph, face: a.face, time: r.finishedAt, mine: r.id === o.race.myId };
   });
 
-  if (!art(s.title!, o.tex.title, root)) root.addChild(label(s.title!, "경주 결과", 34, 0xffd66b));
-  art(s.signLeft!, o.tex.signLeft, root);
-  art(s.signRight!, o.tex.signRight, root);
+  // 간판과 좌우 표지판은 배경 아트가 그린다 — 코드가 덧그리면 두 번 나온다
   art(s.podium!, o.tex.podium, root);
 
   // 1위 동물 — 축하 아트가 없으면 얼굴을 크게 쓴다

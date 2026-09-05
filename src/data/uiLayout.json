@@ -630,15 +630,6 @@
           "asset": "race.ui.title"
         },
         {
-          "id": "prompt",
-          "label": "「달릴 동물을 선택하세요!」 배너",
-          "x": 112,
-          "y": 200,
-          "w": 220,
-          "h": 44,
-          "asset": "race.ui.prompt"
-        },
-        {
           "id": "cardGrid",
           "label": "동물 카드 6종 (한 장)",
           "x": 40,
@@ -688,24 +679,6 @@
           "w": 50,
           "h": 42,
           "asset": "race.ui.gear"
-        },
-        {
-          "id": "title",
-          "label": "ANIMAL RACE 간판",
-          "x": 148,
-          "y": 12,
-          "w": 142,
-          "h": 108,
-          "asset": "race.ui.title"
-        },
-        {
-          "id": "startSign",
-          "label": "START",
-          "x": 12,
-          "y": 180,
-          "w": 164,
-          "h": 48,
-          "asset": "race.ui.startSign"
         },
         {
           "id": "laneFlags",
@@ -783,15 +756,6 @@
           "asset": "race.bg.resultScene"
         },
         {
-          "id": "title",
-          "label": "「경주 결과」 간판",
-          "x": 100,
-          "y": 40,
-          "w": 248,
-          "h": 100,
-          "asset": "race.ui.resultTitle"
-        },
-        {
           "id": "winner",
           "label": "1위 동물(크게)",
           "x": 172,
@@ -807,24 +771,6 @@
           "w": 132,
           "h": 40,
           "asset": "race.ui.podium"
-        },
-        {
-          "id": "signLeft",
-          "label": "좌측 표지판",
-          "x": 4,
-          "y": 224,
-          "w": 68,
-          "h": 56,
-          "asset": "race.ui.signLeft"
-        },
-        {
-          "id": "signRight",
-          "label": "우측 표지판",
-          "x": 360,
-          "y": 224,
-          "w": 76,
-          "h": 56,
-          "asset": "race.ui.signRight"
         },
         {
           "id": "resultList",

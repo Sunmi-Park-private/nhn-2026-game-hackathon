@@ -6,8 +6,8 @@ import manifestJson from "./assets.json";
 
 export const RACE_BG_IDS = ["selectScene", "raceScene", "resultScene", "trackTile", "finish"] as const;
 export const RACE_UI_IDS = [
-  "back", "gear", "title", "prompt", "btnSelect", "btnRace", "startSign",
-  "resultTitle", "podium", "signLeft", "signRight", "btnRetry", "btnClose",
+  "back", "gear", "title", "btnSelect", "btnRace",
+  "podium", "btnRetry", "btnClose",
 ] as const;
 export const RACE_CARD_IDS = ["grid", "off", "on"] as const;
 export const RACE_ROW_IDS = ["first", "rest"] as const;

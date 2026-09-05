@@ -427,14 +427,10 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 | 파일 | 내용 | 화면 |
 |---|---|---|
 | `ui-back.png` · `ui-gear.png` | 돌아가기 · 설정 (나무 프레임) | 선택 · 경주 |
-| `ui-title.png` | 「ANIMAL RACE」 간판 | 선택 · 경주 |
-| `ui-prompt.png` | 「달릴 동물을 선택하세요!」 배너 | 선택 |
+| `ui-title.png` | 「ANIMAL RACE」 간판 | 선택 |
 | `btn-select.png` | 「선택」 버튼 | 선택 |
-| `ui-start.png` | 「START」 표지판 | 경주 |
 | `btn-race.png` | 「RACE!」 버튼 | 경주 |
-| `ui-result-title.png` | 「경주 결과」 간판 | 결과 |
 | `ui-podium.png` | 시상대 | 결과 |
-| `ui-sign-left.png` · `ui-sign-right.png` | 「모두 수고했어요!」 · 「다음에도 함께 달려요!」 | 결과 |
 | `btn-retry.png` · `btn-close.png` | 다시하기 · 닫기 | 결과 |
 
 #### 레인·카드 순서 — 도감과 다르다
