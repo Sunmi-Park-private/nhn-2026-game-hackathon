@@ -286,7 +286,7 @@ export function createCageView(textures: CageTextures): CageView {
   const crackLayer = new Container();
   root.addChild(crackLayer, bodyLayer, fallLayer);
 
-  interface Entry { body: CageBody; baseY: number; phase: number; crack: Graphics; crackLevel: number }
+  interface Entry { body: CageBody; baseY: number; phase: number; crack: Graphics; crackKey: string }
 
   /** 케이지 하나를 화면에서 걷어 낸다. 창살 시퀀스의 rAF를 먼저 세운다 —
    *  노드만 부수면 다음 프레임까지 파괴된 스프라이트를 만진다. */
@@ -299,14 +299,20 @@ export function createCageView(textures: CageTextures): CageView {
   const animating = new Set<string>();
   let idleRaf = 0;
 
-  /** 상단 면의 금을 진행도에 맞춘다. 값이 그대로면 다시 그리지 않는다. */
+  /** 상단 면의 금을 진행도에 맞춘다. 값이 그대로면 다시 그리지 않는다.
+   *
+   *  금은 **지금 타일이 있는 상단 면 칸에만** 긋는다. 면 좌표에만 그으면 그 타일이
+   *  터져 사라진 뒤에도 금이 허공에 남았다(본선 QA). 그래서 캐시 키에 진행도뿐 아니라
+   *  어느 칸에 타일이 남아 있는지도 넣는다 — 타일이 빠지면 곧바로 다시 긋는다. */
   function syncCracks(state: RunState, cage: Cage, entry: Entry): void {
     const p = cageProgress(state.cells, cage);
     // 6면 구조가 없는 케이지는 상단 면도 없다 — 금을 그릴 자리가 없다
     const level = p.fallback ? 0 : p.opened;
-    if (level === entry.crackLevel || entry.crack.destroyed) return;
-    entry.crackLevel = level;
-    drawCracks(entry.crack, p.topFace.map(cellToScreen), level);
+    const tiled = p.topFace.filter((a) => state.cells.get(`${a.q},${a.r}`)?.kind === "tile");
+    const key = `${level}|${tiled.map((a) => `${a.q},${a.r}`).join(";")}`;
+    if (key === entry.crackKey || entry.crack.destroyed) return;
+    entry.crackKey = key;
+    drawCracks(entry.crack, tiled.map(cellToScreen), level);
   }
 
   /** 흔들 케이지가 하나라도 있나. 아트가 다 올라오면 0이 된다 —
@@ -465,7 +471,7 @@ export function createCageView(textures: CageTextures): CageView {
               existing.body.box.x = p.x;
               existing.body.box.y = p.y;
               existing.baseY = p.y;
-              existing.crackLevel = -1; // 금은 칸 좌표로 그린다 — 자리가 바뀌면 다시 긋는다
+              existing.crackKey = ""; // 금은 칸 좌표로 그린다 — 자리가 바뀌면 다시 긋는다
             }
           }
           syncCracks(state, cage, existing);
@@ -482,7 +488,7 @@ export function createCageView(textures: CageTextures): CageView {
         const crack = new Graphics();
         crackLayer.addChild(crack);
         // 케이지마다 위상을 어긋내 여러 개가 한 몸처럼 흔들리지 않게 한다
-        bodies.set(cage.id, { body, baseY: p.y, phase: bodies.size * 1.7, crack, crackLevel: -1 });
+        bodies.set(cage.id, { body, baseY: p.y, phase: bodies.size * 1.7, crack, crackKey: "" });
       }
       // 새로 만든 케이지의 금도 한 번 맞춘다
       for (const cage of state.cages) {
