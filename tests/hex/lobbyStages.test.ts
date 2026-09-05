@@ -33,22 +33,15 @@ describe("로비 스테이지 1~6 버튼", () => {
     expect(stages).toHaveLength(ids.length);
   });
 
-  it("여섯 칸이 같은 크기·같은 배율이다", () => {
+  // 여섯 칸은 **한 자리에 겹쳐** 있다. 화면에는 지금 판의 칸 하나만 뜨고 나머지는
+  // 꺼진다 — 칸이 여섯인 것은 판마다 버튼 그림이 다르기 때문이지, 여섯 개를 동시에
+  // 보이려는 것이 아니다. 그래서 자리까지 같아야 한다: 하나만 어긋나면 그 판에서만
+  // 버튼이 다른 데 뜨고, 그 판을 열어 보기 전에는 아무도 모른다.
+  it("여섯 칸이 같은 자리·같은 크기·같은 배율이다", () => {
     const [first] = slots as NonNullable<(typeof slots)[number]>[];
     for (const s of slots) {
-      expect([s!.w, s!.h], s!.id).toEqual([first!.w, first!.h]);
+      expect([s!.x, s!.y, s!.w, s!.h], s!.id).toEqual([first!.x, first!.y, first!.w, first!.h]);
       expect(s!.scale ?? 1, s!.id).toBe(first!.scale ?? 1);
-    }
-  });
-
-  it("서로 겹치지 않는다 — 겹치면 위 칸이 아래 칸의 탭을 가로챈다", () => {
-    for (let i = 0; i < slots.length; i += 1) {
-      for (let j = i + 1; j < slots.length; j += 1) {
-        const a = slots[i]!, b = slots[j]!;
-        const apart =
-          a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
-        expect(apart, `${a.id}와 ${b.id}가 겹친다`).toBe(true);
-      }
     }
   });
 

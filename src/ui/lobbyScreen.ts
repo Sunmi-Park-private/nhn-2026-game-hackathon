@@ -47,14 +47,17 @@ const AREA = "lobby";
 /** 스테이지 버튼의 그림자. 각도는 시안 표기 그대로 180°(왼쪽)다. */
 const STAGE_SHADOW = { angle: 180, distance: 6, alpha: 0.38 } as const;
 
-/** 스테이지 1~6 폴백 자리 — 2열 × 3행. 칸 크기는 예전 PLAY 슬롯과 같다(194×54).
- *  여섯 칸이 **같은 w·h**를 갖는 것이 요구사항이라 여기서도 같은 값을 쓴다.
- *  실제 값은 uiLayout.json이 들고 있고 /?editor=1 로 조정한다. */
-const STAGE_SLOTS: ReadonlyArray<{ x: number; y: number; w: number; h: number }> = [
-  { x: 24, y: 470, w: 194, h: 54 }, { x: 232, y: 470, w: 194, h: 54 },
-  { x: 24, y: 545, w: 194, h: 54 }, { x: 232, y: 545, w: 194, h: 54 },
-  { x: 24, y: 620, w: 194, h: 54 }, { x: 232, y: 620, w: 194, h: 54 },
-];
+/** 스테이지 1~6 폴백 자리. 여섯 칸이 **한 자리에 겹쳐** 있다 — 예전 PLAY 자리 그대로다.
+ *  판마다 버튼 그림이 다르므로 칸은 여섯 개지만, 화면에는 지금 판의 칸 하나만 뜬다.
+ *  실제 값은 uiLayout.json이 들고 있고 /?editor=1 로 조정한다 — 여섯 칸이 같은
+ *  x·y·w·h·배율을 갖는 것이 요구사항이라 하나를 옮기면 나머지도 같이 옮겨야 한다. */
+const STAGE_BOX = { x: 128, y: 632, w: 194, h: 54 };
+
+/** 지금 열려야 할 칸. 프로필이 범위를 벗어나면 첫 칸으로 돌아간다 —
+ *  마지막 판을 깬 뒤 stageIndex가 판 수와 같아지는 순간이 있다(main.ts가 되감기 전). */
+function clampStage(index: number, count: number): number {
+  return Number.isInteger(index) && index >= 0 && index < count ? index : 0;
+}
 
 function box(id: string, fallback: { x: number; y: number; w: number; h: number }): UiSlot {
   return slot(AREA, id) ?? { id, label: id, ...fallback };
@@ -230,18 +233,25 @@ export function runLobby(
     })();
 
     // ── 스테이지 1~6 ─────────────────────────────
-    // PLAY 한 칸이 있던 자리다. 여섯 칸은 **같은 w·h·배율**을 갖고 자리만 다르다 —
-    // 하나를 에디터에서 키우면 나머지도 같이 키워야 줄이 맞는다(QA 요구).
-    // 번호는 아트가 들고 있다(「STAGE 1」이 새겨져 있다). 지금은 1번 아트만 있어
-    // 2~6은 자리표시(라벨 상자)로 뜬다 — 에디터에서 칸마다 올리면 채워진다.
-    // 폴백 자리는 2열 × 3행. 실제 값은 uiLayout.json이 들고 있다.
-    STAGE_SLOTS.forEach((fb, i) => {
-      const b = box(`stage${i + 1}`, fb);
-      layer.addChild(hotspot(b, tex.stages[i] ?? null, () => finish(i), {
+    // PLAY 한 칸이 있던 자리다. 여섯 칸이 **한 자리에 겹쳐** 있고, 지금 판의 칸
+    // 하나만 보인다 — 나머지 다섯은 꺼 둔다(보이지도, 눌리지도 않는다).
+    // 판마다 버튼 그림이 다르기 때문에 칸을 여섯 개 두는 것이지, 여섯 개를 동시에
+    // 보이려는 것이 아니다.
+    //
+    // **꺼진 칸도 노드는 만든다.** 에디터가 잡을 대상이 있어야 아트를 올릴 수 있다 —
+    // 노드를 안 만들면 그 판의 버튼 그림을 영영 못 올린다.
+    const current = clampStage(profile.stageIndex, tex.stages.length);
+    for (let i = 0; i < tex.stages.length; i += 1) {
+      const b = box(`stage${i + 1}`, STAGE_BOX);
+      const on = i === current;
+      const node = hotspot(b, tex.stages[i] ?? null, on ? () => finish(i) : null, {
         fill: 0x3faa48,
         shadow: STAGE_SHADOW,
-      }));
-    });
+      });
+      // editable()이 슬롯의 hidden으로 visible을 정하므로 **그 뒤에** 끈다
+      if (!on) node.visible = false;
+      layer.addChild(node);
+    }
 
     // ── 하단 4종 — HOME·WORLD·ANIMALS 동작, EVENTS는 목업 ─────
     const home = box("navHome", { x: 18, y: 738, w: 96, h: 50 });
