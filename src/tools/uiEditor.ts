@@ -620,7 +620,6 @@ function attachDrag(el: HTMLElement, grip: HTMLElement, s: UiSlot): void {
  *  그래서 **디스크를 기준으로 삼고** 아는 슬롯의 좌표만 갈아 끼운다.
  *  에디터에는 슬롯을 지우는 기능이 없으므로, 모르는 슬롯은 남기는 것이 언제나 옳다. */
 function mergeAreas(disk: UiArea[], mine: UiArea[]): UiArea[] {
-  if (disk.length === 0) return mine; // dev 서버 밖 — 비교할 디스크가 없다
   const byId = new Map(mine.map((a) => [a.id, new Map(a.slots.map((s) => [s.id, s]))]));
   return disk.map((area) => {
     const edited = byId.get(area.id);
@@ -635,6 +634,17 @@ saveBtn.onclick = async (): Promise<void> => {
   try {
     const disk = await currentLayout();
     const diskAreas = Array.isArray(disk.areas) ? (disk.areas as UiArea[]) : [];
+    // 디스크를 못 읽었으면 **저장하지 않는다.**
+    //
+    // currentLayout()은 dev 서버 밖일 때만 {}를 주는 것이 아니라 GET이 실패하면
+    // 무엇이든 {}로 삼킨다. 그런데 서버의 GET은 readFileSync를 감싸지 않아,
+    // 다른 탭이 쓰는 중이면 500이 날 수 있다 — 여러 탭이 얽히는 바로 그 상황이다.
+    // 그때 디스크를 빈 것으로 보고 진행하면 이 함수가 막으려던 전체 덮어쓰기가
+    // 그대로 되살아나고, disk가 {}라 uploads·videos·audios까지 통째로 날아간다.
+    // 서버는 파일을 전부 다시 쓰기 때문이다. 실패는 조용히 넘기지 말고 세운다.
+    if (diskAreas.length === 0) {
+      throw new Error("디스크의 배치를 읽지 못했습니다 — 저장하지 않았습니다. 새로고침 뒤 다시 시도하세요");
+    }
     const res = await fetch("/__uilayout", {
       method: "POST",
       headers: { "content-type": "application/json" },
