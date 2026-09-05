@@ -100,6 +100,11 @@ function uiLayoutSavePlugin(): Plugin {
           }
           fs.writeFileSync(ASSETS_FILE, JSON.stringify(parsed, null, 2) + '\n')
           touch(server, ASSETS_FILE)
+          // touch는 모듈 그래프만 무효화한다 — 돌고 있는 게임 탭은 아무것도 모른다.
+          // 업로드 경로와 같은 이벤트를 보내 게임만 새로 띄운다. 이게 없으면
+          // 디자이너가 프레임을 찍고 「저장됨」을 봐도 화면은 옛 값을 계속 쓴다.
+          // asset 이름은 'audio.'로 시작하지 않아야 게임이 리로드한다(main.ts 참조).
+          server.ws.send({ type: 'custom', event: 'asset-updated', data: { asset: 'hex.manifest' } })
           res.statusCode = 200
           res.end('ok')
         }).catch((err: unknown) => { res.statusCode = 400; res.end(String(err)) })
