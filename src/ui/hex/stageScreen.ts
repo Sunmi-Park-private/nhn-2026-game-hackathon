@@ -186,6 +186,7 @@ export async function runStageScreen(
       };
       input.off("pointerdown", onDown);
       input.off("pointermove", onMove);
+      input.off("globalpointermove", onMove);
       input.off("pointerup", onUpWrapped);
       input.off("pointerupoutside", onUpWrapped);
       aimer.cancel();
@@ -208,8 +209,8 @@ export async function runStageScreen(
 
     function onMove(e: FederatedPointerEvent): void {
       if (busy) return;
-      // e.global은 렌더러(화면) 좌표계다 — app.stage.x가 0이 아닌 넓은 화면에서는
-      // 그대로 쓰면 발사대 기준점이 수백 px 어긋난다. layer 로컬 좌표로 변환해야 한다.
+      // layer는 화면 폭에 따라 이동·스케일된 좌표계라 e.getLocalPosition로 변환해야
+      // 조준 앵커·경로 좌표와 맞아떨어진다 — 렌더러 좌표를 그대로 쓰면 어긋난다.
       const p = e.getLocalPosition(layer);
       aimer.move(p);
       launcher.setAim(aimer.current(), state.cells);
@@ -230,9 +231,12 @@ export async function runStageScreen(
         const { path } = simulateShot(state.cells, BOARD, launchOriginLocal(), aim.angle, aim.power);
         playSfx("audio.sfxShot");
         buzz();
-        // 토스와 비행을 **동시에** 돌린다 — 기다리면 타일이 앞발에 붙어 있다가
-        // 뒤늦게 떠나 어색하다
-        await Promise.all([launcher.playToss(), launcher.playFlight(path, firedTier)]);
+        // 토스와 비행을 **동시에 시작**한다(spec §4-4는 "동시 시작"만 요구, 완주까지
+        // 기다리라는 요구는 없다) — 토스는 최대 840ms인 비행보다 훨씬 길 수 있어
+        // (31프레임·24fps ≈ 0.96s) 같이 기다리면 그만큼 판이 얼어붙는다. 토스는
+        // 흘려보내고, rAF 콜백 예외 등이 밖으로 새지 않게 catch만 붙여 둔다.
+        void launcher.playToss().catch(() => {});
+        await launcher.playFlight(path, firedTier);
 
         const outcome = fireAt(state, BOARD, launchOriginLocal(), aim.angle, aim.power);
         if (outcome.steps.length > 0) playSfx("audio.sfxPop");
@@ -300,6 +304,12 @@ export async function runStageScreen(
 
     input.on("pointerdown", onDown);
     input.on("pointermove", onMove);
+    // 입력 캐처는 450×800 고정이지만 layer는 넓은/긴 화면에서 그 밖으로 그려진다
+    // (stageTop/stageLeft<0) — 손가락이 캐처 밖으로 나가면 plain pointermove가 멎어
+    // 미리보기가 마지막 표본에 멈춘다. globalpointermove(히트테스트 무관, 매 프레임)로
+    // 메운다 — 딱 한 곳(input)에만 건다, 두 대상에 걸면 한 이동에 두 번 불린다.
+    // plain pointermove도 남긴다 — 일부 환경은 global 이벤트를 안 보낸다.
+    input.on("globalpointermove", onMove);
     input.on("pointerup", onUpWrapped);
     input.on("pointerupoutside", onUpWrapped);
   });

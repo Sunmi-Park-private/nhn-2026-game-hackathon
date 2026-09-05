@@ -87,6 +87,17 @@ export function createLauncher(
   let currentAngle = 0;
   let currentPower = 0;
   let loadedTier: Tier = 0;
+  /** settleBack의 rAF 핸들. 오발 후 되돌아가는 도중 새 드래그가 시작되거나
+   *  설정창이 열리면 이 루프를 반드시 끊어야 한다 — 안 그러면 setAim이 매 프레임
+   *  쓰는 horse.rotation을 settleBack이 계속 덮어써서 둘이 눈에 띄게 다툰다. */
+  let settleFrame: number | null = null;
+
+  function cancelSettle(): void {
+    if (settleFrame !== null) {
+      cancelAnimationFrame(settleFrame);
+      settleFrame = null;
+    }
+  }
 
   function redrawLoaded(): void {
     loadedSlot.removeChildren().forEach((c) => c.destroy());
@@ -104,6 +115,9 @@ export function createLauncher(
 
     /** 드래그 중 매 프레임. null이면 조준을 지운다. */
     setAim(aim: Aim | null, cells: Map<string, Cell>): void {
+      // 새 드래그가 settleBack 도중 시작될 수 있다 — 둘이 같은 프레임에 horse.rotation을
+      // 써서 다투지 않도록 설정 루프를 끊는다.
+      cancelSettle();
       if (aim === null) {
         guide.clear();
         scrub(0);
@@ -159,6 +173,7 @@ export function createLauncher(
     /** 오발 — 쏘지 않고 제자리로 되돌린다. */
     settleBack(): void {
       guide.clear();
+      cancelSettle();
       const fromPower = currentPower;
       const fromRot = horse ? horse.rotation : 0;
       const t0 = performance.now();
@@ -168,9 +183,9 @@ export function createLauncher(
         const e = 1 - (1 - t) * (1 - t); // easeOut
         scrub(fromPower * (1 - e));
         horse.rotation = fromRot * (1 - e);
-        if (t < 1) requestAnimationFrame(tick);
+        settleFrame = t < 1 ? requestAnimationFrame(tick) : null;
       };
-      if (horse) requestAnimationFrame(tick);
+      if (horse) settleFrame = requestAnimationFrame(tick);
       currentPower = 0;
     },
 
@@ -207,9 +222,13 @@ export function createLauncher(
       }
     },
 
-    /** 설정창이 열렸다. 조준선은 정적이라 멈출 것이 없다 —
-     *  드래그 중이었다면 stageScreen이 dragAim.cancel()로 끊는다. */
-    pause(): void {},
+    /** 설정창이 열렸다. 조준선 자체는 정적이라 멈출 것이 없지만, 오발 뒤 되돌아가는
+     *  settleBack의 rAF 루프는 실행 중일 수 있다 — 이걸 끊지 않으면 설정창이 뜬 동안에도
+     *  말이 계속 자세를 되돌리며 움직인다(「멈춘 게임」 위에서 이것만 살아 있으면 어색하다).
+     *  드래그 중이었다면 그건 stageScreen이 dragAim.cancel()로 끊는다. */
+    pause(): void {
+      cancelSettle();
+    },
     resume(): void {},
 
     destroy(): void {

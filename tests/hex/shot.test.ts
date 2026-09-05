@@ -161,4 +161,33 @@ describe("simulateShot — 포물선", () => {
     const last = dy(path.length - 2);
     expect(last).toBeGreaterThan(first); // 위로 가던 속도(-)가 줄거나 아래로(+) 돌아선다
   });
+
+  it("MAX_V에서는 좌우 벽을 최소 2회 튀고도 천장에 닿는다 — §7 뱅크샷 보장", () => {
+    // MAX_RISE(=10.5)는 이 성질을 지키려고 고른 값이다 — 나중에 손대면
+    // 이 테스트가 조용히 깨져서 알려 줘야 한다. 벽에 부딪히는 횟수는 경로의
+    // 좌우 진행 방향이 바뀌는 횟수로 센다(부호가 바뀔 때마다 한 번 튕긴 것).
+    const { minX, maxX } = boardBounds(GEOM);
+    function countBounces(path: Array<{ x: number; y: number }>): number {
+      let bounces = 0;
+      let dir = 0;
+      for (let i = 1; i < path.length; i += 1) {
+        const d = path[i]!.x - path[i - 1]!.x;
+        if (d === 0) continue;
+        const nd = d > 0 ? 1 : -1;
+        if (dir !== 0 && nd !== dir) bounces += 1;
+        dir = nd;
+      }
+      return bounces;
+    }
+    // 이 테스트 지오메트리(GEOM: cols 7, rows 12)에서 실측한 값 — 각도 0.9·파워 1은
+    // 좌우 벽을 2회 튕기고도 천장(r===0)에 닿는다.
+    const res = simulateShot(makeCells([]), GEOM, launchPoint(), 0.9, 1);
+    expect(res.snap).not.toBeNull();
+    expect(res.snap!.r).toBeCloseTo(0, 9); // r이 -0으로 나올 수 있어 toBe(0)은 쓰지 않는다
+    for (const p of res.path) {
+      expect(p.x).toBeGreaterThanOrEqual(minX - 0.001);
+      expect(p.x).toBeLessThanOrEqual(maxX + 0.001);
+    }
+    expect(countBounces(res.path)).toBeGreaterThanOrEqual(2);
+  });
 });

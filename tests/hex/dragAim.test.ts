@@ -81,11 +81,26 @@ describe("createDragAim", () => {
     expect(d.current()).toBeNull();
   });
 
-  it("위로 당겨도 각도는 아래를 향하지 않는다", () => {
-    // 앵커 위쪽을 눌러 끌면 발사 방향이 아래가 된다 — 클램프가 막아야 한다
+  it("위로 당겨도 각도는 아래를 향하지 않는다 — 좌우 한계값 중 하나로 클램프된다", () => {
+    // 앵커보다 위(vy<0)를 끌면 클램프 전 각도가 항상 π/2보다 커진다(atan2의 x인자가
+    // 음수이므로) — MAX_ANGLE(1.25) < π/2라서 vx의 부호와 무관하게 반드시 ±MAX_ANGLE로
+    // 잘린다. 이게 새총 해석이다: 위로 당겨도 「아래로 쏘는」 각은 절대 나오지 않고,
+    // 대신 당긴 방향과 반대쪽 벽에 붙는다.
     const d = createDragAim(ANCHOR);
+
+    // 곧바로 위(vx=0) — Math.atan2(-0, -y)는 -π다(부호 있는 0의 관례). 클램프되어
+    // -MAX_ANGLE로 떨어진다. 이 부호는 실제 동작이라 리팩터가 atan2 인자 순서나
+    // 클램프 경계를 바꾸면 바로 깨지도록 고정해 둔다.
     d.down(ANCHOR);
     d.move({ x: ANCHOR.x, y: ANCHOR.y - 100 });
-    expect(Math.abs(d.current()!.angle)).toBeLessThanOrEqual(MAX_ANGLE);
+    expect(d.current()!.angle).toBe(-MAX_ANGLE);
+
+    // 오른쪽 위로 당기면(vx>0) 새총 규칙대로 왼쪽 한계에 붙는다
+    d.move({ x: ANCHOR.x + 50, y: ANCHOR.y - 100 });
+    expect(d.current()!.angle).toBe(-MAX_ANGLE);
+
+    // 왼쪽 위로 당기면(vx<0) 오른쪽 한계에 붙는다
+    d.move({ x: ANCHOR.x - 50, y: ANCHOR.y - 100 });
+    expect(d.current()!.angle).toBe(MAX_ANGLE);
   });
 });
