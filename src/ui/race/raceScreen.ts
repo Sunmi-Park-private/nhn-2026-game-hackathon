@@ -6,7 +6,7 @@
 // **ui/race/ 중 이 파일만 ../../data를 읽는다**(규약 2조).
 // 상태는 클로저 안 객체 하나에 담고(규약 4조), 닫을 때 ticker를 명시적으로 끊는다.
 import { Application, Container, Graphics, type Texture } from "pixi.js";
-import { coverBox, fullRect, stageHeight, stageLeft, stageTop, stageWidth } from "../stage";
+import { coverBox, contentRect, stageHeight, stageTop } from "../stage";
 import { openSettings, type SettingsTextures } from "../settingsMenu";
 import type { UiSlot } from "../../data/uiLayout";
 import { RACE, RACE_LANE_ORDER } from "../../data/race";
@@ -43,10 +43,10 @@ export interface RaceTextures {
 
 const BOOSTER_KO: Record<string, string> = { bomb: "폭탄", rainbow: "레인보우", horseshoe: "말굽" };
 
-/** 배경 한 장을 화면에 깐다. 없으면 단색 — 캔버스가 비지 않게. */
+/** 배경 한 장을 콘텐츠 박스에 깐다. 없으면 단색. 좌우 블리드는 기본 배경 영상(main.ts) 자리다. */
 function scene(tex: Texture | undefined): Container {
   const c = new Container();
-  c.addChild(fullRect(0x241a10));
+  c.addChild(contentRect(0x241a10));
   if (tex) c.addChild(coverBox(tex));
   return c;
 }
@@ -78,7 +78,8 @@ export function openRace(
 
     const root = new Container();
     parent.addChild(root);
-    const veil = new Graphics().rect(stageLeft(), stageTop(), stageWidth(), stageHeight()).fill(0x120c06);
+    // 로비를 가리고 그쪽 입력을 막는다 — 콘텐츠 박스만. 좌우는 main.ts의 기본 배경 영상 자리다
+    const veil = contentRect(0x120c06);
     veil.eventMode = "static";
     root.addChild(veil);
     playBgm("audio.bgmRace");

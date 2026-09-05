@@ -3,7 +3,7 @@
 // 부트 체인에서 프롤로그·로딩·타이틀을 뺐다. 셋 다 이 게임의 화면이 아니라
 // 접속자가 1분 가까이 다른 화면을 본 뒤에야 게임에 도착했다.
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
-import { Application, VideoSource, type Texture } from "pixi.js";
+import { Application, Container, VideoSource, type Sprite, type Texture } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
 import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, lobbyBaseVideoPath, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
 import { raceAssetPaths } from "./data/raceAssets";
@@ -14,7 +14,9 @@ import { mountLayoutEditor } from "./ui/layoutEditor";
 import { mountCheatPanel } from "./ui/cheatPanel";
 import { playVideo } from "./ui/videoScreen";
 import { initAudioUnlock } from "./ui/audio";
-import { setStageExtra, setStageExtraX } from "./ui/stage";
+import { setStageExtra, setStageExtraX, coverBg, fitCover } from "./ui/stage";
+import { uiAreas } from "./data/uiLayout";
+import { playVideoTexture, VIDEO_LOAD_TIMEOUT_MS } from "./ui/skin";
 import { loadProgress, onLoadProgress } from "./ui/loadProgress";
 import { stages } from "./data/stages";
 import { runStageScreen } from "./ui/hex/stageScreen";
@@ -56,7 +58,12 @@ async function main(): Promise<void> {
     app.stage.x = (logicalW - 450) / 2; // 콘텐츠 450 박스를 가로 중앙 고정
     app.canvas.style.width = `${logicalW * s}px`;
     app.canvas.style.height = `${800 * s}px`;
+    if (backdropSprite) fitCover(backdropSprite); // 화면이 돌아가도 캔버스 전체를 계속 덮는다
   };
+  // 기본 배경 영상 — **모든 화면 밑에** 상시로 돈다(로비·인게임·레이스·이벤트·도감).
+  // 화면들은 콘텐츠 박스(450 컬럼)만 불투명하게 칠하므로(stage.ts contentRect)
+  // 좌우 블리드에는 늘 이 영상이 보이고, 화면의 배경 아트가 없을 때도 이것이 남는다.
+  let backdropSprite: Sprite | null = null;
   const app = new Application();
   await app.init({
     width: 450,
@@ -72,6 +79,9 @@ async function main(): Promise<void> {
   const el = document.getElementById("app");
   if (!el) throw new Error("#app not found");
   el.appendChild(app.canvas);
+  const backdrop = new Container();
+  backdrop.label = "backdrop";
+  app.stage.addChild(backdrop); // 제일 먼저 — 이 뒤에 붙는 화면 레이어가 전부 위에 온다
   el.style.cssText = "display:flex;align-items:center;justify-content:center;width:100vw;height:100vh;overflow:hidden";
   fit();
   window.addEventListener("resize", fit);
@@ -95,8 +105,11 @@ async function main(): Promise<void> {
 
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
-  const [hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, eventSlots, collectionSlots, collectionCards, collectionLocked]
+  // 에디터에서 슬롯을 끄면 기본 배경 영상만 빠진다 — 화면들은 그대로다
+  const backdropOff = uiAreas.find((a) => a.id === "lobby")?.slots.find((s) => s.id === "bgVideo")?.hidden === true;
+  const [backdropTex, hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, eventSlots, collectionSlots, collectionCards, collectionLocked]
     = await Promise.all([
+    backdropOff ? Promise.resolve(null) : loadTexture(lobbyBaseVideoPath, VIDEO_LOAD_TIMEOUT_MS),
     loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
     loadSlots(uiAssetPaths),
     loadSlots(lobbyAssetPaths),
@@ -116,6 +129,11 @@ async function main(): Promise<void> {
   ]);
   offProgress();
   loading.remove();
+  if (backdropTex) {
+    backdropSprite = coverBg(backdropTex);
+    backdrop.addChild(backdropSprite);
+    playVideoTexture(backdropTex, app.ticker); // 앱 수명 내내 돈다 — 멈출 일이 없다
+  }
   // 에셋을 다 받은 뒤에 얹는다 — 먼저 얹으면 빈 캔버스 위에 격자만 뜬다
   mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다
   mountCheatPanel();            // 같은 조건 + devMode. 화면 왼쪽, 배치 패널 반대편이다
@@ -147,7 +165,6 @@ async function main(): Promise<void> {
     },
     // 로비 배경은 구출 마릿수마다 도는 영상이다(상류). 월드는 진입점을 끊어 빠졌다.
     scenes: lobbySceneVideoPaths,
-    baseVideo: lobbyBaseVideoPath,
     race: {
       bg: raceBg, ui: raceUi, runners: raceRunners,
       faces: raceFaces, winner: raceWinner,

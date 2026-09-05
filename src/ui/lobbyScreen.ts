@@ -7,7 +7,7 @@
 // 배경 아트가 오면 버튼 모양은 아트가 그린다 — 그때 이 코드는 히트 영역만 얹는다.
 // 아트가 없으면 자리와 이름이 보이도록 폴백을 그린다.
 import { Application, Container, Graphics, Text, type Texture } from "pixi.js";
-import { BASE_W, stageTop, stageHeight, coverBox, fullRect } from "./stage";
+import { BASE_W, stageTop, stageHeight, coverBox, contentRect } from "./stage";
 import { fitSprite, loadTexture, playVideoTexture, VIDEO_LOAD_TIMEOUT_MS } from "./skin";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection, type CollectionTextures } from "./collection";
@@ -30,8 +30,6 @@ export interface LobbyTextures {
    *  텍스처가 아니라 **경로**를 받는다: 용량이 커서 부팅 때 받으면 첫 화면이 늦고,
    *  실제로 쓰는 것은 한 편뿐이라 로비가 그때 받는 편이 싸다. */
   scenes: Partial<Record<string, string>>;
-  /** 기본 배경 영상 경로 — 항상 맨 뒤에서 돈다. 장면 영상이 이 위에 얹힌다. */
-  baseVideo?: string;
   /** 도감 — 패널과 동물마다 해제·잠김 카드 */
   collection: CollectionTextures;
   /** 동물 운동회 화면 */
@@ -154,31 +152,18 @@ export function runLobby(
      *  파괴된 텍스처를 계속 올린다. */
     const stops: Array<() => void> = [];
 
-    layer.addChild(fullRect(0x241a10));
-    // 배경은 세 겹이고 **아무것도 사라지지 않는다.** 아래부터
+    // 콘텐츠 박스만 채운다 — 좌우 블리드는 main.ts의 기본 배경 영상이 모든 화면 밑에서 돈다
+    layer.addChild(contentRect(0x241a10));
+    // 배경은 겹이고 **아무것도 사라지지 않는다.** 아래부터
     //   ① 스틸(bg) — 즉시 뜬다. 영상이 오기 전까지의 자리이고 그 뒤에도 그대로 둔다
-    //   ② 기본 배경 영상(bgVideo) — 항상 돈다
-    //   ③ 장면 영상(friends) — 구출 마릿수에 맞는 한 편
+    //   ② 장면 영상(friends) — 구출 마릿수에 맞는 한 편
     // 전에는 장면 영상이 오면 스틸을 숨겼다. 그러면 스틸이 「잠깐 떴다 사라지는」
-    // 것으로 보였고(QA), 기본 배경을 늘 뒤에 두고 싶다는 요청과도 맞지 않았다.
-    // 자리를 지금 잡아 둔다 — 나중에 인덱스를 세어 끼우면 스틸이 없을 때
-    // 한 칸씩 밀려 테두리나 재화 바를 덮는다.
+    // 것으로 보였다(QA). 자리를 지금 잡아 둔다 — 나중에 인덱스를 세어 끼우면
+    // 스틸이 없을 때 한 칸씩 밀려 테두리나 재화 바를 덮는다.
     const stillBg = tex.bg ? coverBox(tex.bg) : null;
     if (stillBg) layer.addChild(stillBg);
-    const baseLayer = new Container();
-    layer.addChild(baseLayer);
     const sceneLayer = new Container();
     layer.addChild(sceneLayer);
-
-    // ── ② 기본 배경 영상 — 항상 맨 뒤 ─────────────
-    if (slot(AREA, "bgVideo")?.hidden !== true) {
-      void (async () => {
-        const t = await loadTexture(tex.baseVideo, VIDEO_LOAD_TIMEOUT_MS);
-        if (!t || layer.destroyed || baseLayer.destroyed) return;
-        stops.push(playVideoTexture(t, app.ticker));
-        baseLayer.addChild(coverBox(t));
-      })();
-    }
 
     layer.addChild(
       new Graphics()
@@ -216,7 +201,7 @@ export function runLobby(
         if (!t) continue;
         if (layer.destroyed || sceneLayer.destroyed) return; // 그 사이 로비가 닫혔다
         stops.push(playVideoTexture(t, app.ticker)); // 영상이면 돈다. 스틸이면 아무 일도 없다
-        sceneLayer.addChild(coverBox(t)); // ③ 스틸·기본 영상은 그대로 밑에 남는다
+        sceneLayer.addChild(coverBox(t)); // ② 스틸은 그대로 밑에 남는다
         return;
       }
     })();
