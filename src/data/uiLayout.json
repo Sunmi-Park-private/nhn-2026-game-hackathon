@@ -76,7 +76,8 @@
           "y": 738,
           "w": 96,
           "h": 50,
-          "asset": "lobby.navHome"
+          "asset": "lobby.navHome",
+          "scale": 2
         },
         {
           "id": "navWorld",

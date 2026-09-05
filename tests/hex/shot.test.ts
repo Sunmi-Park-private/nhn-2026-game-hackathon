@@ -107,3 +107,52 @@ describe("simulateShot — 경계", () => {
     expect(res.snap).toBeNull();
   });
 });
+
+describe("simulateShot — 포물선", () => {
+  it("최소 파워로도 똑바로 쏘면 천장에 닿는다", () => {
+    // §7 도달 보장 — 어떤 판이 와도 물리적으로 못 닿는 칸이 없어야 한다
+    const res = simulateShot(makeCells([]), GEOM, launchPoint(), 0, 0);
+    expect(res.missed).toBe(false);
+    expect(res.snap).not.toBeNull();
+    expect(res.snap!.r).toBe(0);
+  });
+
+  it("파워가 클수록 궤적이 멀리 간다", () => {
+    // 같은 각도로 쏜 두 발의 경로 길이를 잰다. 각도를 눕혀야 사거리 차가 드러난다.
+    const reach = (power: number): number => {
+      const { path } = simulateShot(makeCells([]), GEOM, launchPoint(), 1.0, power);
+      let d = 0;
+      for (let i = 1; i < path.length; i += 1) {
+        d += Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.y - path[i - 1]!.y);
+      }
+      return d;
+    };
+    expect(reach(1)).toBeGreaterThan(reach(0.5));
+    expect(reach(0.5)).toBeGreaterThan(reach(0));
+  });
+
+  it("좌우 대칭이다 — 판 한가운데서 반대 각도로 쏘면 경로 길이가 같다", () => {
+    // launchPoint()는 판 한가운데가 아니다(중앙에서 오른쪽으로 약 39px).
+    // 대칭을 재려면 좌우 벽에서 등거리인 지점에서 쏴야 한다.
+    const { minX, maxX } = boardBounds(GEOM);
+    const mid = { x: (minX + maxX) / 2, y: launchPoint().y };
+    const len = (angle: number): number => {
+      const { path } = simulateShot(makeCells([]), GEOM, mid, angle, 0.5);
+      let d = 0;
+      for (let i = 1; i < path.length; i += 1) {
+        d += Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.y - path[i - 1]!.y);
+      }
+      return d;
+    };
+    expect(len(0.7)).toBeCloseTo(len(-0.7), 3);
+  });
+
+  it("궤적이 곧지 않다 — 중력이 실제로 작용한다", () => {
+    // 비스듬히 쏜 경로의 세로 속도가 도중에 방향을 바꾸거나 최소한 느려진다.
+    const { path } = simulateShot(makeCells([]), GEOM, launchPoint(), 1.2, 0);
+    const dy = (i: number): number => path[i + 1]!.y - path[i]!.y;
+    const first = dy(0);
+    const last = dy(path.length - 2);
+    expect(last).toBeGreaterThan(first); // 위로 가던 속도(-)가 줄거나 아래로(+) 돌아선다
+  });
+});

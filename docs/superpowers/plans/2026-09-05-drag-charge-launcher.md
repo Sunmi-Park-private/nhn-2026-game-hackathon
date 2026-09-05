@@ -67,34 +67,40 @@ describe("simulateShot — 포물선", () => {
     expect(res.snap!.r).toBe(0);
   });
 
-  it("파워가 클수록 궤적이 멀리 간다", () => {
-    // 같은 각도로 쏜 두 발의 경로 길이를 잰다. 각도를 눕혀야 사거리 차가 드러난다.
-    const reach = (power: number): number => {
-      const { path } = simulateShot(makeCells([]), GEOM, launchPoint(), 1.0, power);
-      let d = 0;
-      for (let i = 1; i < path.length; i += 1) {
-        d += Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.y - path[i - 1]!.y);
-      }
-      return d;
-    };
-    expect(reach(1)).toBeGreaterThan(reach(0.5));
-    expect(reach(0.5)).toBeGreaterThan(reach(0));
+  it("파워가 클수록 초속이 크다", () => {
+    // 사거리를 경로 **길이**로 재면 안 된다 — 파워가 세면 천장에 일찍 닿아
+    // 경로가 오히려 짧아진다. 힘 자체는 launchSpeed가 단조 증가로 답한다.
+    const v = (power: number): number => launchSpeed(launchPoint(), GEOM, power);
+    expect(v(1)).toBeGreaterThan(v(0.5));
+    expect(v(0.5)).toBeGreaterThan(v(0));
   });
 
-  it("좌우 대칭이다 — 판 한가운데서 반대 각도로 쏘면 경로 길이가 같다", () => {
-    // launchPoint()는 판 한가운데가 아니다(중앙에서 오른쪽으로 약 39px).
-    // 대칭을 재려면 좌우 벽에서 등거리인 지점에서 쏴야 한다.
+  it("눕혀 쏘면 약한 발은 못 닿고 센 발은 닿는다 — 파워가 사거리다", () => {
+    // 사거리의 게임적 의미는 「닿느냐」다. 같은 각도에서 파워만 갈라 본다.
+    const weak = simulateShot(makeCells([]), GEOM, launchPoint(), 1.2, 0);
+    const strong = simulateShot(makeCells([]), GEOM, launchPoint(), 1.2, 1);
+    expect(weak.missed).toBe(true);
+    expect(weak.snap).toBeNull();
+    expect(strong.missed).toBe(false);
+    expect(strong.snap).not.toBeNull();
+  });
+
+  it("좌우 대칭이다 — 판 한가운데서 반대 각도로 쏜 궤적이 서로 거울상이다", () => {
+    // **격자가 아니라 물리를 잰다.** 육각 격자는 좌우 대칭이 아니다(홀수 행이
+    // 반 칸 밀리고 fromPixel이 큐브 반올림을 쓴다) — 그래서 두 궤적은 천장
+    // 근처에서 몇 스텝 다르게 끝난다. 끝나는 지점이 아니라 **날아가는 모양**을
+    // 비교해야 한다. 초반 50스텝은 천장에서 한참 멀다.
     const { minX, maxX } = boardBounds(GEOM);
-    const mid = { x: (minX + maxX) / 2, y: launchPoint().y };
-    const len = (angle: number): number => {
-      const { path } = simulateShot(makeCells([]), GEOM, mid, angle, 0.5);
-      let d = 0;
-      for (let i = 1; i < path.length; i += 1) {
-        d += Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.y - path[i - 1]!.y);
-      }
-      return d;
-    };
-    expect(len(0.7)).toBeCloseTo(len(-0.7), 3);
+    const cx = (minX + maxX) / 2;
+    const mid = { x: cx, y: launchPoint().y };
+    const right = simulateShot(makeCells([]), GEOM, mid, 0.7, 0.5).path;
+    const left = simulateShot(makeCells([]), GEOM, mid, -0.7, 0.5).path;
+    const n = Math.min(50, right.length, left.length);
+    expect(n).toBeGreaterThan(10);
+    for (let i = 0; i < n; i += 1) {
+      expect(right[i]!.x - cx).toBeCloseTo(cx - left[i]!.x, 6);
+      expect(right[i]!.y).toBeCloseTo(left[i]!.y, 6);
+    }
   });
 
   it("궤적이 곧지 않다 — 중력이 실제로 작용한다", () => {
@@ -137,8 +143,17 @@ const G = 2400;
  *  이 값이 §7의 「도달 보장」이다. 낮추면 약한 발이 판에 못 닿기 시작한다. */
 const MIN_RISE = 1.15;
 
-/** 파워 1에서 올라갈 높이. 좌우 벽을 두어 번 튀고도 천장까지 가는 값. */
-const MAX_RISE = 3.2;
+/** 파워 1에서 올라갈 높이.
+ *
+ *  **각도가 눕을수록 세로 성분이 무너진다** — 올라가는 높이는 rise·cos²(각도)다.
+ *  조준 한계인 72°(MAX_ANGLE=1.25)에서 cos²은 0.10까지 떨어지므로, 그 각도의
+ *  최대 파워 발이 천장에 닿으려면 10을 넘겨야 한다. 넓은 뱅크 샷을 살려 두는
+ *  값이다(스펙 §7).
+ *
+ *  대가로 최대 파워에서는 궤적이 거의 곧아진다 — 중력은 약한 발과 눕힌 발에서
+ *  드러난다. 파워 곡선의 손맛(어느 구간이 촘촘한가)은 밸런싱이고 이 브랜치의
+ *  일이 아니다. */
+const MAX_RISE = 10.5;
 
 /** 한 스텝의 이동 거리 상한(육각 반지름의 몫). 얇은 관통을 막는다. */
 const STEP_DIV = 5;
@@ -234,10 +249,10 @@ export function simulateShot(
 Run: `npx vitest run tests/hex/shot.test.ts`
 Expected: PASS — 신규 4건과 기존 11건 모두.
 
-기존 「반사한 궤적에도 스냅 지점이 있다」(각도 -1.1, 파워 기본 1)가 깨질 수 있다.
-깨지면 **테스트를 고치지 말고** `MAX_RISE`를 0.2씩 올려 다시 돌린다 —
-큰 뱅크 샷이 살아 있어야 한다는 것이 그 테스트의 뜻이다. 4.0까지 올려도 안
-되면 각도가 아니라 `STEP_DIV`가 원인이니(관통) 6으로 올린다.
+`MAX_RISE = 10.5`는 조준 한계 각도(72°)의 최대 파워 발이 천장에 닿도록 잡은
+값이다. **기존 테스트를 고쳐 통과시키지 말 것** — 특히 「반사한 궤적에도 스냅
+지점이 있다」(각도 -1.1)는 큰 뱅크 샷이 살아 있어야 한다는 뜻이고, 그것이
+`MAX_RISE`의 하한을 정한다. 그 테스트가 깨지면 `MAX_RISE`를 올려서 해결한다.
 
 - [ ] **Step 5: 전체 테스트를 돌린다**
 
