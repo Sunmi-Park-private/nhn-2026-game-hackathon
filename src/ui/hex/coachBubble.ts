@@ -12,7 +12,9 @@ import type { CoachStep } from "../../engine/tutorialCoach";
 export interface Point { x: number; y: number }
 
 export interface CoachTargets {
-  /** 붉은말이 서 있는 자리(윗변 중앙). 1단계 말풍선 꼬리가 여기를 가리킨다 */
+  /** 당길 수 있는 범위를 알려주는 테두리의 윗변 가운데 */
+  pull: Point;
+  /** 붉은말이 서 있는 자리(윗변 중앙) */
   horse: Point;
   /** 케이지 중앙. 없는 판이면 null — 꼬리 없이 말풍선만 뜬다 */
   cage: Point | null;
@@ -128,7 +130,11 @@ export function createCoachBubble(opts: {
         return;
       }
 
-      target = step.point === "horse" ? targets.horse : step.point === "cage" ? targets.cage : null;
+      target =
+        step.point === "pull" ? targets.pull
+        : step.point === "horse" ? targets.horse
+        : step.point === "cage" ? targets.cage
+        : null;
 
       // 상자는 대상 위에 얹는다. 가리킬 것이 없으면 화면 가운데 위쪽에 세운다.
       const anchor = target ?? { x: screen.x + screen.w / 2, y: screen.y + screen.h * 0.52 };

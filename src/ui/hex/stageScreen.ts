@@ -17,6 +17,8 @@ import { shakeX, slideY, slideDone } from "./pushMotion";
 import { createLauncher } from "./launcher";
 import { createDragAim } from "./dragAim";
 import { createTutorialCoach } from "../../engine/tutorialCoach";
+import { cageAdjacentTiles } from "../../engine/hex/cageEdge";
+import { createCageCracks } from "./cageCracks";
 import { createCoachBubble, type CoachBubble } from "./coachBubble";
 import { createPowerGauge } from "./powerGauge";
 import { createPullArea } from "./pullArea";
@@ -163,6 +165,9 @@ export async function runStageScreen(
   });
   const gauge = createPowerGauge();
   const failMark = createFailLine(failRow(state));
+  // 첫 판에서만 케이지 둘레에 금을 긋는다 — 「케이지 옆을 터뜨려라」가 말뿐이면
+  // 어디를 노려야 하는지 안 보인다. 두 번째 판부터는 이미 아는 것이라 걷어낸다.
+  const cracks = stageIndex === 0 ? createCageCracks() : null;
   /** 연출 전용 레이어. 판을 다시 그려도 살아남아야 하는 것들이 여기 붙는다. */
   const fx = new Container();
   // 당길 수 있는 범위 — 조준선은 이미 당긴 뒤에야 나오므로 그 전에 알려줄 것이 필요하다
@@ -179,8 +184,12 @@ export async function runStageScreen(
   // 좌우 변만 남아 사각형으로 읽히지 않는다. 얇은 윤곽선이라 캐릭터를 해치지 않는다.
   // 파편은 판보다 **앞**이다. 판 뒤에 두면 아직 남아 있는 타일에 가려 굴러가는
   // 것이 안 보인다. 창살보다는 뒤라 큰 창살을 파편이 덮지 않는다.
+  layer.addChild(failMark.root, board.root, debris.root);
+  // 금은 타일 **위**다 — 타일에 파인 자국이라 아래에 두면 아무것도 안 보인다.
+  // 케이지보다는 아래라 창살이 금을 덮는다(창살 앞에 금이 뜨면 창살이 갈라져 보인다).
+  if (cracks) layer.addChild(cracks.root);
   layer.addChild(
-    failMark.root, board.root, debris.root, cages.root, fx,
+    cages.root, fx,
     launcher.root, pullArea.root, hud.root, gauge.root,
   );
   // 구출 동물은 커진 채(배율 11.6) 오른쪽으로 걸어 나간다. 콘텐츠 컬럼(450) 밖은
@@ -218,6 +227,8 @@ export async function runStageScreen(
   function redraw(): void {
     redrawExceptCages();
     cages.sync(state);
+    // 케이지가 열리거나 타일이 사라지면 금 그을 자리도 달라진다 — 매번 다시 잡는다
+    cracks?.sync(cageAdjacentTiles(state.cages, state.cells));
   }
 
   /** 파편이 흩어질 기준점. 스냅한 자리가 곧 터진 자리다.
@@ -284,6 +295,10 @@ export async function runStageScreen(
       board.root.y = y;
       cages.root.x = x;
       cages.root.y = y;
+      if (cracks) {
+        cracks.root.x = x;
+        cracks.root.y = y;
+      }
       // 파편에는 걸지 않는다 — 판을 떠난 물건이라 판이 자글거려도 같이 떨지 않는다
     }
 
@@ -326,6 +341,7 @@ export async function runStageScreen(
       cancelAnimationFrame(pushFrame);
       // 말풍선의 rAF는 layer.destroy가 꺼 주지 않는다 — 직접 끈다
       bubble?.destroy();
+      cracks?.destroy();
       failMark.destroy();
       fx.destroy({ children: true });
       input.off("pointerdown", onDown);
@@ -515,17 +531,20 @@ export async function runStageScreen(
           }
         : null;
       bubble = createCoachBubble({
-        targets: { horse: horsePoint, cage: cagePoint },
+        targets: { pull: pullArea.topCenter, horse: horsePoint, cage: cagePoint },
         screen: { x: stageLeft(), y: stageTop(), w: stageWidth(), h: stageHeight() },
         onTap: () => {
           if (finished) return;
           coach.dismiss();
           bubble?.sync(coach.showing());
+          pullArea.setActive(coach.showing()?.point === "pull");
         },
       });
       // 톱니보다 뒤에 붙인다 — 막이 설정 버튼까지 덮어야 「막았다」가 성립한다
       layer.addChild(bubble.root);
       bubble.sync(coach.showing());
+      // 「여기서 끌어라」를 말하는 동안은 그 테두리가 또렷해야 말과 화면이 맞는다
+      pullArea.setActive(coach.showing()?.point === "pull");
     }
 
     input.on("pointerdown", onDown);
