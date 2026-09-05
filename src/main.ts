@@ -25,6 +25,9 @@ import { runStageScreen } from "./ui/hex/stageScreen";
 import { openGameOver } from "./ui/gameOverScreen";
 import { GAMEOVER_AREA } from "./ui/gameOverLayout";
 import { slot } from "./data/uiLayout";
+import { storyBeat } from "./data/story";
+import { ANIMALS } from "./data/animals";
+import { openStoryDialog } from "./ui/storyDialog";
 
 // 배경 영상은 항상 무한 루프·무음 — BGM은 오디오 시스템이 담당
 VideoSource.defaultOptions = {
@@ -229,6 +232,25 @@ async function main(): Promise<void> {
       history.replaceState(null, "", `${location.pathname}${q ? `?${q}` : ""}${location.hash}`);
     }
   }
+  /** 판 하나를 깬 뒤의 대사. 비트가 없는 판(마지막)이면 아무 일도 하지 않는다. */
+  const playStoryBeat = async (clearedIndex: number): Promise<void> => {
+    const beat = storyBeat(clearedIndex);
+    if (!beat) return;
+    mark("story");
+    // 초상은 이미 받아 둔 텍스처만 쓴다 — 여기서 새로 받으면 판 사이가 멎는다.
+    // 인게임 동물 시퀀스 첫 장이 1순위, 없으면 열린 창살 스틸, 그것도 없으면 도감 카드다.
+    const animalTex = hexTextures.animals[beat.rescuedId]?.[0]
+      ?? hexTextures.cageOpen[beat.rescuedId]
+      ?? collectionCards[beat.rescuedId];
+    await openStoryDialog(app.stage, {
+      lines: beat.lines,
+      horseTex: hexTextures.horse[0],
+      animalTex,
+      horseName: "붉은말",
+      animalName: ANIMALS.find((a) => a.id === beat.rescuedId)?.name ?? "친구",
+    });
+  };
+
   for (;;) {
     if (!retry) {
       mark("lobby");
@@ -257,13 +279,19 @@ async function main(): Promise<void> {
 
     const outcome = await runStageScreen(app, stage, profile.stageIndex, hexTextures, ui, stock);
     if (outcome.result === "cleared") {
-      const last = profile.stageIndex >= stages.length - 1;
+      const cleared = profile.stageIndex;
+      const last = cleared >= stages.length - 1;
       profile = addClear(profile, outcome.rescued, outcome.horseshoes);
       save();
-      // 마지막 스테이지를 깨면 엔딩. 파일이 없으면 그냥 로비로 돌아간다.
+      // 마지막 스테이지를 깨면 엔딩. 파일이 없으면 그냥 로비로 돌아간다 —
+      // 어느 쪽이든 이 아래로 흘러 다음 바퀴의 runLobby로 간다.
       if (last) {
         mark("ending");
         await playVideo(videoAssetPaths.ending, "닫기");
+      } else {
+        // 중간 판이면 방금 구한 동물과 붉은말이 다음 구조를 이야기한다.
+        // 대사·초상은 여기서 넣어 준다 — storyDialog는 data를 모른다(규약 2조).
+        await playStoryBeat(cleared);
       }
     }
     // failed·lobby는 프로필을 건드리지 않는다 — 다음 바퀴에서 같은 스테이지가 다시 나온다
