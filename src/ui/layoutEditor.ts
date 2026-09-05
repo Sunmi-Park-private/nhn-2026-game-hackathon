@@ -13,6 +13,7 @@
 //
 // 저장은 /ui.html과 같은 파일(src/data/uiLayout.json)로 간다 — 두 에디터가 같은 값을 만진다.
 import { Container, Graphics, Text, type FederatedPointerEvent } from "pixi.js";
+import { composeScale } from "./slotScale";
 import { uiAreas, parseAreas, type UiArea, type UiSlot } from "../data/uiLayout";
 import { BASE_W, stageTop, stageHeight } from "./stage";
 import { createHistory, restoreInto, type History } from "./layoutHistory";
@@ -29,6 +30,10 @@ interface Entry {
   baseH: number;
   baseX: number;
   baseY: number;
+  /** 등록 시점에 노드가 갖고 있던 배율. 슬롯 배율은 이 위에 **곱한다** —
+   *  coverBox가 맞춰 둔 축소를 덮어쓰면 배경이 원본 크기로 부풀었다. */
+  baseScaleX: number;
+  baseScaleY: number;
   slotX: number;
   slotY: number;
 }
@@ -85,7 +90,10 @@ function centerPivot(node: Container): void {
 function applyStyle(e: Entry): void {
   const s = e.slot;
   e.node.visible = s.hidden !== true;
-  if (s.scale !== undefined && s.scale > 0) e.node.scale.set(s.scale);
+  e.node.scale.set(
+    composeScale(e.baseScaleX, s.scale, 1),
+    composeScale(e.baseScaleY, s.scale, 1),
+  );
   if (s.fontSize === undefined && s.color === undefined) return;
   for (const t of textsIn(e.node)) {
     if (s.fontSize !== undefined && s.fontSize > 0) t.style.fontSize = s.fontSize;
@@ -104,6 +112,7 @@ export function editable(area: string, slot: UiSlot, node: Container): void {
     area, slot, node,
     baseW: slot.w, baseH: slot.h,
     baseX: node.x, baseY: node.y,
+    baseScaleX: node.scale.x, baseScaleY: node.scale.y,
     slotX: slot.x, slotY: slot.y,
   };
   entries.set(key(area, slot.id), e);
@@ -270,8 +279,10 @@ function apply(e: Entry): void {
   // 앵커가 제각각이라 절대 좌표가 아니라 **등록 시점 대비 변위**로 옮긴다
   e.node.x = e.baseX + (e.slot.x - e.slotX);
   e.node.y = e.baseY + (e.slot.y - e.slotY);
-  const sc = e.slot.scale ?? 1;
-  e.node.scale.set((e.slot.w / e.baseW) * sc, (e.slot.h / e.baseH) * sc);
+  e.node.scale.set(
+    composeScale(e.baseScaleX, e.slot.scale, e.slot.w / e.baseW),
+    composeScale(e.baseScaleY, e.slot.scale, e.slot.h / e.baseH),
+  );
   e.node.visible = e.slot.hidden !== true;
   drawOutline();
 }
