@@ -27,11 +27,18 @@ describe("boardBounds", () => {
     expect(maxX).toBeGreaterThan(toPixel({ q: 6, r: 0 }, GEOM.size).x);
   });
 
-  it("오른쪽 벽이 홀수 행 마지막 셀의 가장자리까지 간다", () => {
-    // 홀수 행(r=1)은 반 칸 밀려 있어 짝수 행보다 w/2 더 뻗는다
+  it("오른쪽 벽이 두 위상의 합집합을 감싼다 — 판은 밀 때마다 반 칸씩 좌우로 오간다", () => {
+    // 홀수 행(r=1)은 반 칸 밀려 있어 짝수 행보다 w/2 더 뻗고, 판이 오른쪽 위상에
+    // 있을 때는 짝수 행이 거기서 다시 반 칸 더 간다(열 cols).
     const w = Math.sqrt(3) * GEOM.size;
-    const lastOddCellCenter = toPixel({ q: GEOM.cols - 1, r: 1 }, GEOM.size).x;
-    expect(boardBounds(GEOM).maxX).toBeCloseTo(lastOddCellCenter + w / 2, 5);
+    const rightmost = toPixel({ q: GEOM.cols, r: 0 }, GEOM.size).x;
+    expect(boardBounds(GEOM).maxX).toBeCloseTo(rightmost + w / 2, 5);
+  });
+
+  it("벽 사이 폭이 정확히 셀 폭 cols+1칸이다", () => {
+    const w = Math.sqrt(3) * GEOM.size;
+    const { minX, maxX } = boardBounds(GEOM);
+    expect(maxX - minX).toBeCloseTo((GEOM.cols + 1) * w, 5);
   });
 });
 

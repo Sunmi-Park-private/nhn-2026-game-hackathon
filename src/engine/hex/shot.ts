@@ -25,10 +25,10 @@ export interface ShotResult {
 export function boardBounds(geom: BoardGeom): { minX: number; maxX: number } {
   const w = SQRT3 * geom.size; // 셀 폭
   const minX = toPixel({ q: 0, r: 0 }, geom.size).x - w / 2;
-  // 홀수 행은 반 칸 오른쪽으로 밀려 있어 짝수 행보다 w/2 더 뻗는다.
-  // 벽은 모든 행의 합집합을 감싸야 한다 — 짝수 행 기준으로 잡으면
-  // 오른쪽 벽이 홀수 행 마지막 육각의 한가운데를 자른다.
-  return { minX, maxX: minX + (geom.cols + 0.5) * w };
+  // 홀수 행은 반 칸 오른쪽으로 밀려 있어 짝수 행보다 w/2 더 뻗고, 판 전체가
+  // 줄이 내려올 때마다 반 칸씩 좌우로 오간다(pushRow). 벽은 **두 위상의 합집합**을
+  // 감싸야 한다 — cols+0.5로 잡으면 오른쪽 위상에서 마지막 육각의 한가운데를 자른다.
+  return { minX, maxX: minX + (geom.cols + 1) * w };
 }
 
 /** 중력 가속도(px/s²). **절대값 자체엔 의미가 없다** — 아래 RISE 계수와의 비만
