@@ -7,7 +7,7 @@
 // 배경 아트가 오면 버튼 모양은 아트가 그린다 — 그때 이 코드는 히트 영역만 얹는다.
 // 아트가 없으면 자리와 이름이 보이도록 폴백을 그린다.
 import { Application, Container, Graphics, Text, type Texture } from "pixi.js";
-import { BASE_W, stageTop, stageHeight, coverBox, fullRect } from "./stage";
+import { BASE_W, stageTop, stageHeight, coverBox, contentRect } from "./stage";
 import { fitSprite, loadTexture, playVideoTexture, VIDEO_LOAD_TIMEOUT_MS } from "./skin";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection, type CollectionTextures } from "./collection";
@@ -148,20 +148,20 @@ export function runLobby(
     playBgm("audio.bgmLobby");
 
     const scenePaths = tex.scenes;
-    /** 배경 영상을 멈추는 함수. 로비를 닫을 때 부른다 — 안 부르면 티커에 남아
+    /** 배경 영상을 멈추는 함수들. 로비를 닫을 때 전부 부른다 — 안 부르면 티커에 남아
      *  파괴된 텍스처를 계속 올린다. */
-    let stopScene: (() => void) | null = null;
+    const stops: Array<() => void> = [];
 
-    layer.addChild(fullRect(0x241a10));
-    // 스틸 배경. 영상이 도착하면 **이 자리를 대신한다** — 겹쳐 두지 않는다.
-    // 영상 한 편에 그 단계까지의 동물이 다 들어 있어서 밑에 깔 것이 없고,
-    // 겹쳐 두면 영상에 투명한 데가 있을 때 스틸이 비쳐 보인다.
+    // 콘텐츠 박스만 채운다 — 좌우 블리드는 main.ts의 기본 배경 영상이 모든 화면 밑에서 돈다
+    layer.addChild(contentRect(0x241a10));
+    // 배경은 겹이고 **아무것도 사라지지 않는다.** 아래부터
+    //   ① 스틸(bg) — 즉시 뜬다. 영상이 오기 전까지의 자리이고 그 뒤에도 그대로 둔다
+    //   ② 장면 영상(friends) — 구출 마릿수에 맞는 한 편
+    // 전에는 장면 영상이 오면 스틸을 숨겼다. 그러면 스틸이 「잠깐 떴다 사라지는」
+    // 것으로 보였다(QA). 자리를 지금 잡아 둔다 — 나중에 인덱스를 세어 끼우면
+    // 스틸이 없을 때 한 칸씩 밀려 테두리나 재화 바를 덮는다.
     const stillBg = tex.bg ? coverBox(tex.bg) : null;
     if (stillBg) layer.addChild(stillBg);
-
-    // 배경 영상이 들어올 자리. **스틸 자리, 테두리와 UI보다 아래**다.
-    // 자리를 지금 잡아 둔다 — 나중에 인덱스를 세어 끼우면 스틸이 없을 때
-    // 한 칸씩 밀려 테두리나 재화 바를 덮는다.
     const sceneLayer = new Container();
     layer.addChild(sceneLayer);
 
@@ -200,9 +200,8 @@ export function runLobby(
         const t = await loadTexture(scenePaths[key], VIDEO_LOAD_TIMEOUT_MS);
         if (!t) continue;
         if (layer.destroyed || sceneLayer.destroyed) return; // 그 사이 로비가 닫혔다
-        stopScene = playVideoTexture(t, app.ticker); // 영상이면 돈다. 스틸이면 아무 일도 없다
-        sceneLayer.addChild(coverBox(t));
-        if (stillBg && !stillBg.destroyed) stillBg.visible = false; // 스틸은 물러난다
+        stops.push(playVideoTexture(t, app.ticker)); // 영상이면 돈다. 스틸이면 아무 일도 없다
+        sceneLayer.addChild(coverBox(t)); // ② 스틸은 그대로 밑에 남는다
         return;
       }
     })();
@@ -243,7 +242,7 @@ export function runLobby(
     function finish(): void {
       if (done) return;
       done = true;
-      stopScene?.(); // 티커에 남으면 파괴된 텍스처를 계속 올린다
+      for (const stop of stops) stop(); // 티커에 남으면 파괴된 텍스처를 계속 올린다
       clearEditable(AREA); // 파괴된 노드를 에디터가 계속 잡고 있으면 안 된다
       layer.destroy({ children: true });
       resolve();

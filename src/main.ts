@@ -3,7 +3,7 @@
 // 부트 체인에서 프롤로그·로딩·타이틀을 뺐다. 셋 다 이 게임의 화면이 아니라
 // 접속자가 1분 가까이 다른 화면을 본 뒤에야 게임에 도착했다.
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
-import { Application, VideoSource, type Texture } from "pixi.js";
+import { Application, Container, VideoSource, type Sprite, type Texture } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
 import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
 import { raceAssetPaths } from "./data/raceAssets";
@@ -14,7 +14,8 @@ import { mountLayoutEditor } from "./ui/layoutEditor";
 import { mountCheatPanel } from "./ui/cheatPanel";
 import { playVideo } from "./ui/videoScreen";
 import { initAudioUnlock } from "./ui/audio";
-import { setStageExtra, setStageExtraX } from "./ui/stage";
+import { setStageExtra, setStageExtraX, coverBg, fitCover } from "./ui/stage";
+import { uiAreas } from "./data/uiLayout";
 import { loadProgress, onLoadProgress } from "./ui/loadProgress";
 import { stages } from "./data/stages";
 import { runStageScreen } from "./ui/hex/stageScreen";
@@ -56,7 +57,13 @@ async function main(): Promise<void> {
     app.stage.x = (logicalW - 450) / 2; // 콘텐츠 450 박스를 가로 중앙 고정
     app.canvas.style.width = `${logicalW * s}px`;
     app.canvas.style.height = `${800 * s}px`;
+    if (backdropSprite) fitCover(backdropSprite); // 화면이 돌아가도 캔버스 전체를 계속 덮는다
   };
+  // 로비 배경(전체) 스틸 — **모든 화면 밑에** 고정된다(로비·인게임·레이스·이벤트·도감).
+  // 1920×1080 가로 아트라 16:9 캔버스를 통째로 덮는다. 화면들은 콘텐츠 박스(450 컬럼)만
+  // 불투명하게 칠하므로(stage.ts contentRect) 좌우 블리드에는 늘 이것이 보이고,
+  // 화면의 배경 아트가 없을 때도 이것이 남는다. 영상이 아니라 스틸이다 — 요청이 그랬다.
+  let backdropSprite: Sprite | null = null;
   const app = new Application();
   await app.init({
     width: 450,
@@ -72,6 +79,9 @@ async function main(): Promise<void> {
   const el = document.getElementById("app");
   if (!el) throw new Error("#app not found");
   el.appendChild(app.canvas);
+  const backdrop = new Container();
+  backdrop.label = "backdrop";
+  app.stage.addChild(backdrop); // 제일 먼저 — 이 뒤에 붙는 화면 레이어가 전부 위에 온다
   el.style.cssText = "display:flex;align-items:center;justify-content:center;width:100vw;height:100vh;overflow:hidden";
   fit();
   window.addEventListener("resize", fit);
@@ -116,6 +126,12 @@ async function main(): Promise<void> {
   ]);
   offProgress();
   loading.remove();
+  // 로비의 bg 슬롯을 에디터에서 끄면 여기서도 빠진다 — 같은 아트를 두 곳에서 따로 끌 이유가 없다
+  const bgOff = uiAreas.find((a) => a.id === "lobby")?.slots.find((s) => s.id === "bg")?.hidden === true;
+  if (lobbySlots.bg && !bgOff) {
+    backdropSprite = coverBg(lobbySlots.bg);
+    backdrop.addChild(backdropSprite);
+  }
   // 에셋을 다 받은 뒤에 얹는다 — 먼저 얹으면 빈 캔버스 위에 격자만 뜬다
   mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다
   mountCheatPanel();            // 같은 조건 + devMode. 화면 왼쪽, 배치 패널 반대편이다

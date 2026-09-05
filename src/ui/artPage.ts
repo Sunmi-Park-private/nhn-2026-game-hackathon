@@ -6,7 +6,7 @@
 // 막을 캔버스 전체에 깐다 — 없으면 그림 위를 눌렀을 때 뒤 화면(로비)의 PLAY나
 // 하단 내비가 눌린다.
 import { Container, Graphics, Text, type Texture } from "pixi.js";
-import { BASE_W, stageTop, stageHeight, stageLeft, stageWidth, coverBox, fullRect } from "./stage";
+import { BASE_W, stageTop, stageHeight, coverBox, contentRect } from "./stage";
 import { fitSprite } from "./skin";
 import { slot, type UiSlot } from "../data/uiLayout";
 import { buzz } from "./settings";
@@ -82,13 +82,13 @@ export function openArtPage<R>(
     const root = new Container();
     parent.addChild(root);
 
-    const veil = new Graphics()
-      .rect(stageLeft(), stageTop(), stageWidth(), stageHeight())
-      .fill({ color: 0x120c06, alpha: 1 });
+    // 밑의 화면(로비)을 가리고 그쪽 입력을 막는다. **콘텐츠 박스만** 가린다 — 좌우
+    // 블리드는 main.ts의 기본 배경 영상 자리고, 거기엔 누를 것도 없다.
+    const veil = contentRect(0x120c06);
     veil.eventMode = "static";
     root.addChild(veil);
 
-    root.addChild(fullRect(0x241a10)); // 배경 아트가 없어도 캔버스가 비지 않게
+    root.addChild(contentRect(0x241a10)); // 배경 아트가 없어도 박스가 비지 않게
     if (o.bg) root.addChild(coverBox(o.bg));
     root.addChild(
       new Graphics()

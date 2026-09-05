@@ -4,7 +4,7 @@ import { Application, Container, Graphics, Sprite, type FederatedPointerEvent, t
 import { createRun, fireAt, isCleared, isFailed, type ShotOutcome } from "../../engine/hex/stageRun";
 import { simulateShot } from "../../engine/hex/shot";
 import type { Boosters, RunState, StageDef } from "../../engine/hex/types";
-import { fullRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
+import { contentRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
 import { BOARD, ROW_H, cellToScreen, launchOrigin, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
 import { createTileDebris } from "./tileDebris";
@@ -90,7 +90,7 @@ function sidePanel(tex: Texture, x: number, w: number, parent: Container): Sprit
  *  세 슬롯 모두 null이어도 베이스색만 남아 기존 화면과 동일해야 한다. */
 function buildBackground(bg: StageTextures["bg"]): Container {
   const layer = new Container();
-  layer.addChild(fullRect(0x241a10)); // 항상 먼저 — 캔버스가 절대 투명해지지 않게
+  layer.addChild(contentRect(0x241a10)); // 콘텐츠 박스만 — 좌우는 main.ts의 기본 배경 영상이 비친다
   const left = stageLeft();
   const panelW = -left; // 콘텐츠 박스 좌우 대칭이라 폭이 같다
   if (left < 0) {

@@ -89,6 +89,14 @@ describe("로비 배경 영상", () => {
   });
 });
 
+describe("로비 배경(전체) — 모든 화면 맨 뒤에 고정", () => {
+  it("main.ts backdrop이 읽는 슬롯이 로비 영역에 있다", () => {
+    const lobby = uiAreas.find((a) => a.id === "lobby")!;
+    const s = lobby.slots.find((x) => x.id === "bg");
+    expect(s?.asset).toBe("lobby.bg");
+  });
+});
+
 describe("붉은말 최대 장전 프레임", () => {
   it("매니페스트에서 숫자로 읽힌다", () => {
     expect(Number.isInteger(hexAssetPaths.horseHold)).toBe(true);
