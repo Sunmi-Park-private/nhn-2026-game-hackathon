@@ -15,6 +15,15 @@
           "asset": "lobby.bg"
         },
         {
+          "id": "bgVideo",
+          "label": "로비 기본 배경 영상 · 항상 맨 뒤",
+          "x": 0,
+          "y": 0,
+          "w": 450,
+          "h": 800,
+          "asset": "lobby.bgVideo"
+        },
+        {
           "id": "topStats",
           "label": "상단 재화 바(아트)",
           "x": 14,

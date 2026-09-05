@@ -5,7 +5,7 @@
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
 import { Application, VideoSource, type Texture } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
-import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
+import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, lobbyBaseVideoPath, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
 import { raceAssetPaths } from "./data/raceAssets";
 import { loadSlots, loadTexture } from "./ui/skin";
 import { runLobby } from "./ui/lobbyScreen";
@@ -147,6 +147,7 @@ async function main(): Promise<void> {
     },
     // 로비 배경은 구출 마릿수마다 도는 영상이다(상류). 월드는 진입점을 끊어 빠졌다.
     scenes: lobbySceneVideoPaths,
+    baseVideo: lobbyBaseVideoPath,
     race: {
       bg: raceBg, ui: raceUi, runners: raceRunners,
       faces: raceFaces, winner: raceWinner,
