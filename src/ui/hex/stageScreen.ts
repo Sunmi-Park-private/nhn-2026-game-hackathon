@@ -5,11 +5,14 @@ import { createRun, fireAt, isCleared, isFailed } from "../../engine/hex/stageRu
 import { simulateShot } from "../../engine/hex/shot";
 import type { RunState, StageDef } from "../../engine/hex/types";
 import { fullRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
-import { BOARD, launchOriginLocal } from "./geom";
+import { BOARD, launchOrigin, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
 import { createCageView } from "./cageView";
 import { createHudView } from "./hudView";
 import { createLauncher } from "./launcher";
+import { createDragAim } from "./dragAim";
+import { createPowerGauge } from "./powerGauge";
+import { createPullArea } from "./pullArea";
 import { makeButton } from "../skin";
 import { openSettings, type SettingsTextures } from "../settingsMenu";
 import { slot } from "../../data/uiLayout";
@@ -48,7 +51,15 @@ export interface StageTextures {
   animals: Record<string, Texture[]>;
   /** 화면 하단 붉은말 — 시퀀스 */
   horse: Texture[];
-  bg: { board: Texture | null; panelLeft: Texture | null; panelRight: Texture | null };
+  /** 그 시퀀스에서 팔이 최대로 접힌 프레임(0-based) */
+  horseHold: number;
+  bg: {
+    board: Texture | null;
+    panelLeft: Texture | null;
+    panelRight: Texture | null;
+    /** 인게임 화면에 얹는 패널. 자리는 ingame/bgPanel 슬롯이 정한다 */
+    ingamePanel: Texture | null;
+  };
 }
 
 /** 좌우 패널 배치. 콘텐츠 박스 바깥 영역을 아트로 채운다.
@@ -82,6 +93,22 @@ function buildBackground(bg: StageTextures["bg"]): Container {
     if (bg.panelRight) layer.addChild(sidePanel(bg.panelRight, BASE_W, panelW, layer));
   }
   if (bg.board) layer.addChild(coverBox(bg.board));
+  // 인게임 배경 패널 — 판 배경 위, 게임 오브젝트 아래. 이 컨테이너가 layer에 제일 먼저
+  // 붙으므로 타일·케이지·발사대·HUD는 전부 이보다 앞에 그려진다.
+  //
+  // 코드가 자리를 정하지 않는다 — 에디터에서 끌어 옮긴 사각형이 곧 그려지는 자리다.
+  // 그래서 비율을 맞추지 않고 슬롯 크기에 그대로 늘린다: 에디터에서 본 모양과
+  // 화면에 나온 모양이 다르면 배치를 손으로 맞출 수가 없다.
+  const panelBox = slot("ingame", "bgPanel");
+  if (bg.ingamePanel && panelBox && panelBox.hidden !== true) {
+    const panel = new Sprite(bg.ingamePanel);
+    panel.width = panelBox.w;
+    panel.height = panelBox.h;
+    panel.x = panelBox.x;
+    panel.y = stageTop() + panelBox.y;
+    layer.addChild(panel);
+    editable("ingame", { ...panelBox }, panel);
+  }
   // 플레이 영역 테두리 — 배경 아트가 없으면 좌우 여백과 판이 같은 갈색이라 경계가 안 보인다.
   // 발사체가 튕기는 벽이 정확히 이 선이므로, 아트가 들어와도 남겨 두는 편이 읽기 좋다.
   layer.addChild(
@@ -112,14 +139,21 @@ export async function runStageScreen(
     animals: textures.animals,
   });
   const hud = createHudView(stageIndex, { stageBar: ui.stageBar });
-  const launcher = createLauncher(textures.horse);
+  const launcher = createLauncher(textures.horse, textures.horseHold);
+  const gauge = createPowerGauge();
+  // 당길 수 있는 범위 — 조준선은 이미 당긴 뒤에야 나오므로 그 전에 알려줄 것이 필요하다
+  const pullArea = createPullArea(launchOrigin());
+  // 앵커는 붉은말의 발 밑이다 — 새총의 고정점이 눈에 보이는 자리와 같아야 한다
+  const aimer = createDragAim(launchOrigin());
 
   // 케이지는 타일보다 뒤에 둬서 타일이 케이지를 파묻게 하고, 발사대·HUD는 맨 앞에 둔다
   // 순서 = z. 케이지를 타일보다 **위**에 둔다 — 큰 창살이 둘레 타일의 가장자리를
   // 덮으면서 「타일 무리 위에 얹힌 물건」으로 읽힌다. 아래에 두면 작은 타일들이
   // 창살을 파고들어 케이지 윤곽이 끊겨 보였다.
   // 발사체(launcher)는 케이지보다 위다 — 창살 앞을 지나가는 것이 맞다.
-  layer.addChild(board.root, cages.root, launcher.root, hud.root);
+  // 당김 가이드는 **말보다 앞**이다. 뒤에 두면 말 몸통이 가운데를 가려
+  // 좌우 변만 남아 사각형으로 읽히지 않는다. 얇은 윤곽선이라 캐릭터를 해치지 않는다.
+  layer.addChild(board.root, cages.root, launcher.root, pullArea.root, hud.root, gauge.root);
   app.stage.addChild(layer);
 
   /** 케이지를 뺀 나머지 갱신. 구출 연출 전에는 이것만 부른다 —
@@ -157,9 +191,13 @@ export async function runStageScreen(
       };
       input.off("pointerdown", onDown);
       input.off("pointermove", onMove);
+      input.off("globalpointermove", onMove);
       input.off("pointerup", onUpWrapped);
       input.off("pointerupoutside", onUpWrapped);
+      aimer.cancel();
       launcher.destroy();
+      gauge.destroy();
+      pullArea.destroy();
       hud.destroy();
       cages.destroy();
       board.destroy();
@@ -167,39 +205,48 @@ export async function runStageScreen(
       resolve(outcome);
     }
 
-    // 새 터치의 첫 접촉 — 조준선을 그 자리에 바로 맞춘다.
-    // 이어지는 pointermove는 상한 속도로 부드럽게 따라간다.
     function onDown(e: FederatedPointerEvent): void {
       if (busy) return;
       const p = e.getLocalPosition(layer);
-      launcher.aimAt(p.x, p.y, state.cells, true);
+      aimer.down(p);
+      launcher.setAim(aimer.current(), state.cells);
+      gauge.set(aimer.current()?.power ?? null);
+      pullArea.setActive(true);
     }
 
     function onMove(e: FederatedPointerEvent): void {
       if (busy) return;
-      // e.global은 렌더러(화면) 좌표계다 — app.stage.x가 0이 아닌 넓은 화면에서는
-      // 그대로 쓰면 발사대 기준점이 수백 px 어긋난다. layer 로컬 좌표로 변환해야 한다.
+      // layer는 화면 폭에 따라 이동·스케일된 좌표계라 e.getLocalPosition로 변환해야
+      // 조준 앵커·경로 좌표와 맞아떨어진다 — 렌더러 좌표를 그대로 쓰면 어긋난다.
       const p = e.getLocalPosition(layer);
-      launcher.aimAt(p.x, p.y, state.cells);
+      aimer.move(p);
+      launcher.setAim(aimer.current(), state.cells);
+      gauge.set(aimer.current()?.power ?? null);
     }
 
     async function onUp(e: FederatedPointerEvent): Promise<void> {
       if (busy || finished) return;
-      const p = e.getLocalPosition(layer);
-      launcher.aimAt(p.x, p.y, state.cells, true); // 손을 뗀 자리로 확정 — 조준선과 실제 발사가 어긋나지 않게
-      const angle = launcher.angle();
-      launcher.clearAim();
+      const aim = aimer.up(e.getLocalPosition(layer));
+      gauge.set(null);
+      pullArea.setActive(false);
+      // 데드존 안에서 뗐다 — 쏘지 않고 자세만 되돌린다
+      if (!aim) { launcher.settleBack(); return; }
 
       busy = true;
       try {
         // 비행 경로를 먼저 얻어 연출하고, 그 뒤 상태를 확정한다
         const firedTier = state.loaded;
-        const { path } = simulateShot(state.cells, BOARD, launchOriginLocal(), angle);
+        const { path } = simulateShot(state.cells, BOARD, launchOriginLocal(), aim.angle, aim.power);
         playSfx("audio.sfxShot");
         buzz();
+        // 토스와 비행을 **동시에 시작**한다(spec §4-4는 "동시 시작"만 요구, 완주까지
+        // 기다리라는 요구는 없다) — 토스는 최대 840ms인 비행보다 훨씬 길 수 있어
+        // (31프레임·24fps ≈ 0.96s) 같이 기다리면 그만큼 판이 얼어붙는다. 토스는
+        // 흘려보내고, rAF 콜백 예외 등이 밖으로 새지 않게 catch만 붙여 둔다.
+        void launcher.playToss().catch(() => {});
         await launcher.playFlight(path, firedTier);
 
-        const outcome = fireAt(state, BOARD, launchOriginLocal(), angle);
+        const outcome = fireAt(state, BOARD, launchOriginLocal(), aim.angle, aim.power);
         if (outcome.steps.length > 0) playSfx("audio.sfxPop");
         redrawExceptCages(); // 타일·HUD는 즉시 반영 — 케이지는 아직 건드리지 않는다
 
@@ -238,6 +285,10 @@ export async function runStageScreen(
         // 진짜 멈춘다 — 막이 입력을 먹는 것만으로는 케이지 흔들림과 조준선이 계속 돈다.
         // 「멈춘 게임」 위에서 뒤 배경만 살아 움직이면 설정창이 겹쳐 뜬 것으로만 읽힌다.
         cages.pause();
+        aimer.cancel();
+        gauge.set(null);
+        pullArea.setActive(false);
+        launcher.setAim(null, state.cells);
         launcher.pause();
         pauseBgm();
         void openSettings(layer, ui, { confirmHome: true }).then((r) => {
@@ -262,6 +313,12 @@ export async function runStageScreen(
 
     input.on("pointerdown", onDown);
     input.on("pointermove", onMove);
+    // 입력 캐처는 450×800 고정이지만 layer는 넓은/긴 화면에서 그 밖으로 그려진다
+    // (stageTop/stageLeft<0) — 손가락이 캐처 밖으로 나가면 plain pointermove가 멎어
+    // 미리보기가 마지막 표본에 멈춘다. globalpointermove(히트테스트 무관, 매 프레임)로
+    // 메운다 — 딱 한 곳(input)에만 건다, 두 대상에 걸면 한 이동에 두 번 불린다.
+    // plain pointermove도 남긴다 — 일부 환경은 global 이벤트를 안 보낸다.
+    input.on("globalpointermove", onMove);
     input.on("pointerup", onUpWrapped);
     input.on("pointerupoutside", onUpWrapped);
   });

@@ -39,10 +39,12 @@ export function playVideo(url: string | undefined, label = "건너뛰기"): Prom
     video.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
     host.appendChild(video);
 
+    // 버튼은 **우측 상단**에 둔다. 세로 영상은 아래쪽에 자막이나 로고가 오는 경우가 많고,
+    // 손가락으로 화면을 쥘 때 아래 모서리를 덮기도 한다 — 위쪽이 가리지도 가려지지도 않는다.
     const btn = (text: string, right: number): HTMLButtonElement => {
       const b = document.createElement("button");
       b.textContent = text;
-      b.style.cssText = "position:absolute;bottom:16px;border:0;border-radius:18px;padding:8px 16px;"
+      b.style.cssText = "position:absolute;top:16px;border:0;border-radius:18px;padding:8px 16px;"
         + `right:${right}px;background:#000a;color:#fff;font:12px/1 system-ui;font-weight:700;cursor:pointer`;
       host.appendChild(b);
       return b;

@@ -17,7 +17,17 @@ export interface HexAssetPaths {
   animals: Record<string, string[]>;
   /** 화면 하단 붉은말(발사대) — 시퀀스 */
   horse: string[];
-  bg: { board?: string; panelLeft?: string; panelRight?: string };
+  /** 그 시퀀스에서 **팔이 최대로 접힌 프레임**(0-based).
+   *  앞은 당김(드래그로 스크럽), 뒤는 토스(놓으면 재생)로 갈린다.
+   *  디자이너가 에디터에서 찍는다. 안 찍었으면 한가운데를 쓴다. */
+  horseHold: number;
+  bg: {
+    board?: string;
+    panelLeft?: string;
+    panelRight?: string;
+    /** 인게임 화면에 얹는 패널 한 장. 판 배경과 별개로, 자리는 ingame/bgPanel 슬롯이 정한다 */
+    ingamePanel?: string;
+  };
 }
 
 function str(v: unknown): string | undefined {
@@ -52,6 +62,18 @@ function strByAnimal(raw: unknown): Record<string, string> {
   return out;
 }
 
+/** 프레임 인덱스. 범위를 벗어나거나 정수가 아니면 한가운데로 접는다 —
+ *  디자이너 오투입이 런타임 예외가 되면 안 된다(규약 3조).
+ *  테스트를 위해 export한다 — 파싱된 결과(hexAssetPaths)만으로는 현재
+ *  매니페스트 값이 항상 유효해서 잘못된 분기에 닿을 수 없다. */
+export function frameIndex(v: unknown, len: number): number {
+  if (len === 0) return 0;
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v >= len) {
+    return Math.floor(len / 2);
+  }
+  return v;
+}
+
 function parse(raw: unknown): HexAssetPaths {
   const hex = (raw as { hex?: Record<string, unknown> }).hex ?? {};
   const tilesRaw = Array.isArray(hex.tiles) ? hex.tiles : [];
@@ -61,14 +83,21 @@ function parse(raw: unknown): HexAssetPaths {
   const animals = framesByAnimal(hex.animals);
 
   const bgRaw = (hex.bg ?? {}) as Record<string, unknown>;
+  const horse = frames(hex.horse);
   return {
     tiles,
     horseshoe: str(hex.horseshoe),
     cageLocked: framesByAnimal(hex.cageLocked),
     cageOpen: strByAnimal(hex.cageOpen),
-    horse: frames(hex.horse),
+    horse,
+    horseHold: frameIndex(hex.horseHold, horse.length),
     animals,
-    bg: { board: str(bgRaw.board), panelLeft: str(bgRaw.panelLeft), panelRight: str(bgRaw.panelRight) },
+    bg: {
+      board: str(bgRaw.board),
+      panelLeft: str(bgRaw.panelLeft),
+      panelRight: str(bgRaw.panelRight),
+      ingamePanel: str(bgRaw.ingamePanel),
+    },
   };
 }
 

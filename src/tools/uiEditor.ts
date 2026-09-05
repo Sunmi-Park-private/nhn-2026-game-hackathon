@@ -13,6 +13,7 @@
 // 있으므로 그리기 전에 디스크와 맞춘다(GET /__uilayout · /__assets).
 import { uiAreas, uiUploads, uiVideos, uiAudios, type UiArea, type UiSlot, type UiUpload } from "../data/uiLayout";
 import assetsJson from "../data/assets.json";
+import { frameIndex } from "../data/hexAssets";
 import { createHistory, restoreInto, type History } from "../ui/layoutHistory";
 
 const W = 450;
@@ -85,7 +86,7 @@ function frameCount(dotted: string): number {
   const v = assetValue(dotted);
   return Array.isArray(v) ? v.length : 1;
 }
-function setAssetPath(dotted: string, value: string | string[]): void {
+function setAssetPath(dotted: string, value: string | string[] | number): void {
   const keys = dotted.split(".");
   let cur = state.manifest;
   for (const k of keys.slice(0, -1)) {
@@ -173,7 +174,7 @@ const markDirty = (): void => {
 // ── 업로드 카드 ─────────────────────────────
 /** 슬롯 하나의 카드. 미리보기 + 클릭/드롭 업로드 + 삭제.
  *  업로드 성공 뒤에도 파일 쓰기가 끝나기 전 요청이 갈 수 있으므로 몇 번 재시도한다. */
-function card(label: string, dotted: string, onChanged?: () => void, seq = false): HTMLElement {
+function card(label: string, dotted: string, onChanged?: () => void, seq = false, holdKey?: string): HTMLElement {
   const cell = $("div", "background:#241a10;border:2px solid #4a3320;border-radius:12px;overflow:hidden;cursor:pointer");
   const stage = $("div", `position:relative;height:140px;${CHECKER};display:flex;align-items:center;justify-content:center`);
   const img = document.createElement("img");
@@ -217,18 +218,22 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
     stage.prepend(a);
   };
 
+  // hold 슬롯이 붙으면 프레임 눈금을 다시 맞춘다. 없으면 아무 일도 없다.
+  let afterPaint: (() => void) | null = null;
+
   const paint = (): void => {
     const rel = assetPath(dotted);
     const n = frameCount(dotted);
     meta.textContent = rel ? (seq && n > 1 ? `${n}프레임 · ${rel}` : rel) : "(매니페스트에 없음)";
     meta.style.color = "#a8987c";
-    if (!rel) { img.style.display = "none"; clearMedia(); empty.style.display = "block"; return; }
-    if (isVideo(rel)) { showVideo(`${rel}?v=${Date.now()}`); return; }
-    if (isAudio(rel)) { showAudio(`${rel}?v=${Date.now()}`); return; }
+    if (!rel) { img.style.display = "none"; clearMedia(); empty.style.display = "block"; afterPaint?.(); return; }
+    if (isVideo(rel)) { showVideo(`${rel}?v=${Date.now()}`); afterPaint?.(); return; }
+    if (isAudio(rel)) { showAudio(`${rel}?v=${Date.now()}`); afterPaint?.(); return; }
     clearMedia();
     img.dataset["src"] = rel;
     img.dataset["retries"] = "1";
     img.src = `${rel}?v=${Date.now()}`;
+    afterPaint?.();
   };
   img.onload = (): void => { img.style.display = ""; empty.style.display = "none"; };
   img.onerror = (): void => {
@@ -304,6 +309,68 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
     meta.textContent = assetPath(dotted) ?? "";
     onChanged?.();
   };
+
+  // ── 최대 장전 프레임 (붉은말처럼 hold가 지정된 시퀀스에만) ──
+  // 한 시퀀스에 「당김 → 폄」이 다 들어 있어, 어디까지가 당김인지 코드가 알아야 한다.
+  if (holdKey) {
+    const bar = $("div", "padding:0 12px 10px");
+    const readHold = (): number => {
+      const v = assetValue(holdKey);
+      return typeof v === "number" && Number.isInteger(v) ? v : 0;
+    };
+    const label2 = $("div", "font-size:11px;color:#a8987c;margin-bottom:4px");
+    const range = document.createElement("input");
+    range.type = "range";
+    range.min = "0";
+    range.step = "1";
+    range.setAttribute("style", "width:100%");
+    const set = $("button",
+      "margin-top:6px;background:#2b1d10;color:#f0c96a;border:1px solid #4a3320;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer",
+      "이 프레임을 최대 장전으로");
+
+    /** 매니페스트의 프레임 목록. 스크러버는 이 배열을 훑는다. */
+    const frameList = (): string[] => {
+      const v = assetValue(dotted);
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    };
+
+    /** 슬라이더가 가리키는 프레임을 그대로 보여 준다 — oninput과 syncBar가 같은 동작을 쓴다. */
+    const showFrame = (list: string[]): void => {
+      const f = list[Number(range.value)];
+      if (f) { img.dataset["retries"] = "1"; img.src = `${f}?v=${Date.now()}`; }
+    };
+
+    const syncBar = (): void => {
+      const list = frameList();
+      if (list.length === 0) { bar.style.display = "none"; return; }
+      bar.style.display = "";
+      range.max = String(list.length - 1);
+      // 저장된 값이 지금 프레임 수를 벗어나면(짧아진 시퀀스로 교체된 경우)
+      // 게임 코드(frameIndex)와 같은 규칙으로 되돌린다 — 다른 판단을 만들지 않는다
+      const hold = frameIndex(readHold(), list.length);
+      range.value = String(hold);
+      label2.textContent = `최대 장전: ${hold}번 프레임 / 전체 ${list.length}장 — 앞은 당김, 뒤는 토스`;
+      showFrame(list);
+    };
+
+    range.oninput = (): void => { showFrame(frameList()); };
+    set.onclick = async (): Promise<void> => {
+      setAssetPath(holdKey, Number(range.value));
+      const res = await fetch("/__assets", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(state.manifest),
+      });
+      label2.style.color = res.ok ? "#8fdc8f" : "#ff8f7a";
+      if (res.ok) syncBar(); else label2.textContent = `저장 실패: ${await res.text()}`;
+    };
+
+    bar.append(label2, range, set);
+    cell.appendChild(bar);
+    syncBar();
+    // 업로드로 프레임 수가 바뀌면 눈금도 따라가야 한다
+    afterPaint = syncBar;
+  }
 
   paint();
   return cell;
@@ -455,7 +522,7 @@ function uploadGrid(items: UiUpload[], minWidth: number, onChanged?: () => void)
       grid.appendChild(groupHead(u.group, group === undefined));
       group = u.group;
     }
-    grid.appendChild(card(u.label, u.asset, onChanged, u.seq === true));
+    grid.appendChild(card(u.label, u.asset, onChanged, u.seq === true, u.hold));
   }
   return grid;
 }
@@ -543,14 +610,45 @@ function attachDrag(el: HTMLElement, grip: HTMLElement, s: UiSlot): void {
 }
 
 // ── 저장 ────────────────────────────────────
+/** 디스크의 배치에 이 탭이 옮긴 좌표만 얹는다.
+ *
+ *  이 탭은 뜰 때 읽은 배치를 기억하고 있을 뿐이라, 그 뒤에 **코드가 새로 추가한
+ *  슬롯을 모른다**. 저장할 때 기억을 통째로 써 버리면 그 슬롯이 조용히 사라진다 —
+ *  실제로 powerGauge와 bgPanel이 이렇게 여러 번 지워졌고, 그중 한 번은 커밋에
+ *  실려 나갔다.
+ *
+ *  그래서 **디스크를 기준으로 삼고** 아는 슬롯의 좌표만 갈아 끼운다.
+ *  에디터에는 슬롯을 지우는 기능이 없으므로, 모르는 슬롯은 남기는 것이 언제나 옳다. */
+function mergeAreas(disk: UiArea[], mine: UiArea[]): UiArea[] {
+  const byId = new Map(mine.map((a) => [a.id, new Map(a.slots.map((s) => [s.id, s]))]));
+  return disk.map((area) => {
+    const edited = byId.get(area.id);
+    if (!edited) return area;
+    return { ...area, slots: area.slots.map((s) => edited.get(s.id) ?? s) };
+  });
+}
+
 saveBtn.onclick = async (): Promise<void> => {
   status.textContent = "저장 중…";
   status.style.color = "#a8987c";
   try {
+    const disk = await currentLayout();
+    const diskAreas = Array.isArray(disk.areas) ? (disk.areas as UiArea[]) : [];
+    // 디스크를 못 읽었으면 **저장하지 않는다.**
+    //
+    // currentLayout()은 dev 서버 밖일 때만 {}를 주는 것이 아니라 GET이 실패하면
+    // 무엇이든 {}로 삼킨다. 그런데 서버의 GET은 readFileSync를 감싸지 않아,
+    // 다른 탭이 쓰는 중이면 500이 날 수 있다 — 여러 탭이 얽히는 바로 그 상황이다.
+    // 그때 디스크를 빈 것으로 보고 진행하면 이 함수가 막으려던 전체 덮어쓰기가
+    // 그대로 되살아나고, disk가 {}라 uploads·videos·audios까지 통째로 날아간다.
+    // 서버는 파일을 전부 다시 쓰기 때문이다. 실패는 조용히 넘기지 말고 세운다.
+    if (diskAreas.length === 0) {
+      throw new Error("디스크의 배치를 읽지 못했습니다 — 저장하지 않았습니다. 새로고침 뒤 다시 시도하세요");
+    }
     const res = await fetch("/__uilayout", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...(await currentLayout()), areas: state.areas }),
+      body: JSON.stringify({ ...disk, areas: mergeAreas(diskAreas, state.areas) }),
     });
     if (!res.ok) throw new Error(await res.text());
     state.dirty = false;

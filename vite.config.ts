@@ -89,8 +89,25 @@ function uiLayoutSavePlugin(): Plugin {
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use('/__assets', (req, res) => {
-        if (req.method !== 'GET') { res.statusCode = 405; res.end('GET only'); return }
-        serveJson(res, ASSETS_FILE)
+        if (req.method === 'GET') { serveJson(res, ASSETS_FILE); return }
+        // 숫자 하나(예: hex.horseHold)를 고치려고 이미지를 올릴 수는 없다 —
+        // 배치 저장(/__uilayout)과 같은 모양으로 매니페스트 전체를 받는다.
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('GET/POST only'); return }
+        void collectBody(req, 1024 * 1024).then((buf) => {
+          const parsed: unknown = JSON.parse(buf.toString('utf8'))
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            throw new Error('매니페스트 객체가 필요합니다')
+          }
+          fs.writeFileSync(ASSETS_FILE, JSON.stringify(parsed, null, 2) + '\n')
+          touch(server, ASSETS_FILE)
+          // touch는 모듈 그래프만 무효화한다 — 돌고 있는 게임 탭은 아무것도 모른다.
+          // 업로드 경로와 같은 이벤트를 보내 게임만 새로 띄운다. 이게 없으면
+          // 디자이너가 프레임을 찍고 「저장됨」을 봐도 화면은 옛 값을 계속 쓴다.
+          // asset 이름은 'audio.'로 시작하지 않아야 게임이 리로드한다(main.ts 참조).
+          server.ws.send({ type: 'custom', event: 'asset-updated', data: { asset: 'hex.manifest' } })
+          res.statusCode = 200
+          res.end('ok')
+        }).catch((err: unknown) => { res.statusCode = 400; res.end(String(err)) })
       })
       server.middlewares.use('/__uilayout', (req, res) => {
         // watch 제외 파일이라 번들 모듈이 옛 내용일 수 있다 — 에디터가 디스크와 맞춘다

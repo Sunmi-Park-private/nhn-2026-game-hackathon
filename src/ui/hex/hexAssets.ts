@@ -64,7 +64,7 @@ async function stillByAnimal(paths: Record<string, string>): Promise<Record<stri
 
 /** 매니페스트 경로를 텍스처로 바꾼다. 없는 파일은 null — 화면이 폴백으로 그린다. */
 export async function loadHexAssets(paths: HexAssetPaths): Promise<StageTextures> {
-  const [tiles, animals, cageLocked, cageOpen, horseshoe, board, panelLeft, panelRight] =
+  const [tiles, animals, cageLocked, cageOpen, horseshoe, board, panelLeft, panelRight, ingamePanel] =
     await Promise.all([
       Promise.all(paths.tiles.map(load)),
       framesByAnimal(paths.animals),
@@ -74,8 +74,13 @@ export async function loadHexAssets(paths: HexAssetPaths): Promise<StageTextures
       load(paths.bg.board),
       load(paths.bg.panelLeft),
       load(paths.bg.panelRight),
+      load(paths.bg.ingamePanel),
     ]);
   const horse = await loadFrames(paths.horse);
 
-  return { tiles, horseshoe, cageLocked, cageOpen, animals, horse, bg: { board, panelLeft, panelRight } };
+  return {
+    tiles, horseshoe, cageLocked, cageOpen, animals, horse,
+    horseHold: paths.horseHold,
+    bg: { board, panelLeft, panelRight, ingamePanel },
+  };
 }

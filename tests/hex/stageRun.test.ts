@@ -179,3 +179,35 @@ describe("collectDrops", () => {
     expect(out.dropped).toHaveLength(1);     // 타일 자체는 떨어진다
   });
 });
+
+describe("fireAt — 헛발", () => {
+  // 이 파일의 기존 fireAt 블록과 같은 발사 지점이다
+  const from = toPixel({ q: -2, r: 12 }, GEOM.size);
+
+  it("판에 못 닿아도 한 발을 깎는다", () => {
+    const run = createRun(stage({ shots: 3 }));
+    // 거의 수평으로 아주 약하게 — 판에 닿지 못하고 떨어진다
+    const out = fireAt(run, GEOM, from, 1.2, 0);
+    expect(out.missed).toBe(true);
+    expect(out.snapped).toBeNull();
+    expect(run.shotsLeft).toBe(2);
+  });
+
+  it("헛발도 장전을 넘긴다 — 같은 타일이 손에 남지 않는다", () => {
+    const run = createRun(stage({ shots: 3 }));
+    // 빈 판에서는 pickNext가 늘 0이라 「넘어갔는지」를 0끼리 비교하게 된다.
+    // 손에 든 것과 다음 것을 **다른 값으로 벌려 놓고** 확인한다.
+    run.loaded = 0;
+    run.next = 3;
+    fireAt(run, GEOM, from, 1.2, 0);
+    expect(run.loaded).toBe(3);
+  });
+
+  it("발사 수가 0이면 헛발도 나지 않는다", () => {
+    const run = createRun(stage({ shots: 3 }));
+    run.shotsLeft = 0;
+    const out = fireAt(run, GEOM, from, 1.2, 0);
+    expect(out.missed).toBe(false);
+    expect(run.shotsLeft).toBe(0);
+  });
+});

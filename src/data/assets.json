@@ -35,16 +35,50 @@
       "monkey": "assets/hex/animal-monkey.png"
     },
     "_note": "문자열=스틸 한 장, 배열=이미지 시퀀스. 에디터가 시퀀스를 올리면 배열로 바뀐다. cageLocked는 동물마다 시퀀스, cageOpen은 동물마다 스틸이다.",
-    "horse": "assets/hex/horse-idle.png",
+    "horse": [
+      "assets/hex/horse-idle_f000.webp",
+      "assets/hex/horse-idle_f001.webp",
+      "assets/hex/horse-idle_f002.webp",
+      "assets/hex/horse-idle_f003.webp",
+      "assets/hex/horse-idle_f004.webp",
+      "assets/hex/horse-idle_f005.webp",
+      "assets/hex/horse-idle_f006.webp",
+      "assets/hex/horse-idle_f007.webp",
+      "assets/hex/horse-idle_f008.webp",
+      "assets/hex/horse-idle_f009.webp",
+      "assets/hex/horse-idle_f010.webp",
+      "assets/hex/horse-idle_f011.webp",
+      "assets/hex/horse-idle_f012.webp",
+      "assets/hex/horse-idle_f013.webp",
+      "assets/hex/horse-idle_f014.webp",
+      "assets/hex/horse-idle_f015.webp",
+      "assets/hex/horse-idle_f016.webp",
+      "assets/hex/horse-idle_f017.webp",
+      "assets/hex/horse-idle_f018.webp",
+      "assets/hex/horse-idle_f019.webp",
+      "assets/hex/horse-idle_f020.webp",
+      "assets/hex/horse-idle_f021.webp",
+      "assets/hex/horse-idle_f022.webp",
+      "assets/hex/horse-idle_f023.webp",
+      "assets/hex/horse-idle_f024.webp",
+      "assets/hex/horse-idle_f025.webp",
+      "assets/hex/horse-idle_f026.webp",
+      "assets/hex/horse-idle_f027.webp",
+      "assets/hex/horse-idle_f028.webp",
+      "assets/hex/horse-idle_f029.webp",
+      "assets/hex/horse-idle_f030.webp"
+    ],
+    "horseHold": 8,
     "bg": {
       "board": "assets/hex/bg-board.png",
       "panelLeft": "assets/hex/bg-panel-left.png",
-      "panelRight": "assets/hex/bg-panel-right.png"
+      "panelRight": "assets/hex/bg-panel-right.png",
+      "ingamePanel": "assets/hex/bg-ingame-panel.webp"
     }
   },
   "ui": {
     "_note": "공용 UI 슬롯. 파일이 없으면 코드가 그린 도형으로 폴백한다.",
-    "stageBar": "assets/ui/stage-bar.png",
+    "stageBar": "assets/ui/stage-bar.webp",
     "settingsPanel": "assets/ui/settings-panel.webp",
     "settingsClose": "assets/ui/settings-close.webp",
     "toggleOn": "assets/ui/toggle-on.webp",
@@ -100,23 +134,23 @@
   },
   "collection": {
     "_note": "도감(구출한 동물). 패널 한 장과 동물마다 해제·잠김 카드 두 장.",
-    "panel": "assets/collection/panel.png",
-    "close": "assets/collection/btn-close.png",
+    "panel": "assets/collection/panel.webp",
+    "close": "assets/collection/btn-close.webp",
     "cards": {
-      "rabbit": "assets/collection/card-rabbit.png",
-      "monkey": "assets/collection/card-monkey.png",
-      "deer": "assets/collection/card-deer.png",
-      "sheep": "assets/collection/card-sheep.png",
-      "zebra": "assets/collection/card-zebra.png",
-      "elephant": "assets/collection/card-elephant.png"
+      "rabbit": "assets/collection/card-rabbit.webp",
+      "monkey": "assets/collection/card-monkey.webp",
+      "deer": "assets/collection/card-deer.webp",
+      "sheep": "assets/collection/card-sheep.webp",
+      "zebra": "assets/collection/card-zebra.webp",
+      "elephant": "assets/collection/card-elephant.webp"
     },
     "locked": {
-      "rabbit": "assets/collection/lock-rabbit.png",
-      "monkey": "assets/collection/lock-monkey.png",
-      "deer": "assets/collection/lock-deer.png",
-      "sheep": "assets/collection/lock-sheep.png",
-      "zebra": "assets/collection/lock-zebra.png",
-      "elephant": "assets/collection/lock-elephant.png"
+      "rabbit": "assets/collection/lock-rabbit.webp",
+      "monkey": "assets/collection/lock-monkey.webp",
+      "deer": "assets/collection/lock-deer.webp",
+      "sheep": "assets/collection/lock-sheep.webp",
+      "zebra": "assets/collection/lock-zebra.webp",
+      "elephant": "assets/collection/lock-elephant.webp"
     }
   }
 }
