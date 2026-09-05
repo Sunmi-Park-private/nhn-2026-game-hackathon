@@ -74,6 +74,11 @@
       "panelLeft": "assets/hex/bg-panel-left.png",
       "panelRight": "assets/hex/bg-panel-right.png",
       "ingamePanel": "assets/hex/bg-ingame-panel.webp"
+    },
+    "booster": {
+      "bomb": "assets/hex/booster-bomb.png",
+      "rainbow": "assets/hex/booster-rainbow.png",
+      "horseshoe": "assets/hex/booster-horseshoe.png"
     }
   },
   "ui": {
@@ -92,11 +97,10 @@
   },
   "lobby": {
     "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다. friends는 로비 배경 영상 6종 — 구출 마릿수마다 한 편이다. horse가 0마리(말 혼자), 나머지는 data/animals.ts 순서를 재활용할 뿐이다 — 키의 동물과 그 장면의 동물은 무관하다(scene-3 = 3마리 구출 상태).",
-    "bg": "assets/lobby/bg.png",
+    "bg": "assets/lobby/bg.webp",
     "topStats": "assets/lobby/top-stats.webp",
     "play": "assets/lobby/btn-play.webp",
     "navHome": "assets/lobby/nav-home.webp",
-    "navWorld": "assets/lobby/nav-world.webp",
     "navAnimals": "assets/lobby/nav-animals.webp",
     "navEvents": "assets/lobby/nav-events.webp",
     "friends": {
@@ -107,7 +111,8 @@
       "sheep": "assets/lobby/scene-4.webm",
       "zebra": "assets/lobby/scene-5.webm",
       "elephant": "assets/lobby/scene-6.webm"
-    }
+    },
+    "navRace": "assets/lobby/nav-race.webp"
   },
   "world": {
     "_note": "월드 지도 화면. 배경 한 장이 전부를 그리고, 누를 수 있는 것은 설정과 돌아가기 둘뿐이다.",
@@ -134,7 +139,13 @@
     "sfxRescue": "assets/audio/sfx-rescue.wav",
     "sfxClear": "assets/audio/sfx-clear.wav",
     "sfxFail": "assets/audio/sfx-fail.wav",
-    "sfxTap": "assets/audio/sfx-tap.wav"
+    "sfxTap": "assets/audio/sfx-tap.wav",
+    "bgmRace": "assets/audio/bgm-race.mp3",
+    "sfxWhistle": "assets/audio/sfx-whistle.mp3",
+    "sfxStep": "assets/audio/sfx-step.mp3",
+    "sfxRouletteTick": "assets/audio/sfx-roulette-tick.mp3",
+    "sfxFinish": "assets/audio/sfx-finish.mp3",
+    "sfxRecord": "assets/audio/sfx-record.mp3"
   },
   "collection": {
     "_note": "도감(구출한 동물). 패널 한 장과 동물마다 해제·잠김 카드 두 장.",
@@ -155,6 +166,63 @@
       "sheep": "assets/collection/lock-sheep.webp",
       "zebra": "assets/collection/lock-zebra.webp",
       "elephant": "assets/collection/lock-elephant.webp"
+    }
+  },
+  "race": {
+    "bg": {
+      "selectScene": "assets/race/bg-select.webp",
+      "raceScene": "assets/race/bg-race.webp",
+      "resultScene": "assets/race/bg-result.webp",
+      "trackTile": "assets/race/track-tile.webp",
+      "finish": "assets/race/finish.png"
+    },
+    "ui": {
+      "back": "assets/race/ui-back.png",
+      "gear": "assets/race/ui-gear.webp",
+      "btnSelect": "assets/race/btn-select.webp",
+      "btnRace": "assets/race/btn-race.webp",
+      "podium": "assets/race/ui-podium.png",
+      "btnRetry": "assets/race/btn-retry.png",
+      "btnClose": "assets/race/btn-close.png"
+    },
+    "runners": {
+      "rabbit": "assets/race/run-rabbit.png",
+      "sheep": "assets/race/run-sheep.png",
+      "monkey": "assets/race/run-monkey.png",
+      "zebra": "assets/race/run-zebra.png",
+      "deer": "assets/race/run-deer.png",
+      "elephant": "assets/race/run-elephant.png"
+    },
+    "faces": {
+      "rabbit": "assets/race/face-rabbit.png",
+      "sheep": "assets/race/face-sheep.png",
+      "monkey": "assets/race/face-monkey.png",
+      "zebra": "assets/race/face-zebra.png",
+      "deer": "assets/race/face-deer.png",
+      "elephant": "assets/race/face-elephant.png"
+    },
+    "winner": {
+      "rabbit": "assets/race/winner-rabbit.png",
+      "sheep": "assets/race/winner-sheep.png",
+      "monkey": "assets/race/winner-monkey.png",
+      "zebra": "assets/race/winner-zebra.png",
+      "deer": "assets/race/winner-deer.png",
+      "elephant": "assets/race/winner-elephant.png"
+    },
+    "card": {
+      "grid": "assets/race/card-grid.webp",
+      "on": "assets/race/card-on.png",
+      "off": "assets/race/card-off.png"
+    },
+    "row": {
+      "list": "assets/race/row-list.webp",
+      "first": "assets/race/row-first.png",
+      "rest": "assets/race/row-rest.png"
+    },
+    "medal": {
+      "gold": "assets/race/medal-gold.png",
+      "silver": "assets/race/medal-silver.png",
+      "bronze": "assets/race/medal-bronze.png"
     }
   }
 }

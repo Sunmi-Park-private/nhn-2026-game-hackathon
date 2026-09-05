@@ -3,10 +3,11 @@
 // 부트 체인에서 프롤로그·로딩·타이틀을 뺐다. 셋 다 이 게임의 화면이 아니라
 // 접속자가 1분 가까이 다른 화면을 본 뒤에야 게임에 도착했다.
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
-import { Application, VideoSource } from "pixi.js";
+import { Application, VideoSource, type Texture } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
-import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, worldAssetPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
-import { loadSlots } from "./ui/skin";
+import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
+import { raceAssetPaths } from "./data/raceAssets";
+import { loadSlots, loadTexture } from "./ui/skin";
 import { runLobby } from "./ui/lobbyScreen";
 import { parseProfile, serializeProfile, addClear, PROFILE_KEY, type Profile } from "./engine/profile";
 import { mountLayoutEditor } from "./ui/layoutEditor";
@@ -25,6 +26,17 @@ VideoSource.defaultOptions = {
   muted: true,
   playsinline: true,
 };
+
+/** 동물 id → 프레임 텍스처. 한 장짜리도 목록으로 온다 — 파일이 없는 동물은 키가 빠진다. */
+async function loadRunnerFrames(paths: Record<string, string[]>): Promise<Record<string, Texture[]>> {
+  const ids = Object.keys(paths);
+  const loaded = await Promise.all(
+    ids.map(async (id) => (await Promise.all((paths[id] ?? []).map(loadTexture))).filter((t): t is Texture => t !== null)),
+  );
+  const out: Record<string, Texture[]> = {};
+  ids.forEach((id, i) => { const f = loaded[i]!; if (f.length > 0) out[id] = f; });
+  return out;
+}
 
 async function main(): Promise<void> {
   // 화면 = 전체 16:9 · 중앙 9:16 컬럼(450×800)이 실제 콘텐츠. 논리 높이는 800 고정,
@@ -48,7 +60,8 @@ async function main(): Promise<void> {
   await app.init({
     width: 450,
     height: 800,
-    background: "#f8f5fd",
+    // 에셋을 받는 동안 보이는 색이다. 흰색이면 게임 톤과 어긋나 「깜빡」으로 보인다
+    background: "#241a10",
     antialias: true,
     // 렌더 배율 — 예전엔 항상 2 이상(기기 dpr이 3이면 3)이었는데, 폰에서 프레임버퍼가
     // 1290×2868까지 커져(안티에일리어싱까지) 심하게 버벅였다. 2면 충분히 선명하다.
@@ -62,25 +75,35 @@ async function main(): Promise<void> {
   fit();
   window.addEventListener("resize", fit);
   initAudioUnlock(); // 첫 제스처에서 재생 언락 (자동재생 정책)
-  mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다
-  mountCheatPanel();              // 같은 조건 + devMode. 화면 왼쪽, 배치 패널 반대편이다
 
   // E2E 테스트용 씬 마커 — 현재 단계 노출 (게임 로직에선 미사용)
   const mark = (s: string): void => { (window as unknown as { __scene?: string }).__scene = s; };
 
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
-  const [hexTextures, uiSlots, lobbySlots, worldSlots, eventSlots, collectionSlots, collectionCards, collectionLocked]
+  const [hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, eventSlots, collectionSlots, collectionCards, collectionLocked]
     = await Promise.all([
     loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
     loadSlots(uiAssetPaths),
     loadSlots(lobbyAssetPaths),
-    loadSlots(worldAssetPaths),
+    loadSlots(raceAssetPaths.bg),
+    loadSlots(raceAssetPaths.ui),
+    loadSlots(raceAssetPaths.booster),
+    loadRunnerFrames(raceAssetPaths.runners),
+    loadSlots(raceAssetPaths.faces),
+    loadSlots(raceAssetPaths.winner),
+    loadSlots(raceAssetPaths.card),
+    loadSlots(raceAssetPaths.row),
+    loadSlots(raceAssetPaths.medal),
     loadSlots(eventAssetPaths),
     loadSlots({ panel: collectionAssetPaths.panel, close: collectionAssetPaths.close }),
     loadSlots(collectionAssetPaths.cards),
     loadSlots(collectionAssetPaths.locked),
   ]);
+  // 에셋을 다 받은 뒤에 얹는다 — 먼저 얹으면 빈 캔버스 위에 격자만 뜬다
+  mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다
+  mountCheatPanel();            // 같은 조건 + devMode. 화면 왼쪽, 배치 패널 반대편이다
+
   // 설정창이 쓰는 묶음. 스테이지 화면도 같은 것을 그대로 넘겨받는다.
   const ui = {
     panel: uiSlots.settingsPanel,
@@ -102,12 +125,18 @@ async function main(): Promise<void> {
     icons: {
       topStats: lobbySlots.topStats ?? null,
       navHome: lobbySlots.navHome ?? null,
-      navWorld: lobbySlots.navWorld ?? null,
+      navRace: lobbySlots.navRace ?? null,
       navAnimals: lobbySlots.navAnimals ?? null,
       navEvents: lobbySlots.navEvents ?? null,
     },
+    // 로비 배경은 구출 마릿수마다 도는 영상이다(상류). 월드는 진입점을 끊어 빠졌다.
     scenes: lobbySceneVideoPaths,
-    world: { bg: worldSlots.bg, back: worldSlots.back },
+    race: {
+      bg: raceBg, ui: raceUi, runners: raceRunners,
+      faces: raceFaces, winner: raceWinner,
+      card: raceCard, row: raceRow, medal: raceMedal,
+      booster: raceBooster, settings: ui,
+    },
     event: { bg: eventSlots.bg, close: eventSlots.close, cta: eventSlots.cta },
     collection: {
       panel: collectionSlots.panel,
@@ -132,7 +161,7 @@ async function main(): Promise<void> {
 
   for (;;) {
     mark("lobby");
-    await runLobby(app, profile, lobbyTextures);
+    await runLobby(app, profile, lobbyTextures, (next) => { profile = next; save(); });
 
     mark("game");
     // 마지막 스테이지를 넘으면 처음으로 되돌린다
@@ -140,7 +169,20 @@ async function main(): Promise<void> {
     const stage = stages[profile.stageIndex];
     if (!stage) break; // 스테이지가 하나도 없다 — 로비에 머무를 수 없으니 여기서 끝낸다
 
-    const outcome = await runStageScreen(app, stage, profile.stageIndex, hexTextures, ui);
+    // 레이스로 번 부스터는 이 판에 전부 실린다. 진입 즉시 비워서 다음 판에 또 실리지
+    // 않게 한다 — 남은 것을 돌려주기 시작하면 결과 화면과 저장 양쪽에서 재고를 관리해야 한다.
+    const earned = profile.boosters;
+    const stock = {
+      bomb: 3 + earned.bomb,
+      rainbow: 2 + earned.rainbow,
+      horseshoe: 1 + earned.horseshoe,
+    };
+    if (earned.bomb + earned.rainbow + earned.horseshoe > 0) {
+      profile = { ...profile, boosters: { bomb: 0, rainbow: 0, horseshoe: 0 } };
+      save();
+    }
+
+    const outcome = await runStageScreen(app, stage, profile.stageIndex, hexTextures, ui, stock);
     if (outcome.result === "cleared") {
       const last = profile.stageIndex >= stages.length - 1;
       profile = addClear(profile, outcome.rescued, outcome.horseshoes);

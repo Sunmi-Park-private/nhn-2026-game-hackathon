@@ -9,13 +9,16 @@ import { Assets, Container, Graphics, Sprite, Text, VideoSource, type Ticker, ty
  *  Pixi가 그 HTML을 이미지로 디코드하려다 멈출 수 있다 — 화면 전체를 막지 않는다. */
 const LOAD_TIMEOUT_MS = 4000;
 
-/** 개발 중에는 매번 새로 받는다.
- *  에디터로 같은 경로에 덮어써도 브라우저가 옛 그림을 들고 있으면 「업로드가 안 먹는다」로 보인다.
- *  빌드본에는 붙지 않는다 — 파일 이름이 곧 버전이다. */
-function bust(url: string): string {
-  return import.meta.env.DEV ? `${url}${url.includes("?") ? "&" : "?"}v=${BOOT}` : url;
-}
-const BOOT = Date.now();
+/** 에셋 경로는 그대로 쓴다.
+ *
+ *  전에는 개발 중에 `?v=<부팅시각>`을 붙여 매번 새로 받게 했다. 에디터로 같은 경로에
+ *  덮어썼을 때 옛 그림이 남는 것을 막으려던 것인데, **부팅마다 URL이 달라져 캐시가
+ *  한 번도 안 맞았다** — 새로고침할 때마다 45MB를 통째로 다시 받았고, 원격(터널)에서
+ *  일하는 디자이너에게는 그게 몇 초가 됐다.
+ *
+ *  dev 서버가 이미 `Cache-Control: no-cache` + ETag를 준다. 브라우저가 매번 물어보고
+ *  안 바뀌었으면 304(본문 0바이트), 덮어썼으면 200으로 새 그림을 받는다.
+ *  막으려던 문제는 그 장치가 이미 막고 있었다. */
 
 /** 영상은 상한을 길게 준다. 이 상한은 「없는 파일 때문에 화면이 멎지 않게」 하려고
  *  둔 것인데(스틸 한 장 기준 4초), 전체화면 영상은 용량이 커서 4초 안에 못 올 수
@@ -29,7 +32,7 @@ export async function loadTexture(url: string | undefined, timeoutMs = LOAD_TIME
     timer = setTimeout(() => resolve(null), timeoutMs);
   });
   try {
-    return await Promise.race([Assets.load<Texture>(bust(url)).catch(() => null), timeout]);
+    return await Promise.race([Assets.load<Texture>(url).catch(() => null), timeout]);
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
@@ -137,7 +140,10 @@ export function makeButton(o: ButtonOpts): Container {
       .stroke({ width: 2, color: 0xffffff, alpha: 0.25 });
     box.addChild(g);
   }
-  if (o.label) {
+  // 라벨은 **아트가 없을 때만** 그린다. 아트 위에 덧그리면 두 개로 보인다 —
+  // 인게임 톱니가 그랬다: btn-settings.webp 위에 「⚙」 글자가 얹혀 있었다.
+  // 이 레포의 다른 화면(hotspot·ArtButton)도 같은 규칙이다.
+  if (o.label && !o.tex) {
     const t = new Text({
       text: o.label,
       style: { fontSize: Math.min(18, o.h * 0.42), fill: 0xffffff, fontWeight: "bold" },

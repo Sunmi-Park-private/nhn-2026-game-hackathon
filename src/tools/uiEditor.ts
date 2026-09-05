@@ -452,11 +452,18 @@ function renderStage(): void {
 
 function renderTabs(): void {
   tabs.replaceChildren();
-  const mk = (label: string, on: boolean, onClick: () => void): void => {
+  const mk = (label: string, on: boolean, onClick: () => void, lockedWhy?: string): void => {
     const b = $("button",
-      `background:${on ? "#c98a3c" : "#2b1d10"};color:${on ? "#241a10" : "#e8dcc8"};border:1px solid #4a3320;border-radius:6px;padding:7px 14px;font-weight:800;cursor:pointer;font-size:13px`,
+      lockedWhy !== undefined
+        ? "background:#1d150c;color:#6b5a44;border:1px dashed #3a2b1a;border-radius:6px;padding:7px 14px;font-weight:800;cursor:not-allowed;font-size:13px;text-decoration:line-through"
+        : `background:${on ? "#c98a3c" : "#2b1d10"};color:${on ? "#241a10" : "#e8dcc8"};border:1px solid #4a3320;border-radius:6px;padding:7px 14px;font-weight:800;cursor:pointer;font-size:13px`,
       label);
-    b.onclick = onClick;
+    if (lockedWhy !== undefined) {
+      b.title = lockedWhy;
+      (b as HTMLButtonElement).disabled = true;
+    } else {
+      b.onclick = onClick;
+    }
     tabs.appendChild(b);
   };
   // 탭 상태가 boolean 여러 개라 켤 때 나머지를 반드시 끈다 — 하나라도 빠지면 두 탭이 함께 켜진다
@@ -469,31 +476,70 @@ function renderTabs(): void {
   state.areas.forEach((a, i) => {
     mk(`${a.label} (${a.slots.length})`, onArea && i === state.areaIndex, () => {
       state.areaIndex = i; only(null); state.selected = null; renderAll();
-    });
+    }, a.disabled === true ? "게임에서 들어갈 길이 없는 화면입니다. 좌표는 지우지 않고 남겨 뒀습니다." : undefined);
   });
   mk(`게임 에셋 (${state.uploads.length})`, state.assetsTab, () => { only("assets"); renderAll(); });
   mk(`영상 (${state.videos.length})`, state.videoTab, () => { only("video"); renderAll(); });
   mk(`오디오 (${state.audios.length})`, state.audioTab, () => { only("audio"); renderAll(); });
 }
 
-/** 영역 탭에만 붙는 묶음 업로드 판. 지금은 로비의 배경 영상 6칸뿐이다.
- *  전체화면이라 좌표는 손댈 것이 없고, 영상만 여기서 한 번에 올린다. */
+/** 영역 탭 아래에 함께 뜨는 업로드 묶음.
+ *
+ *  두 종류가 있다. 하나는 **슬롯에 붙은 것**(로비 배경 영상 — 접두사로 모은다),
+ *  다른 하나는 **자리가 코드에 고정된 것**(레이스 배경·러너 — 「게임 에셋」 탭에 다 모여
+ *  있지만 그 탭이 지금 44개다). 그 화면을 만드는 사람이 자기 화면의 에셋을 거기서 찾아
+ *  헤매지 않도록 **영역 탭에서 바로 올릴 수 있게** 같은 항목을 여기에도 띄운다(같은 슬롯이다). */
+const AREA_UPLOAD_GROUPS: Record<string, { groups: string[]; note: string }> = {
+  raceSelect: {
+    groups: ["레이스 · 얼굴(정면)", "레이스 · 카드/행 판"],
+    note: "카드 6장은 「동물 카드 6종」 슬롯에 **한 장으로** 올립니다 — 위 스테이지의 그 칸에 "
+      + "떨어뜨리세요. 여기 얼굴(정면)은 카드 이미지를 안 올렸을 때 코드가 칸마다 채우는 그림이고, "
+      + "결과 화면의 순위 6행에도 같은 파일이 쓰입니다.",
+  },
+  raceTrack: {
+    groups: ["레이스 배경", "레이스 · 달리기(옆모습)"],
+    note: "트랙 바닥은 가로로 이어 붙여 흐릅니다 — **좌우 끝이 맞물려야** 이음매가 안 보입니다. "
+      + "달리기는 **오른쪽을 보는 옆모습**이고 시퀀스 여러 장을 올리면 걸음이 돕니다(한 장이면 스틸). "
+      + "레인 번호 깃발과 START는 경주 배경에 그려 넣습니다 — 코드가 그리지 않습니다.",
+  },
+  raceResult: {
+    groups: ["레이스 · 얼굴(정면)", "레이스 · 1위 축하(선택)", "레이스 · 메달", "레이스 · 카드/행 판", "부스터 아이콘"],
+    note: "순위 6행 판은 「순위 6행 판」 슬롯에 **한 장으로** 올립니다 — 판과 메달까지 구워서 주세요. "
+      + "얼굴(정면)은 순위 자리마다 코드가 그 등수의 동물로 채웁니다: 1위 자리에 1등이 옵니다. "
+      + "1위 축하는 없으면 얼굴을 크게 씁니다(선택). 부스터 아이콘은 갱신 보상 표시에 쓰입니다.",
+  },
+};
+
+function panel(note: string, items: UiUpload[], cell: number): HTMLElement {
+  const wrap = $("div", "background:#241a10;border:1px solid #4a3320;border-radius:8px;padding:12px");
+  wrap.appendChild($("div", "color:#a8987c;font-size:11px;margin-bottom:8px", note));
+  wrap.appendChild(uploadGrid(items, cell, () => renderStage()));
+  return wrap;
+}
+
 function renderExtras(): void {
   extras.replaceChildren();
+
+  // 로비 배경 영상 — 전체화면이라 좌표는 손댈 것이 없고, 영상만 여기서 한 번에 올린다
   const scenes: UiUpload[] = area().slots
     .filter((s) => s.asset?.startsWith(SCENE_PREFIX) === true)
     .map((s) => ({ label: s.label.replace(/^로비 배경 · /, ""), asset: s.asset!, group: "로비 배경 영상" }));
-  if (scenes.length === 0) return;
+  if (scenes.length > 0) {
+    extras.appendChild(panel(
+      "구출한 마릿수마다 한 편입니다 — 화면 전체를 덮는 webm 루프이고, 그 장면에는 그때까지 "
+      + "구한 동물이 누적해 등장합니다. 9:16 · 1080×1920 · 무음 · 첫 프레임과 끝 프레임이 이어져야 "
+      + "끊김 없이 돕니다. 칸 이름의 동물과 그 장면의 동물은 무관합니다 — 「3마리 구출」 칸에는 "
+      + "세 마리가 있는 장면을 올립니다. 안 올린 칸은 그 이하 중 있는 것으로 내려가고, "
+      + "하나도 없으면 스틸 배경이 그대로 남습니다. mp4로 올려도 webm으로 자동 변환됩니다.",
+      scenes, 130));
+  }
 
-  const wrap = $("div", "background:#241a10;border:1px solid #4a3320;border-radius:8px;padding:12px");
-  wrap.appendChild($("div", "color:#a8987c;font-size:11px;margin-bottom:8px",
-    "구출한 마릿수마다 한 편입니다 — 화면 전체를 덮는 webm 루프이고, 그 장면에는 그때까지 "
-    + "구한 동물이 누적해 등장합니다. 9:16 · 1080×1920 · 무음 · 첫 프레임과 끝 프레임이 이어져야 "
-    + "끊김 없이 돕니다. 칸 이름의 동물과 그 장면의 동물은 무관합니다 — 「3마리 구출」 칸에는 "
-    + "세 마리가 있는 장면을 올립니다. 안 올린 칸은 그 이하 중 있는 것으로 내려가고, "
-    + "하나도 없으면 스틸 배경이 그대로 남습니다. mp4로 올려도 webm으로 자동 변환됩니다."));
-  wrap.appendChild(uploadGrid(scenes, 130, () => renderStage()));
-  extras.appendChild(wrap);
+  // 자리가 코드에 고정된 에셋 — 그 화면 탭에서 바로 올린다
+  const own = AREA_UPLOAD_GROUPS[area().id];
+  if (own) {
+    const items = state.uploads.filter((u) => u.group !== undefined && own.groups.includes(u.group));
+    if (items.length > 0) extras.appendChild(panel(own.note, items, 110));
+  }
 }
 
 function renderList(): void {

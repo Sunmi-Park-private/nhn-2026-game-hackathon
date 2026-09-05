@@ -3,7 +3,7 @@
 import { Application, Container, Graphics, Sprite, type FederatedPointerEvent, type Texture } from "pixi.js";
 import { createRun, fireAt, isCleared, isFailed } from "../../engine/hex/stageRun";
 import { simulateShot } from "../../engine/hex/shot";
-import type { RunState, StageDef } from "../../engine/hex/types";
+import type { Boosters, RunState, StageDef } from "../../engine/hex/types";
 import { fullRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
 import { BOARD, launchOrigin, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
@@ -125,8 +125,10 @@ export async function runStageScreen(
   stageIndex: number,
   textures: StageTextures,
   ui: StageUiTextures = {},
+  /** 이 판에 실을 부스터. 안 넘기면 createRun의 기본 재고를 쓴다 */
+  stock?: Boosters,
 ): Promise<StageOutcome> {
-  const state: RunState = createRun(stage);
+  const state: RunState = createRun(stage, Math.random, stock);
 
   const layer = new Container();
   layer.addChild(buildBackground(textures.bg));
