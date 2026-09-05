@@ -12,6 +12,7 @@ import { runLobby } from "./ui/lobbyScreen";
 import { parseProfile, serializeProfile, addClear, PROFILE_KEY, type Profile } from "./engine/profile";
 import { mountLayoutEditor } from "./ui/layoutEditor";
 import { mountCheatPanel } from "./ui/cheatPanel";
+import { isDevMode } from "./ui/devMode";
 import { playVideo } from "./ui/videoScreen";
 import { initAudioUnlock } from "./ui/audio";
 import { setStageExtra, setStageExtraX, coverBg, fitCover } from "./ui/stage";
@@ -196,6 +197,21 @@ async function main(): Promise<void> {
 
   /** 게임오버 창에서 「다시 도전」을 골랐다 — 로비를 거치지 않고 같은 판을 다시 연다. */
   let retry = false;
+
+  // 치트 — `?stage=N`이면 첫 바퀴의 로비를 건너뛰고 N판으로 바로 간다(규약 5조: dev 모드만).
+  // 한 번 쓰고 주소에서 지운다 — 남겨 두면 그 뒤 모든 새로고침이 로비를 건너뛴다.
+  if (isDevMode()) {
+    const params = new URLSearchParams(location.search);
+    const n = Number(params.get("stage"));
+    if (Number.isInteger(n) && n >= 1 && n <= stages.length) {
+      profile = { ...profile, stageIndex: n - 1 };
+      save();
+      retry = true;
+      params.delete("stage");
+      const q = params.toString();
+      history.replaceState(null, "", `${location.pathname}${q ? `?${q}` : ""}${location.hash}`);
+    }
+  }
   for (;;) {
     if (!retry) {
       mark("lobby");
