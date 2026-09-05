@@ -777,5 +777,17 @@
       "silver": "assets/race/medal-silver.png",
       "bronze": "assets/race/medal-bronze.png"
     }
+  },
+  "story": {
+    "_note": "스테이지 사이 대사창. 붉은말 한 장과 동물 6종 — 없으면 인게임 시퀀스 첫 장으로 폴백한다.",
+    "horse": "assets/story/horse.webp",
+    "animals": {
+      "rabbit": "assets/story/animal-rabbit.webp",
+      "monkey": "assets/story/animal-monkey.webp",
+      "deer": "assets/story/animal-deer.webp",
+      "sheep": "assets/story/animal-sheep.webp",
+      "zebra": "assets/story/animal-zebra.webp",
+      "elephant": "assets/story/animal-elephant.webp"
+    }
   }
 }
