@@ -40,7 +40,6 @@ const PENDING = new Set([
   "lobby.stage4",
   "lobby.stage5",
   "lobby.stage6",
-  "video.ending",
   // 대사창 초상 — 에디터 「대사」 탭에서 올린다. 없으면 인게임 그림으로 내려가므로
   // 비어 있어도 화면은 뜬다. 아트가 오면 그 줄부터 지운다.
   "story.horse",
