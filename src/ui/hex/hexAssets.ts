@@ -17,13 +17,18 @@ async function loadFrames(urls: readonly string[]): Promise<Texture[]> {
   return out.filter((t): t is Texture => t !== null);
 }
 
-/** 개발 중에는 매번 새로 받는다.
- *  에디터로 같은 경로에 덮어써도 브라우저가 옛 그림을 들고 있으면 「업로드가 안 먹는다」로 보인다.
- *  빌드본에는 붙지 않는다 — 파일 이름이 곧 버전이다. */
-function bust(url: string): string {
-  return import.meta.env.DEV ? `${url}${url.includes("?") ? "&" : "?"}v=${BOOT}` : url;
-}
-const BOOT = Date.now();
+/** 에셋 경로는 그대로 쓴다 — `skin.ts`와 같은 이유다.
+ *
+ *  전에는 개발 중에 `?v=<부팅시각>`을 붙여 매번 새로 받게 했다. 에디터로 같은 경로에
+ *  덮어썼을 때 옛 그림이 남는 것을 막으려던 것인데, **부팅마다 URL이 달라져 캐시가
+ *  한 번도 안 맞았다.**
+ *
+ *  인게임은 로비보다 훨씬 무겁다 — 타일 6종 · 창살 · 붉은말 시퀀스 · 2MB 배경에
+ *  **구출 동물 6종 186장(45MB)** 이 더해진다. 새로고침마다 그걸 통째로 다시 받았다.
+ *
+ *  dev 서버가 이미 `Cache-Control: no-cache` + ETag를 준다. 브라우저가 매번 물어보고
+ *  안 바뀌었으면 304(본문 0바이트), 덮어썼으면 200으로 새 그림을 받는다.
+ *  막으려던 문제는 그 장치가 이미 막고 있었다. */
 
 async function load(url: string | undefined): Promise<Texture | null> {
   if (!url) return null;
@@ -33,7 +38,7 @@ async function load(url: string | undefined): Promise<Texture | null> {
   });
   try {
     return await Promise.race([
-      Assets.load<Texture>(bust(url)).catch(() => null),
+      Assets.load<Texture>(url).catch(() => null),
       timeout,
     ]);
   } finally {
