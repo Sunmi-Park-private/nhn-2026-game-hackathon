@@ -18,6 +18,8 @@ import { initAudioUnlock } from "./ui/audio";
 import { setStageExtra, setStageExtraX, coverBg, fitCover } from "./ui/stage";
 import { uiAreas } from "./data/uiLayout";
 import { loadProgress, onLoadProgress } from "./ui/loadProgress";
+import { openLoadingScreen } from "./ui/loadingScreen";
+import { LOADING_AREA, LOADING_FALLBACK } from "./ui/loadingLayout";
 import { stages } from "./data/stages";
 import { runStageScreen } from "./ui/hex/stageScreen";
 import { openGameOver } from "./ui/gameOverScreen";
@@ -101,18 +103,32 @@ async function main(): Promise<void> {
   // E2E 테스트용 씬 마커 — 현재 단계 노출 (게임 로직에선 미사용)
   const mark = (s: string): void => { (window as unknown as { __scene?: string }).__scene = s; };
 
-  // 받는 동안 숫자를 보인다. 느린 회선(터널·모바일)에서는 이 자리가 몇 분이라,
-  // 갈색 단색만 있으면 「멎었다」로 보인다 — 로더의 상한을 없앤 대신 여기서 알린다.
-  const loading = document.createElement("div");
-  loading.style.cssText = "position:fixed;left:0;right:0;bottom:12%;text-align:center;pointer-events:none;"
-    + "color:#e8dcc8;font:14px/1.4 system-ui,sans-serif;text-shadow:0 1px 2px #000";
+  // 인트로 — 파일이 없으면 그냥 지나간다. 에디터로 배치를 맞추는 중에는 방해가 되므로 건너뛴다.
+  // 에디터 「인트로」 탭에서 올린다(video.intro).
+  // **이 동안 에셋을 받지 않는다.** 뒤에서 100MB를 받으면 실제 빌드에서 영상이 버벅였다 —
+  // 에셋은 아래 로딩 화면이 뜬 뒤에 시작한다.
+  if (!new URLSearchParams(location.search).has("editor")) {
+    mark("intro");
+    await playVideo(videoAssetPaths.intro);
+  }
+
+  // 받는 동안 로딩 화면(배경 영상 + 게이지)을 보인다. 느린 회선(터널·모바일)에서는
+  // 이 자리가 몇 분이라, 갈색 단색만 있으면 「멎었다」로 보인다 — 로더의 상한을 없앤 대신 여기서 알린다.
+  // 패널 자리는 uiLayout.json의 loading 영역(에디터 「게임시작 로딩」 탭)이 정한다.
+  const loadingSlot = slot(LOADING_AREA, "panel");
+  const loadingScreen = openLoadingScreen({
+    video: videoAssetPaths.loading,
+    panel: loadingSlot ?? LOADING_FALLBACK.panel,
+    barColor: loadingSlot?.color,
+    fontSize: loadingSlot?.fontSize,
+    hidePanel: loadingSlot?.hidden === true,
+  });
   const paintLoading = (): void => {
     const p = loadProgress();
-    loading.textContent = `불러오는 중… ${p.settled} / ${p.started}`;
+    loadingScreen.update(p.settled, p.started);
   };
   const offProgress = onLoadProgress(paintLoading);
   paintLoading();
-  document.body.appendChild(loading);
 
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
@@ -136,7 +152,7 @@ async function main(): Promise<void> {
     loadSlots(collectionAssetPaths.locked),
   ]);
   offProgress();
-  loading.remove();
+  loadingScreen.close();
   // 로비의 bg 슬롯을 에디터에서 끄면 여기서도 빠진다 — 같은 아트를 두 곳에서 따로 끌 이유가 없다
   const bgOff = uiAreas.find((a) => a.id === "lobby")?.slots.find((s) => s.id === "bg")?.hidden === true;
   if (lobbySlots.bg && !bgOff) {
@@ -195,12 +211,6 @@ async function main(): Promise<void> {
     // 저장이 막혀 있어도(사파리 프라이빗 등) 게임은 계속 굴러가야 한다
     try { localStorage.setItem(PROFILE_KEY, serializeProfile(profile)); } catch { /* 무시 */ }
   };
-
-  // 인트로 — 파일이 없으면 그냥 지나간다. 에디터로 배치를 맞추는 중에는 방해가 되므로 건너뛴다.
-  if (!new URLSearchParams(location.search).has("editor")) {
-    mark("intro");
-    await playVideo(videoAssetPaths.intro);
-  }
 
   /** 게임오버 창에서 「다시 도전」을 골랐다 — 로비를 거치지 않고 같은 판을 다시 연다. */
   let retry = false;

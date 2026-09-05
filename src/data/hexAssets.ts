@@ -152,8 +152,9 @@ export const eventAssetPaths = pick(manifestJson, "event", EVENT_SLOT_IDS);
 
 // ── 영상 ────────────────────────────────────────────────────
 // 인트로(프롤로그)와 엔딩. 세로 화면 전체를 덮는다. 파일이 없으면 그 단계를 건너뛴다.
+// loading은 에셋을 받는 동안 도는 배경 루프다 — 없으면 패널만 뜬다(ui/loadingScreen.ts).
 
-export const VIDEO_SLOT_IDS = ["intro", "ending"] as const;
+export const VIDEO_SLOT_IDS = ["intro", "ending", "loading"] as const;
 export type VideoSlotId = (typeof VIDEO_SLOT_IDS)[number];
 
 export const videoAssetPaths = pick(manifestJson, "video", VIDEO_SLOT_IDS);

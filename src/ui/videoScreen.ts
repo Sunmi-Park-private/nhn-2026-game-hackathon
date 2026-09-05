@@ -9,8 +9,9 @@
 // 막히는 것보다 버튼을 내주는 편이 낫다.
 import { BASE_W, BASE_H } from "./stage";
 
-/** 캔버스가 그려진 자리에 정확히 겹치도록 콘텐츠 컬럼(450×800)의 화면 좌표를 구한다. */
-function boxRect(): { left: number; top: number; width: number; height: number } | null {
+/** 캔버스가 그려진 자리에 정확히 겹치도록 콘텐츠 컬럼(450×800)의 화면 좌표를 구한다.
+ *  로딩 화면(loadingScreen.ts)도 같은 자리를 덮으므로 함께 쓴다. */
+export function contentBoxRect(): { left: number; top: number; width: number; height: number } | null {
   const cv = document.querySelector("canvas");
   if (!cv) return null;
   const r = cv.getBoundingClientRect();
@@ -59,7 +60,7 @@ export function playVideo(url: string | undefined, label = "건너뛰기"): Prom
     const skip = btn(label, 16);
 
     const place = (): void => {
-      const r = boxRect();
+      const r = contentBoxRect();
       if (!r) return;
       host.style.left = `${r.left}px`;
       host.style.top = `${r.top}px`;
