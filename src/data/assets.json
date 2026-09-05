@@ -73,7 +73,7 @@
       "board": "assets/hex/bg-board.png",
       "panelLeft": "assets/hex/bg-panel-left.png",
       "panelRight": "assets/hex/bg-panel-right.png",
-      "ingamePanel": "assets/hex/bg-ingame-panel.png"
+      "ingamePanel": "assets/hex/bg-ingame-panel.webp"
     }
   },
   "ui": {
