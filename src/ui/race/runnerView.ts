@@ -46,6 +46,9 @@ export function createRunnerView(o: RunnerViewOpts): RunnerView {
     body.addChild(g);
     const t = new Text({ text: o.glyph, style: { fontSize: o.size * 0.5 } });
     t.anchor.set(0.5);
+    // 이모지 옆모습은 전부 왼쪽을 본다 — 달리는 방향이 오른쪽이므로 뒤집는다.
+    // **아트에는 적용하지 않는다**: run-<동물>.png는 처음부터 오른쪽을 보고 온다(ART_SPEC).
+    t.scale.x = -1;
     body.addChild(t);
   } else {
     sprites[0]!.visible = true;
