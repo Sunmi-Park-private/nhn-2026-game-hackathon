@@ -14,10 +14,11 @@ import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { makeSequence, type SequenceView } from "../sequence";
 import { fitContain } from "../skin";
 import { measureCageArt, hexArtBox, type CageArtFit } from "./cageArtFit";
-import { cellToScreen, penEdges, HEX_SIZE, CELL_W, PEN } from "./geom";
+import { cellToScreen, HEX_SIZE, CELL_W, PEN } from "./geom";
 import {
+  escapeExitX,
   cageShakeX, cageDropY, cageDropRot, cageDropAlpha, CAGE_TOTAL_MS,
-  spawnEscape, stepEscape, ANIMAL_COUNT, LAND_SCALE,
+  spawnEscape, stepEscape, ANIMAL_COUNT,
   type EscapeArena,
 } from "./escapeMotion";
 import type { Cage, RunState } from "../../engine/hex/types";
@@ -414,8 +415,8 @@ export function createCageView(textures: CageTextures): CageView {
     const arena: EscapeArena = {
       anchor,
       floorY: FLOOR_Y,
-      // 우리 오른쪽 벽을 지나 몸통 하나만큼 더 간다 — 경계에서 사라지면 잘려 보인다
-      exitX: penEdges(FLOOR_Y).right + CELL_W * LAND_SCALE,
+      // 콘텐츠 컬럼을 벗어나면 좌우 고정배경 위다 — 거기까지만 걷는다(escapeExitX)
+      exitX: escapeExitX(),
     };
 
     // 배율 1이 격자 한 칸이 되도록 한 칸 크기로 만든다. 시퀀스는 계속 돈다.

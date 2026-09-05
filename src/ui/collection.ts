@@ -13,6 +13,7 @@ import { slot, type UiSlot } from "../data/uiLayout";
 import { buzz } from "./settings";
 import { playSfx } from "./audio";
 import { editable, clearEditable } from "./layoutEditor";
+import { applySlotHitArea } from "./slotHitRect";
 
 const AREA = "collection";
 
@@ -182,6 +183,7 @@ export function openCollection(
     close.on("pointertap", finish);
     root.addChild(close);
     editable(AREA, cx, close);
+    applySlotHitArea(close, cx); // 배율이 히트 영역까지 키우지 않게
 
     veil.on("pointertap", finish);
   });

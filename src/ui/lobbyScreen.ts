@@ -8,6 +8,7 @@
 // 아트가 없으면 자리와 이름이 보이도록 폴백을 그린다.
 import { Application, Container, Graphics, Text, type Texture } from "pixi.js";
 import { BASE_W, stageTop, stageHeight, coverBox, contentRect } from "./stage";
+import { applySlotHitArea } from "./slotHitRect";
 import { fitSprite, loadTexture, playVideoTexture, VIDEO_LOAD_TIMEOUT_MS } from "./skin";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection, type CollectionTextures } from "./collection";
@@ -97,6 +98,11 @@ function hotspot(
   if (onTap) {
     c.eventMode = "static";
     c.cursor = "pointer";
+    // 터치 영역을 **슬롯 상자 그대로** 못박는다. 자식으로 둔 투명 사각형은 노드에 걸린
+    // 배율(nav 4종은 2.3)에 함께 끌려가 96×50이 220×115가 됐고, 겹치면 나중에 붙은
+    // 것이 잡히므로 HOME을 눌러도 RACE가 열렸다. editable() 뒤에 읽어야 pivot·배율이
+    // 이미 입혀진 값이다.
+    applySlotHitArea(c, b);
     c.on("pointertap", () => { buzz(); playSfx("audio.sfxTap"); onTap(); });
     c.on("pointerdown", () => { c.alpha = 0.78; });
     const up = (): void => { c.alpha = 1; };
