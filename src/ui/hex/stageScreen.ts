@@ -4,7 +4,7 @@ import { Application, Container, Graphics, Sprite, type FederatedPointerEvent, t
 import { createRun, fireAt, isCleared, isFailed, type ShotOutcome } from "../../engine/hex/stageRun";
 import { simulateShot } from "../../engine/hex/shot";
 import type { Boosters, RunState, StageDef } from "../../engine/hex/types";
-import { contentRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
+import { contentRect, coverBox, stageLeft, stageTop, stageHeight, stageWidth, BASE_W, BASE_H } from "../stage";
 import { BOARD, ROW_H, cellToScreen, launchOrigin, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
 import { createTileDebris } from "./tileDebris";
@@ -16,6 +16,8 @@ import { playArmorHits, type ArmorHit } from "./armorFx";
 import { shakeX, slideY, slideDone } from "./pushMotion";
 import { createLauncher } from "./launcher";
 import { createDragAim } from "./dragAim";
+import { createTutorialCoach } from "../../engine/tutorialCoach";
+import { createCoachBubble, type CoachBubble } from "./coachBubble";
 import { createPowerGauge } from "./powerGauge";
 import { createPullArea } from "./pullArea";
 import { makeButton } from "../skin";
@@ -322,6 +324,8 @@ export async function runStageScreen(
         horseshoes: state.horseshoes,
       };
       cancelAnimationFrame(pushFrame);
+      // 말풍선의 rAF는 layer.destroy가 꺼 주지 않는다 — 직접 끈다
+      bubble?.destroy();
       failMark.destroy();
       fx.destroy({ children: true });
       input.off("pointerdown", onDown);
@@ -342,7 +346,7 @@ export async function runStageScreen(
     }
 
     function onDown(e: FederatedPointerEvent): void {
-      if (busy) return;
+      if (busy || coachBlocking()) return;
       const p = e.getLocalPosition(layer);
       aimer.down(p);
       launcher.setAim(aimer.current(), state.cells);
@@ -351,7 +355,7 @@ export async function runStageScreen(
     }
 
     function onMove(e: FederatedPointerEvent): void {
-      if (busy) return;
+      if (busy || coachBlocking()) return;
       // layer는 화면 폭에 따라 이동·스케일된 좌표계라 e.getLocalPosition로 변환해야
       // 조준 앵커·경로 좌표와 맞아떨어진다 — 렌더러 좌표를 그대로 쓰면 어긋난다.
       const p = e.getLocalPosition(layer);
@@ -361,7 +365,7 @@ export async function runStageScreen(
     }
 
     async function onUp(e: FederatedPointerEvent): Promise<void> {
-      if (busy || finished) return;
+      if (busy || finished || coachBlocking()) return;
       const aim = aimer.up(e.getLocalPosition(layer));
       gauge.set(null);
       pullArea.setActive(false);
@@ -429,6 +433,14 @@ export async function runStageScreen(
           finish("failed");
           return;
         }
+
+        // 코칭은 연출이 다 끝난 뒤에 말을 건다 — 파편이 굴러가는 위로 말풍선이
+        // 겹치면 방금 무슨 일이 일어났는지가 안 보인다.
+        if (coach) {
+          coach.observe("shot");
+          if (outcome.steps.length > 0) coach.observe("merge");
+          bubble?.sync(coach.showing());
+        }
       } finally {
         busy = false;
       }
@@ -443,7 +455,7 @@ export async function runStageScreen(
     const gear = makeButton({
       label: "⚙", w: gearBox.w, h: gearBox.h, tex: ui.settingsButton, fill: 0x4a3320,
       onTap: () => {
-        if (busy || finished) return;
+        if (busy || finished || coachBlocking()) return;
         buzz();
         // 진짜 멈춘다 — 막이 입력을 먹는 것만으로는 케이지 흔들림과 조준선이 계속 돈다.
         // 「멈춘 게임」 위에서 뒤 배경만 살아 움직이면 설정창이 겹쳐 뜬 것으로만 읽힌다.
@@ -477,6 +489,44 @@ export async function runStageScreen(
     gear.y = stageTop() + gearBox.y + gearBox.h / 2;
     layer.addChild(gear);
     editable("ingame", gearBox, gear);
+
+    // ── 첫 판 코칭 ──
+    // 붉은말이 3단계로 규칙을 알려준다. **첫 스테이지에서만** 산다 —
+    // 진행도가 아니라 stageIndex로 판단하므로 저장 스키마를 건드리지 않는다.
+    // 말풍선이 떠 있는 동안은 판 조작을 막는다. 막(veil)이 맨 위에서 포인터를 먹지만
+    // globalpointermove는 히트테스트를 타지 않으므로 입력 쪽에도 빗장을 따로 건다.
+    const coach = stageIndex === 0 ? createTutorialCoach() : null;
+    let bubble: CoachBubble | null = null;
+    /** 말풍선이 떠 있다 = 조작 금지 */
+    const coachBlocking = (): boolean => coach !== null && coach.showing() !== null;
+
+    if (coach) {
+      // 좌표는 여기서 만들어 넘긴다 — 말풍선 쪽이 uiLayout도 판 좌표계도 모르게 한다
+      const horseBox = slot("ingame", "horse");
+      const horsePoint = horseBox
+        ? { x: horseBox.x + horseBox.w / 2, y: stageTop() + horseBox.y + 8 }
+        : { x: launchOrigin().x, y: launchOrigin().y - 150 };
+      const firstCage = state.cages[0];
+      const cageCells = firstCage ? firstCage.cells.map(cellToScreen) : [];
+      const cagePoint = cageCells.length > 0
+        ? {
+            x: cageCells.reduce((a, p) => a + p.x, 0) / cageCells.length,
+            y: cageCells.reduce((a, p) => a + p.y, 0) / cageCells.length,
+          }
+        : null;
+      bubble = createCoachBubble({
+        targets: { horse: horsePoint, cage: cagePoint },
+        screen: { x: stageLeft(), y: stageTop(), w: stageWidth(), h: stageHeight() },
+        onTap: () => {
+          if (finished) return;
+          coach.dismiss();
+          bubble?.sync(coach.showing());
+        },
+      });
+      // 톱니보다 뒤에 붙인다 — 막이 설정 버튼까지 덮어야 「막았다」가 성립한다
+      layer.addChild(bubble.root);
+      bubble.sync(coach.showing());
+    }
 
     input.on("pointerdown", onDown);
     input.on("pointermove", onMove);
