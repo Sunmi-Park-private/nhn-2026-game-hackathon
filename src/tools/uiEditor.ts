@@ -15,6 +15,7 @@ import { uiAreas, uiUploads, uiVideos, uiAudios, sameAreas, parseAreas, type UiA
 import assetsJson from "../data/assets.json";
 import { frameIndex } from "../data/hexAssets";
 import { createHistory, restoreInto, type History } from "../ui/layoutHistory";
+import { hasEditorServer, NO_EDITOR_SERVER } from "../ui/editorServer";
 
 const W = 450;
 const H = 800;
@@ -152,6 +153,13 @@ const stageWrap = $("div", `position:relative;width:${W * SCALE}px;height:${H * 
 const side = $("div", "flex:1 1 380px;min-width:340px;max-width:560px");
 body.append(stageWrap, side);
 app.append(head, tabs, body);
+// 빌드본(npm run share)에서 /ui.html을 열면 저장·업로드 서버가 없다. 카드마다
+// 「실패: SyntaxError …」가 뜨기 전에 맨 위에서 한 번 말한다.
+if (!hasEditorServer()) {
+  head.prepend($("div",
+    "background:#4a1f18;color:#ffb3a3;border:1px solid #ff8f7a;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-weight:700",
+    `⚠ ${NO_EDITOR_SERVER}`));
+}
 
 const list = $("div", "display:flex;flex-direction:column;gap:3px;margin-bottom:12px;max-height:220px;overflow:auto");
 const detail = $("div", "");
@@ -298,6 +306,7 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
     const list = seq ? [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })) : [files[0]!];
     cell.style.opacity = "0.5";
     try {
+      if (!hasEditorServer()) throw new Error(NO_EDITOR_SERVER);
       const written: string[] = [];
       for (let i = 0; i < list.length; i += 1) {
         const f = list[i]!;
@@ -344,6 +353,7 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
   };
   del.onclick = async (e): Promise<void> => {
     e.stopPropagation();
+    if (!hasEditorServer()) { meta.textContent = `실패: ${NO_EDITOR_SERVER}`; meta.style.color = "#ff8f7a"; return; }
     if (!confirm(`'${label}' 업로드 파일을 삭제할까요?\n빈 슬롯은 게임에서 폴백으로 그려집니다.`)) return;
     const res = await fetch(`/__upload?asset=${encodeURIComponent(dotted)}`, { method: "DELETE" });
     if (!res.ok) { alert(`삭제 실패: ${await res.text()}`); return; }
@@ -399,6 +409,7 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
 
     range.oninput = (): void => { showFrame(frameList()); };
     set.onclick = async (): Promise<void> => {
+      if (!hasEditorServer()) { label2.style.color = "#ff8f7a"; label2.textContent = `저장 실패: ${NO_EDITOR_SERVER}`; return; }
       setAssetPath(holdKey, Number(range.value));
       const res = await fetch("/__assets", {
         method: "POST",
@@ -743,6 +754,7 @@ function mergeAreas(disk: UiArea[], mine: UiArea[]): UiArea[] {
  *  갈 때도 merge는 남는다 — 알고 덮는 것은 내가 본 슬롯까지지, 못 본 슬롯이 아니다. */
 async function saveLayout(force = false): Promise<void> {
   if (saving) return;
+  if (!hasEditorServer()) { status.textContent = `실패: ${NO_EDITOR_SERVER}`; status.style.color = "#ff8f7a"; return; }
   saving = true;
   status.textContent = "저장 중…";
   status.style.color = "#a8987c";

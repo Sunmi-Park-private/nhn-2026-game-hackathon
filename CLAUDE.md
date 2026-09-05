@@ -49,13 +49,17 @@ npm test         # vitest
 
 ### 레이아웃 에디터는 dev 서버에서만 저장된다
 
-배치 저장 플러그인이 `vite.config.ts`에서 `apply: 'serve'`다. **빌드본(`vite preview`)에는
-`/__uilayout`이 없다.** 없는 경로는 SPA 폴백으로 `index.html`을 돌려주고, 에디터가 그걸
-`JSON.parse` 하다 이렇게 터진다:
+배치 저장·업로드 플러그인이 `vite.config.ts`에서 `apply: 'serve'`다. **빌드본(`vite preview`)에는
+`/__uilayout`·`/__upload`가 없다.** 없는 경로는 SPA 폴백으로 `index.html`을 돌려주고,
+예전에는 에디터가 그걸 `JSON.parse` 하다 이렇게 터졌다:
 
 ```
 실패: SyntaxError: Unexpected token '<', "<!doctype "... is not valid JSON
 ```
+
+QA가 이 메시지를 보고 「업로드 버그」로 올렸다. 지금은 두 에디터가 `ui/editorServer.ts`로
+먼저 판정해 **「이 서버는 빌드본이라 저장·업로드가 안 됩니다」**라고 말한다. 위의 SyntaxError가
+보이면 그 수정 이전 빌드다.
 
 **에디터가 고장난 게 아니라 저장할 서버가 없는 것이다.** 터널을 열 때도 마찬가지라
 용도별로 나눠 쓴다.

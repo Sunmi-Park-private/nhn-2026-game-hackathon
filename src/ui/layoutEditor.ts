@@ -16,6 +16,7 @@ import { Container, Graphics, Text, type FederatedPointerEvent } from "pixi.js";
 import { uiAreas, parseAreas, type UiArea, type UiSlot } from "../data/uiLayout";
 import { BASE_W, stageTop, stageHeight } from "./stage";
 import { createHistory, restoreInto, type History } from "./layoutHistory";
+import { hasEditorServer, NO_EDITOR_SERVER, readJson } from "./editorServer";
 
 const on = typeof location !== "undefined" && new URLSearchParams(location.search).has("editor");
 export const layoutEditorEnabled = (): boolean => on;
@@ -318,9 +319,12 @@ function scheduleSave(): void {
 
 async function flushSave(force = false): Promise<void> {
   if (saveTimer !== undefined) { clearTimeout(saveTimer); saveTimer = undefined; }
+  // 빌드본에는 저장 서버가 없다 — 요청을 보내면 SPA 폴백 HTML이 200으로 와서
+  // JSON 오류로 터진다. 보내기 전에 말한다.
+  if (!hasEditorServer()) { setStatus(NO_EDITOR_SERVER, "#ff8f7a"); return; }
   setStatus("저장 중…", "#a8987c");
   try {
-    const cur = await fetch("/__uilayout").then((r) => (r.ok ? r.json() : {})) as Record<string, unknown>;
+    const cur = await fetch("/__uilayout").then((r) => (r.ok ? readJson(r) : {})) as Record<string, unknown>;
     const res = await fetch(
       `/__uilayout?by=${encodeURIComponent(CLIENT_ID)}&rev=${encodeURIComponent(force ? "force" : layoutRev)}`,
       {
@@ -675,6 +679,8 @@ export function mountLayoutEditor(stage: Container): void {
 
   void readRev(); // 저장이 판정을 받으려면 지금 디스크의 리비전을 알아야 한다
   watchLayout();  // /ui.html이 쓰면 따라간다
+  // 열자마자 말한다 — 편집을 다 하고 저장에서 알면 그 편집이 갈 곳이 없다
+  if (!hasEditorServer()) setStatus(NO_EDITOR_SERVER, "#ff8f7a");
 
   const layer = new Container();
   layer.label = "layout-editor";
