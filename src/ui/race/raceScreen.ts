@@ -22,7 +22,6 @@ import { hotspot, slotText } from "./raceChrome";
 import { RACE_AREAS, raceSlots } from "./raceSlots";
 import { createTrackView } from "./trackView";
 import { createRunnerLayer } from "./runnerLayer";
-import { createLaneFlags } from "./laneFlags";
 import { createCardPicker } from "./cardPicker";
 import { createRaceHud } from "./raceHud";
 import { buildRaceResult } from "./raceResultView";
@@ -38,7 +37,6 @@ export interface RaceTextures {
   card: Partial<Record<string, Texture>>;
   row: Partial<Record<string, Texture>>;
   medal: Partial<Record<string, Texture>>;
-  flags: Partial<Record<string, Texture>>;
   booster: Partial<Record<string, Texture>>;
   settings: SettingsTextures;
 }
@@ -99,16 +97,7 @@ export function openRace(
 
     // ── 선택 화면 ────────────────────────────
     selectScreen.addChild(scene(tex.bg.selectScene));
-    const title = B.select.title;
-    if (tex.ui.title) {
-      const s = new Container();
-      s.addChild(hotspot(title, tex.ui.title, 0x00000000, () => {}, regSelect));
-      selectScreen.addChild(s);
-    } else {
-      const t = slotText(title, 30, 0xffd66b);
-      t.text = "ANIMAL RACE";
-      selectScreen.addChild(t);
-    }
+    // ANIMAL RACE 간판은 배경 아트가 그린다 — 코드가 덧그리면 두 번 나온다
 
     const picker = createCardPicker({
       box: B.select.cardGrid,
@@ -163,7 +152,6 @@ export function openRace(
       countdown: B.track.countdown,
     });
     trackScreen.addChild(track.node, runners.node);
-    trackScreen.addChild(createLaneFlags({ box: B.track.laneFlags, laneY: track.laneY, tex: tex.flags }));
     trackScreen.addChild(hud.node, hud.countdown);
 
     const btnRace = hotspot(B.track.btnRace, tex.ui.btnRace, 0x3faa48, () => {

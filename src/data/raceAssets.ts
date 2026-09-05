@@ -6,13 +6,12 @@ import manifestJson from "./assets.json";
 
 export const RACE_BG_IDS = ["selectScene", "raceScene", "resultScene", "trackTile", "finish"] as const;
 export const RACE_UI_IDS = [
-  "back", "gear", "title", "btnSelect", "btnRace",
+  "back", "gear", "btnSelect", "btnRace",
   "podium", "btnRetry", "btnClose",
 ] as const;
 export const RACE_CARD_IDS = ["grid", "off", "on"] as const;
 export const RACE_ROW_IDS = ["list", "first", "rest"] as const;
 export const RACE_MEDAL_IDS = ["gold", "silver", "bronze"] as const;
-export const RACE_FLAG_IDS = ["lane1", "lane2", "lane3", "lane4", "lane5", "lane6"] as const;
 export const BOOSTER_IDS = ["bomb", "rainbow", "horseshoe"] as const;
 
 export type RaceBgId = (typeof RACE_BG_IDS)[number];
@@ -33,8 +32,6 @@ export interface RaceAssetPaths {
   /** list = 6행 판 한 장(메달까지 구워서) · first/rest = 낱장 판(폴백) */
   row: Partial<Record<"list" | "first" | "rest", string>>;
   medal: Partial<Record<"gold" | "silver" | "bronze", string>>;
-  /** 레인 번호 깃발 — lane1..lane6 */
-  flags: Partial<Record<string, string>>;
   /** 부스터 아이콘 — 인게임(hex)이 소유하고 레이스가 참조한다 */
   booster: Partial<Record<BoosterAssetId, string>>;
 }
@@ -91,7 +88,6 @@ export function parseRaceAssets(raw: unknown): RaceAssetPaths {
     card: pick(obj(race.card), RACE_CARD_IDS),
     row: pick(obj(race.row), RACE_ROW_IDS),
     medal: pick(obj(race.medal), RACE_MEDAL_IDS),
-    flags: pick(obj(race.flags), RACE_FLAG_IDS),
     booster: pick(obj(obj(root.hex).booster), BOOSTER_IDS),
   };
 }

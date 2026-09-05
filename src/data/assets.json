@@ -179,7 +179,6 @@
     "ui": {
       "back": "assets/race/ui-back.png",
       "gear": "assets/race/ui-gear.webp",
-      "title": "assets/race/ui-title.png",
       "btnSelect": "assets/race/btn-select.webp",
       "btnRace": "assets/race/btn-race.webp",
       "podium": "assets/race/ui-podium.png",
@@ -219,14 +218,6 @@
       "list": "assets/race/row-list.png",
       "first": "assets/race/row-first.png",
       "rest": "assets/race/row-rest.png"
-    },
-    "flags": {
-      "lane1": "assets/race/flag-1.png",
-      "lane2": "assets/race/flag-2.png",
-      "lane3": "assets/race/flag-3.png",
-      "lane4": "assets/race/flag-4.png",
-      "lane5": "assets/race/flag-5.png",
-      "lane6": "assets/race/flag-6.png"
     },
     "medal": {
       "gold": "assets/race/medal-gold.png",

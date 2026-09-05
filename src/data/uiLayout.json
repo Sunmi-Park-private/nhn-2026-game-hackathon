@@ -621,15 +621,6 @@
           "asset": "race.ui.gear"
         },
         {
-          "id": "title",
-          "label": "ANIMAL RACE 간판",
-          "x": 100,
-          "y": 12,
-          "w": 240,
-          "h": 176,
-          "asset": "race.ui.title"
-        },
-        {
           "id": "cardGrid",
           "label": "동물 카드 6종 (한 장)",
           "x": 40,
@@ -679,14 +670,6 @@
           "w": 50,
           "h": 42,
           "asset": "race.ui.gear"
-        },
-        {
-          "id": "laneFlags",
-          "label": "레인 번호 깃발 6개",
-          "x": 52,
-          "y": 256,
-          "w": 34,
-          "h": 376
         },
         {
           "id": "trackArea",
@@ -1157,36 +1140,6 @@
       "group": "레이스 · 카드/행 판",
       "label": "순위 행 판(일반)",
       "asset": "race.row.rest"
-    },
-    {
-      "group": "레이스 · 레인 깃발",
-      "label": "1번 깃발 (빨강)",
-      "asset": "race.flags.lane1"
-    },
-    {
-      "group": "레이스 · 레인 깃발",
-      "label": "2번 깃발 (노랑)",
-      "asset": "race.flags.lane2"
-    },
-    {
-      "group": "레이스 · 레인 깃발",
-      "label": "3번 깃발 (파랑)",
-      "asset": "race.flags.lane3"
-    },
-    {
-      "group": "레이스 · 레인 깃발",
-      "label": "4번 깃발 (초록)",
-      "asset": "race.flags.lane4"
-    },
-    {
-      "group": "레이스 · 레인 깃발",
-      "label": "5번 깃발 (주황)",
-      "asset": "race.flags.lane5"
-    },
-    {
-      "group": "레이스 · 레인 깃발",
-      "label": "6번 깃발 (보라)",
-      "asset": "race.flags.lane6"
     },
     {
       "group": "레이스 · 메달",

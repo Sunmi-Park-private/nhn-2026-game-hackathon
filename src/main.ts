@@ -81,7 +81,7 @@ async function main(): Promise<void> {
 
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
-  const [hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, raceFlags, eventSlots, collectionSlots, collectionCards, collectionLocked]
+  const [hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, eventSlots, collectionSlots, collectionCards, collectionLocked]
     = await Promise.all([
     loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
     loadSlots(uiAssetPaths),
@@ -95,7 +95,6 @@ async function main(): Promise<void> {
     loadSlots(raceAssetPaths.card),
     loadSlots(raceAssetPaths.row),
     loadSlots(raceAssetPaths.medal),
-    loadSlots(raceAssetPaths.flags),
     loadSlots(eventAssetPaths),
     loadSlots({ panel: collectionAssetPaths.panel, close: collectionAssetPaths.close }),
     loadSlots(collectionAssetPaths.cards),
@@ -135,7 +134,7 @@ async function main(): Promise<void> {
     race: {
       bg: raceBg, ui: raceUi, runners: raceRunners,
       faces: raceFaces, winner: raceWinner,
-      card: raceCard, row: raceRow, medal: raceMedal, flags: raceFlags,
+      card: raceCard, row: raceRow, medal: raceMedal,
       booster: raceBooster, settings: ui,
     },
     event: { bg: eventSlots.bg, close: eventSlots.close, cta: eventSlots.cta },

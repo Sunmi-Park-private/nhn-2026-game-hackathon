@@ -421,14 +421,12 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 | `row-list.png` | **순위 6행 판 한 장.** 판과 **메달까지 구워서** 준다 — 1~3위 메달과 4~6위 번호는 자리가 고정이다. 얼굴·이름·기록만 코드가 채운다 |
 | `row-first.png` · `row-rest.png` | 낱장 행 판 — `row-list`를 쓰면 필요 없다(폴백용) |
 | `medal-gold.png` · `medal-silver.png` · `medal-bronze.png` | 1~3위 메달 |
-| `flag-1.png` … `flag-6.png` | 레인 번호 깃발. 시안 색 순서 **빨강·노랑·파랑·초록·주황·보라** |
 
 #### 화면마다 놓이는 UI
 
 | 파일 | 내용 | 화면 |
 |---|---|---|
 | `ui-back.png` · `ui-gear.png` | 돌아가기 · 설정 (나무 프레임) | 선택 · 경주 |
-| `ui-title.png` | 「ANIMAL RACE」 간판 | 선택 |
 | `btn-select.png` | 「선택」 버튼 | 선택 |
 | `btn-race.png` | 「RACE!」 버튼 | 경주 |
 | `ui-podium.png` | 시상대 | 결과 |
@@ -450,7 +448,8 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 
 시안이 **1토끼 · 2양 · 3원숭이 · 4얼룩말 · 5사슴 · 6코끼리**로 그려져 있다.
 도감(§4)의 순서와 다르므로 코드가 레이스에서만 따로 세운다(`RACE_LANE_ORDER`).
-깃발 색도 이 순서다.
+**레인 번호 깃발은 경주 배경(`bg-race.webp`)에 그려 넣는다** — 코드가 그리지 않으므로
+배경의 깃발 순서와 이 순서가 맞아야 한다.
 
 #### 시안에 없지만 코드가 들고 있는 것
 

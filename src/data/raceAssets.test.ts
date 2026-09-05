@@ -9,7 +9,7 @@ describe("레이스 매니페스트", () => {
     expect(raceAssetPaths.bg.raceScene).toBeTruthy();
     expect(raceAssetPaths.bg.resultScene).toBeTruthy();
     expect(raceAssetPaths.bg.trackTile).toBeTruthy();
-    expect(Object.keys(raceAssetPaths.ui)).toHaveLength(8);
+    expect(Object.keys(raceAssetPaths.ui)).toHaveLength(7);
   });
 
   it("동물 아트가 세 벌 — 달리기·얼굴·1위", () => {
@@ -29,7 +29,6 @@ describe("레이스 매니페스트", () => {
     expect(Object.keys(raceAssetPaths.card)).toHaveLength(3); // grid · on · off
     expect(Object.keys(raceAssetPaths.row)).toHaveLength(3); // list · first · rest
     expect(Object.keys(raceAssetPaths.medal)).toHaveLength(3);
-    expect(Object.keys(raceAssetPaths.flags)).toHaveLength(6);
     expect(Object.keys(raceAssetPaths.booster)).toHaveLength(3);
   });
 

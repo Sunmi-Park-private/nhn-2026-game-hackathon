@@ -15,7 +15,6 @@ const SELECT = {
   bg: [0, 0, 450, 800],
   back: [16, 22, 58, 42],
   gear: [384, 22, 50, 42],
-  title: [100, 12, 240, 176],
   cardGrid: [40, 260, 364, 308],
   btnSelect: [112, 632, 228, 60],
 } as const satisfies Record<string, Box>;
@@ -24,7 +23,6 @@ const TRACK = {
   bg: [0, 0, 450, 800],
   back: [16, 22, 58, 42],
   gear: [384, 22, 50, 42],
-  laneFlags: [52, 256, 34, 376],
   trackArea: [100, 248, 340, 392],
   countdown: [185, 380, 80, 120],
   btnRace: [124, 700, 192, 60],
