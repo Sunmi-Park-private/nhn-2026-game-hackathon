@@ -6,13 +6,19 @@
 //   ① 잠김  — 창살 **시퀀스**(tex.locked[animalId])를 계속 돌린다. 아트가 없을 때만
 //             코드가 그린 창살 + 상하 흔들림 목업으로 폴백한다.
 //   ② 해제  — 자물쇠가 떨어지고, 열린 창살 **스틸**(tex.open[animalId])이 그 자리를 덮는다.
-//   ③ 낙하  — 동물이 우루루 쏟아진다. 바닥에 가까워질수록 **커진다** —
-//             카메라 쪽으로 다가온다는 뜻이다. 지금은 한 장을 여러 마리로 쓰는 목업이고,
-//             아트가 오면 여기가 **동물 시퀀스 묶음** 자리다.
+//   ③ 탈출  — 창살이 좌우로 흔들리다 회전하며 떨어지고, 그 자리에서 동물 **네 마리**가
+//             격자 한 칸 크기로 나와 바닥까지 떨어진다. 떨어질수록 커지고(카메라 쪽으로
+//             다가온다는 뜻이다), 우리 하단 경계에 닿으면 오른쪽으로 빠르게 걸어 나간다.
+//             걷는 동안 동물 시퀀스가 돈다 — 아트가 오면 그대로 걷는 그림이 된다.
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { makeSequence, type SequenceView } from "../sequence";
 import { fitContain } from "../skin";
-import { cellToScreen, HEX_SIZE, CENTER_H } from "./geom";
+import { cellToScreen, penEdges, HEX_SIZE, CELL_W, PEN } from "./geom";
+import {
+  cageShakeX, cageDropY, cageDropRot, cageDropAlpha, CAGE_TOTAL_MS,
+  spawnEscape, stepEscape, ANIMAL_COUNT, LAND_SCALE,
+  type EscapeArena,
+} from "./escapeMotion";
 import type { Cage, RunState } from "../../engine/hex/types";
 import { cageProgress } from "../../engine/hex/cageFaces";
 
@@ -50,11 +56,11 @@ const IDLE_BOB_PX = 1.6;      // 잠김 idle 진폭
 const IDLE_BOB_HZ = 0.35;
 const UNLOCK_MS = 320;        // 자물쇠가 떨어지고 창살이 열리기까지
 const LOCKED_FPS = 10;        // 잠김 창살 시퀀스 재생 속도
-const FALL_MS = 900;          // 동물이 바닥에 닿기까지
-const ANIMAL_COUNT = 6;       // 우루루 — 한 케이지에서 쏟아지는 마릿수
-const ANIMAL_SCALE_NEAR = 0.5; // 출발(멀다)
-const ANIMAL_SCALE_FAR = 1.8;  // 바닥(가깝다)
-const FLOOR_Y = CENTER_H - 40; // 동물이 사라지는 높이
+const ANIMAL_FPS = 12;        // 동물 시퀀스 재생 속도
+/** 동물이 딛는 바닥 — 타일이 깔려 있던 배경 울타리의 하단 경계다. */
+const FLOOR_Y = PEN.lb.y;
+/** 안전장치. 어떤 구출 연출도 이보다 길게 끌지 않는다(ms). */
+const ESCAPE_TIMEOUT_MS = 6000;
 
 /** 금 색. 잠금이 버티고 있다는 표시라 창살과 같은 계열로 둔다. */
 const CRACK_COLOR = 0xf2f6fb;
@@ -176,7 +182,7 @@ function makeAnimalView(cage: Cage, tex: CageTextures, w: number, h: number): Co
     // 동물은 갇혀 있는 동안에도 살아 있어야 한다 — 시퀀스를 계속 돌린다
     const seq = makeSequence(frames, w, h);
     if (seq) {
-      void seq.play({ fps: 12, loop: true });
+      void seq.play({ fps: ANIMAL_FPS, loop: true });
       return seq.root;
     }
   }
@@ -234,6 +240,23 @@ function makeCageBody(cage: Cage, tex: CageTextures): CageBody {
   box.addChild(bars, lock);
 
   return { box, bars, lock, lockedSeq: null, size };
+}
+
+/** 끝나는 시점을 스스로 판단하는 rAF 루프. onFrame이 false를 돌려주면 끝난다.
+ *  `timeoutMs`는 안전장치다 — 판정이 틀려도 연출이 영원히 살지 않게 한다. */
+function animateUntil(timeoutMs: number, onFrame: (elapsedMs: number) => boolean): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const start = performance.now();
+    const tick = (): void => {
+      const elapsed = performance.now() - start;
+      if (!onFrame(elapsed) || elapsed >= timeoutMs) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
 }
 
 /** rAF 루프를 Promise로 감싼다. onFrame이 false를 돌려주거나 시간이 다하면 끝난다. */
@@ -351,57 +374,65 @@ export function createCageView(textures: CageTextures): CageView {
     });
   }
 
-  /** ③ 낙하 — 동물이 우루루 쏟아진다. 바닥에 가까워질수록 커진다. */
-  async function playFall(cage: Cage, entry: Entry): Promise<void> {
-    const { box, size } = entry.body;
-    const w = 2 * size;
-    const h = Math.sqrt(3) * size;
+  /**
+   * ③ 탈출 — 창살이 흔들리다 떨어지고, 그 자리에서 동물 네 마리가 나와
+   *   바닥까지 떨어진 뒤 오른쪽으로 걸어 나간다.
+   *
+   *   두 몸이 **같은 rAF 한 바퀴**를 나눠 쓴다. 따로 돌리면 창살이 먼저 끝나
+   *   몸체가 파괴된 뒤에도 동물 루프가 그 좌표를 읽는다.
+   */
+  async function playEscape(cage: Cage, entry: Entry): Promise<void> {
+    const { box } = entry.body;
     const originX = box.x;
-    const originY = entry.baseY;
+    const anchor = { x: originX, y: entry.baseY };
+    const arena: EscapeArena = {
+      anchor,
+      floorY: FLOOR_Y,
+      // 우리 오른쪽 벽을 지나 몸통 하나만큼 더 간다 — 경계에서 사라지면 잘려 보인다
+      exitX: penEdges(FLOOR_Y).right + CELL_W * LAND_SCALE,
+    };
 
-    interface Faller { view: Container; vx: number; delay: number; spin: number }
-    const fallers: Faller[] = [];
-    for (let i = 0; i < ANIMAL_COUNT; i += 1) {
-      const view = makeAnimalView(cage, textures, w * 0.42, h * 0.42);
-      view.x = originX;
-      view.y = originY;
+    // 배율 1이 격자 한 칸이 되도록 한 칸 크기로 만든다. 시퀀스는 계속 돈다.
+    const runners = Array.from({ length: ANIMAL_COUNT }, (_, i) => {
+      const view = makeAnimalView(cage, textures, CELL_W, CELL_W);
+      view.x = anchor.x;
+      view.y = anchor.y;
       view.alpha = 0;
       fallLayer.addChild(view);
-      // 부채꼴로 흩어진다 — 가운데는 곧게, 바깥쪽은 크게 벌어진다
-      const spread = (i / (ANIMAL_COUNT - 1) - 0.5) * 2; // -1 … 1
-      fallers.push({
-        view,
-        vx: spread * 90 + (Math.random() - 0.5) * 24,
-        delay: i * 0.06,
-        spin: spread * 2.2,
-      });
-    }
+      return { view, body: spawnEscape(i, ANIMAL_COUNT, arena) };
+    });
 
-    const travel = FLOOR_Y - originY;
+    let last = performance.now();
     try {
-      await animate(FALL_MS, (t) => {
+      await animateUntil(ESCAPE_TIMEOUT_MS, (elapsed) => {
         if (root.destroyed) return false;
-        // 케이지 몸체는 동물이 나오는 동안 사그라든다
-        if (!box.destroyed) box.alpha = Math.max(0, 1 - t * 1.6);
-        for (const f of fallers) {
-          if (f.view.destroyed) continue;
-          // delay를 뺀 자기 시간. 아직 안 나온 놈은 투명하게 대기한다
-          const p = Math.max(0, Math.min(1, (t - f.delay) / (1 - f.delay)));
-          if (p <= 0) continue;
-          f.view.alpha = Math.min(1, p * 4);
-          // 처음엔 살짝 튀어 올랐다가 중력으로 떨어진다
-          const rise = -26 * Math.sin(Math.PI * Math.min(1, p * 1.6)) * 0.5;
-          f.view.x = originX + f.vx * p;
-          f.view.y = originY + travel * p * p + rise;
-          f.view.rotation = f.spin * p;
-          // 바닥에 가까워질수록 커진다 — 카메라 쪽으로 다가온다
-          f.view.scale.set(ANIMAL_SCALE_NEAR + (ANIMAL_SCALE_FAR - ANIMAL_SCALE_NEAR) * p * p);
-          if (p > 0.82) f.view.alpha = Math.max(0, (1 - p) / 0.18);
+        const now = performance.now();
+        // 탭 전환 등으로 프레임이 벌어져도 한 스텝에 안무를 건너뛰지 않게 상한을 둔다
+        const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+        last = now;
+
+        // 창살 — 자글자글 흔들리다 회전하며 떨어진다
+        if (!box.destroyed) {
+          box.x = originX + cageShakeX(elapsed);
+          box.y = entry.baseY + cageDropY(elapsed);
+          box.rotation = cageDropRot(elapsed);
+          box.alpha = cageDropAlpha(elapsed);
         }
-        return true;
+
+        let alive = elapsed < CAGE_TOTAL_MS;
+        for (const r of runners) {
+          stepEscape(r.body, dt, arena);
+          if (r.body.phase !== "dead") alive = true;
+          if (r.view.destroyed) continue;
+          r.view.x = r.body.x;
+          r.view.y = r.body.y;
+          r.view.alpha = r.body.alpha;
+          r.view.scale.set(r.body.scale);
+        }
+        return alive;
       });
     } finally {
-      for (const f of fallers) if (!f.view.destroyed) f.view.destroy({ children: true });
+      for (const r of runners) if (!r.view.destroyed) r.view.destroy({ children: true });
     }
   }
 
@@ -454,7 +485,7 @@ export function createCageView(textures: CageTextures): CageView {
       animating.add(cage.id);
       try {
         await playUnlock(cage, entry);
-        await playFall(cage, entry);
+        await playEscape(cage, entry);
       } finally {
         // 연출이 끝났으니 스스로 치운다 — 이후 sync가 다시 그리지 않는다
         animating.delete(cage.id);
