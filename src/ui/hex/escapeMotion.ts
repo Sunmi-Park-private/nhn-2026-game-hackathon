@@ -11,7 +11,7 @@
 // ── 창살 ────────────────────────────────────────────────────
 /** 흔들리는 시간(ms). 이 뒤에 떨어지기 시작한다. */
 import { BASE_W } from "../stage";
-import { CELL_W } from "./geom";
+import { CELL_W, PEN } from "./geom";
 
 export const CAGE_SHAKE_MS = 420;
 /** 흔들림 최대 진폭(px). */
@@ -74,8 +74,6 @@ export const POP_MS = 200;
 /** 커지기 전에 **기본 크기로 보이는** 시간(ms). 이게 없으면 첫 프레임부터 이미 커져 있어
  *  「처음부터 컸다」로 읽혔다(본선 QA). 한 칸 크기로 잠깐 나타난 뒤 튀어 오른다. */
 export const POP_HOLD_MS = 90;
-/** 착지 뒤 오른쪽으로 걷는 속도(px/s). 「빠르게 빠져나간다」다. */
-export const WALK_SPEED = 265;
 /** 걸을 때 위아래로 흔들리는 폭(px)과 진동수(Hz). 발소리 대신이다. */
 export const WALK_BOB_PX = 3.2;
 export const WALK_BOB_HZ = 4.4;
@@ -102,14 +100,43 @@ export const MAX_WALK_OVERLAP = 0.3;
  * 뒷마리가 낙하 중에 **오른쪽으로** 벌어져 나오므로(spread) 그만큼 다시 좁혀진다.
  * 그 몫까지 더해 필요한 간격을 채운다.
  */
-export const ANIMAL_STAGGER_MS = Math.ceil(
-  ((ANIMAL_BODY_W * (1 - MAX_WALK_OVERLAP) + (2 * SPREAD_PX) / (ANIMAL_COUNT - 1)) / WALK_SPEED) * 1000 +
-    1000 / 60,
-);
+/** 마리 하나가 앞마리보다 앞서 있어야 하는 거리(px).
+ *  겹침 상한을 지키는 간격에, 뒷마리가 낙하 중 오른쪽으로 벌어져 나오며 도로
+ *  좁히는 몫(spread)을 더한 값이다. */
+const LEAD_PX = ANIMAL_BODY_W * (1 - MAX_WALK_OVERLAP) + (2 * SPREAD_PX) / (ANIMAL_COUNT - 1);
 
-// 마지막 항은 프레임 한 장이다. 걷기 시작하는 시점은 프레임 경계로 밀리므로,
-// 앞마리가 뒷마리보다 더 밀리면 그만큼 간격이 좁아진다. 최대 한 프레임 × 속도
-// (60fps에서 4.4px)라 그만큼 미리 벌려 둔다 — 규칙을 프레임률에 맡기지 않는다.
+/** 걷기 시작하는 시점이 프레임 경계로 밀리는 몫. 앞마리가 더 밀리면 간격이 좁아지므로
+ *  최대 한 프레임만큼 미리 벌려 둔다 — 규칙을 프레임률에 맡기지 않는다. */
+const FRAME_MS = 1000 / 60;
+
+/** 구출 연출 목표 길이(ms). **가장 왼쪽 우리**에서 잰다 — 걷는 거리가 가장 길어
+ *  이 값을 넘지 않으면 다른 자리는 자동으로 더 짧다. */
+export const ESCAPE_TARGET_MS = 3000;
+
+/** 가장 왼쪽 우리에서 컬럼 밖까지 걷는 거리(px). */
+const WORST_WALK_PX = BASE_W + ANIMAL_BODY_W / 2 - PEN.lb.x;
+
+/**
+ * 착지 뒤 오른쪽으로 걷는 속도(px/s). **목표 길이에서 거꾸로 구한다.**
+ *
+ * 265로 두고 겹침만 맞췄더니 stagger가 810ms까지 늘어 연출이 5.0초가 됐다.
+ * 속도를 올리면 간격(속도 × stagger)이 같은 stagger로도 더 벌어지므로 **stagger가
+ * 줄고 걷는 시간도 줄어** 양쪽이 함께 짧아진다. 그래서 고를 값은 속도가 아니라
+ * 길이다 — 길이를 정하면 속도가 따라온다.
+ *
+ *   목표 = (마릿수-1) × (LEAD/속도 + 프레임) + 낙하 + 걷는거리/속도
+ *   ⇒ 속도 = ((마릿수-1) × LEAD + 걷는거리) / (목표 − 낙하 − (마릿수-1) × 프레임)
+ */
+export const WALK_SPEED =
+  ((ANIMAL_COUNT - 1) * LEAD_PX + WORST_WALK_PX) /
+  ((ESCAPE_TARGET_MS - FALL_MS - (ANIMAL_COUNT - 1) * FRAME_MS) / 1000);
+
+/**
+ * 마리마다 나오는 간격(ms). 겹침 규칙에서 거꾸로 구한다 — 배율(LAND_SCALE)이나
+ * 목표 길이가 바뀌어도 겹침 비율은 따라온다.
+ */
+export const ANIMAL_STAGGER_MS = Math.ceil((LEAD_PX / WALK_SPEED) * 1000 + FRAME_MS);
+
 
 /**
  * 걸어 나가는 끝 지점. **판의 오른쪽 벽이 아니라 콘텐츠 컬럼의 경계**를 쓴다.

@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import {
   spawnEscape, stepEscape, escapeExitX, escapeDurationMs,
-  ANIMAL_COUNT, ANIMAL_BODY_W, MAX_WALK_OVERLAP,
+  ANIMAL_COUNT, ANIMAL_BODY_W, MAX_WALK_OVERLAP, ESCAPE_TARGET_MS,
   type EscapeArena, type EscapeBody,
 } from "../../src/ui/hex/escapeMotion";
 
@@ -50,5 +50,20 @@ describe("구출 동물의 간격", () => {
     }
     expect(bodies.every((b) => b.phase === "dead")).toBe(true);
     expect(ms).toBeLessThanOrEqual(escapeDurationMs(ANIMAL_COUNT, a) + 50);
+  });
+
+  // 속도를 눈으로 고르면 겹침이 깨지거나 연출이 늘어진다. 목표 길이를 정하고
+  // 속도를 거꾸로 구하므로, 그 길이를 실제로 지키는지 재둔다.
+  it("가장 왼쪽 우리에서도 목표 길이를 넘지 않는다", () => {
+    const a = arena(66); // PEN.lb.x ≈ 65.9 — 걷는 거리가 가장 길다
+    const bodies = Array.from({ length: ANIMAL_COUNT }, (_, i) => spawnEscape(i, ANIMAL_COUNT, a));
+    let ms = 0;
+    while (!bodies.every((b) => b.phase === "dead") && ms < 60_000) {
+      for (const b of bodies) stepEscape(b, 1 / 120, a);
+      ms += 1000 / 120;
+    }
+    expect(bodies.every((b) => b.phase === "dead")).toBe(true);
+    // 프레임 한 장과 stagger 올림 몫만큼의 여유만 준다
+    expect(ms).toBeLessThanOrEqual(ESCAPE_TARGET_MS + 40);
   });
 });
