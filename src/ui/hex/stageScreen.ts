@@ -12,6 +12,7 @@ import { createHudView } from "./hudView";
 import { createLauncher } from "./launcher";
 import { createDragAim } from "./dragAim";
 import { createPowerGauge } from "./powerGauge";
+import { createPullArea } from "./pullArea";
 import { makeButton } from "../skin";
 import { openSettings, type SettingsTextures } from "../settingsMenu";
 import { slot } from "../../data/uiLayout";
@@ -140,6 +141,8 @@ export async function runStageScreen(
   const hud = createHudView(stageIndex, { stageBar: ui.stageBar });
   const launcher = createLauncher(textures.horse, textures.horseHold);
   const gauge = createPowerGauge();
+  // 당길 수 있는 범위 — 조준선은 이미 당긴 뒤에야 나오므로 그 전에 알려줄 것이 필요하다
+  const pullArea = createPullArea(launchOrigin());
   // 앵커는 붉은말의 발 밑이다 — 새총의 고정점이 눈에 보이는 자리와 같아야 한다
   const aimer = createDragAim(launchOrigin());
 
@@ -148,7 +151,9 @@ export async function runStageScreen(
   // 덮으면서 「타일 무리 위에 얹힌 물건」으로 읽힌다. 아래에 두면 작은 타일들이
   // 창살을 파고들어 케이지 윤곽이 끊겨 보였다.
   // 발사체(launcher)는 케이지보다 위다 — 창살 앞을 지나가는 것이 맞다.
-  layer.addChild(board.root, cages.root, launcher.root, hud.root, gauge.root);
+  // 당김 가이드는 **말보다 앞**이다. 뒤에 두면 말 몸통이 가운데를 가려
+  // 좌우 변만 남아 사각형으로 읽히지 않는다. 얇은 윤곽선이라 캐릭터를 해치지 않는다.
+  layer.addChild(board.root, cages.root, launcher.root, pullArea.root, hud.root, gauge.root);
   app.stage.addChild(layer);
 
   /** 케이지를 뺀 나머지 갱신. 구출 연출 전에는 이것만 부른다 —
@@ -192,6 +197,7 @@ export async function runStageScreen(
       aimer.cancel();
       launcher.destroy();
       gauge.destroy();
+      pullArea.destroy();
       hud.destroy();
       cages.destroy();
       board.destroy();
@@ -205,6 +211,7 @@ export async function runStageScreen(
       aimer.down(p);
       launcher.setAim(aimer.current(), state.cells);
       gauge.set(aimer.current()?.power ?? null);
+      pullArea.setActive(true);
     }
 
     function onMove(e: FederatedPointerEvent): void {
@@ -221,6 +228,7 @@ export async function runStageScreen(
       if (busy || finished) return;
       const aim = aimer.up(e.getLocalPosition(layer));
       gauge.set(null);
+      pullArea.setActive(false);
       // 데드존 안에서 뗐다 — 쏘지 않고 자세만 되돌린다
       if (!aim) { launcher.settleBack(); return; }
 
@@ -279,6 +287,7 @@ export async function runStageScreen(
         cages.pause();
         aimer.cancel();
         gauge.set(null);
+        pullArea.setActive(false);
         launcher.setAim(null, state.cells);
         launcher.pause();
         pauseBgm();
