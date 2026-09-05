@@ -555,6 +555,47 @@
           "asset": "ui.btnHome"
         }
       ]
+    },
+    {
+      "id": "confirm",
+      "label": "확인창",
+      "slots": [
+        {
+          "id": "panel",
+          "label": "패널",
+          "x": 75,
+          "y": 310,
+          "w": 300,
+          "h": 180,
+          "asset": "ui.confirmPanel"
+        },
+        {
+          "id": "message",
+          "label": "묻는 말",
+          "x": 97,
+          "y": 340,
+          "w": 256,
+          "h": 60
+        },
+        {
+          "id": "cancel",
+          "label": "취소 버튼",
+          "x": 99,
+          "y": 420,
+          "w": 120,
+          "h": 48,
+          "asset": "ui.btnConfirmCancel"
+        },
+        {
+          "id": "ok",
+          "label": "확인 버튼",
+          "x": 231,
+          "y": 420,
+          "w": 120,
+          "h": 48,
+          "asset": "ui.btnConfirmOk"
+        }
+      ]
     }
   ],
   "uploads": [
