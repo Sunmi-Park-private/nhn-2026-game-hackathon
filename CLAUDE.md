@@ -47,6 +47,20 @@ npm test         # vitest
 다른 프로젝트가 **5173을 먼저 물고 있는 경우가 있다.** 화면이 안 바뀌면 포트부터 확인한다 —
 다른 레포의 화면을 보면서 「내 수정이 반영 안 됐다」고 오판하기 쉽다.
 
+### 안드로이드 빌드 (Capacitor)
+
+```bash
+npm run android            # 웹 빌드 → cap sync → APK (android/app/build/outputs/apk/debug/)
+npm run android:install    # 위 + USB 기기에 adb install
+npm run android:open       # Android Studio로 android/ 열기
+```
+
+`scripts/android.sh`가 SDK·JDK를 brew 경로에서 찾는다(`android-commandlinetools`·`openjdk@21`).
+**크롭용 코드는 없다** — `main.ts`의 `fit()`이 비율을 9:16~16:9로 클램프해서 세로 폰에선
+중앙 450×800 컬럼만 그려진다. 9:16보다 긴 폰은 **위아래 레터박스 띠가 남는다(결정, 2026-09-06).**
+세로 고정은 `AndroidManifest.xml`, 시스템 바 숨김은 `MainActivity.java`.
+`android/app/src/main/assets/public`은 sync 산출물이라 커밋하지 않는다.
+
 ### 레이아웃 에디터는 dev 서버에서만 저장된다
 
 배치 저장·업로드 플러그인이 `vite.config.ts`에서 `apply: 'serve'`다. **빌드본(`vite preview`)에는

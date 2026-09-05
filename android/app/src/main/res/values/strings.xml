@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Red Horse Rescue</string>
+    <string name="title_activity_main">Red Horse Rescue</string>
+    <string name="package_name">com.nhn.redhorserescue</string>
+    <string name="custom_url_scheme">com.nhn.redhorserescue</string>
+</resources>
