@@ -2,6 +2,21 @@
   "_note": "UI 슬롯 배치. 좌표계는 중앙 콘텐츠 컬럼 450×800이다. /ui.html 에디터로 조정하고 저장한다.",
   "areas": [
     {
+      "id": "loading",
+      "label": "게임시작 로딩",
+      "slots": [
+        {
+          "id": "panel",
+          "label": "로딩 패널 (제목·팁·게이지) · 색=게이지 색 · 글자=제목 크기",
+          "x": 36,
+          "y": 585,
+          "w": 378,
+          "h": 120,
+          "color": "#ff6fae"
+        }
+      ]
+    },
+    {
       "id": "lobby",
       "label": "로비",
       "slots": [
@@ -1246,6 +1261,10 @@
     {
       "label": "엔딩",
       "asset": "video.ending"
+    },
+    {
+      "label": "게임시작 로딩 (배경 루프 · 무음)",
+      "asset": "video.loading"
     }
   ],
   "audios": [
