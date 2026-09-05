@@ -178,11 +178,11 @@
     },
     "ui": {
       "back": "assets/race/ui-back.png",
-      "gear": "assets/race/ui-gear.png",
+      "gear": "assets/race/ui-gear.webp",
       "title": "assets/race/ui-title.png",
       "prompt": "assets/race/ui-prompt.png",
-      "btnSelect": "assets/race/btn-select.png",
-      "btnRace": "assets/race/btn-race.png",
+      "btnSelect": "assets/race/btn-select.webp",
+      "btnRace": "assets/race/btn-race.webp",
       "startSign": "assets/race/ui-start.png",
       "resultTitle": "assets/race/ui-result-title.png",
       "podium": "assets/race/ui-podium.png",
@@ -216,8 +216,9 @@
       "elephant": "assets/race/winner-elephant.png"
     },
     "card": {
-      "off": "assets/race/card-off.png",
-      "on": "assets/race/card-on.png"
+      "grid": "assets/race/card-grid.png",
+      "on": "assets/race/card-on.png",
+      "off": "assets/race/card-off.png"
     },
     "row": {
       "first": "assets/race/row-first.png",

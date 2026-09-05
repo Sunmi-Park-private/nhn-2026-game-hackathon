@@ -119,10 +119,15 @@ export function openRace(
 
     const picker = createCardPicker({
       box: B.select.cardGrid,
+      grid: {
+        cols: RACE.CARD_COLS, rows: RACE.CARD_ROWS,
+        gap: RACE.CARD_GAP, pad: RACE.CARD_PAD,
+      },
       animals: lineup,
       faces: tex.faces,
-      frameOff: tex.card.off,
-      frameOn: tex.card.on,
+      gridArt: tex.card.grid,   // 6종 타일 한 장
+      frameOn: tex.card.on,     // 선택 테두리
+      frameOff: tex.card.off,   // 격자 이미지가 없을 때만
     });
     selectScreen.addChild(picker.node);
 
