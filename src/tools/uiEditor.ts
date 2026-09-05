@@ -85,7 +85,7 @@ function frameCount(dotted: string): number {
   const v = assetValue(dotted);
   return Array.isArray(v) ? v.length : 1;
 }
-function setAssetPath(dotted: string, value: string | string[]): void {
+function setAssetPath(dotted: string, value: string | string[] | number): void {
   const keys = dotted.split(".");
   let cur = state.manifest;
   for (const k of keys.slice(0, -1)) {
@@ -173,7 +173,7 @@ const markDirty = (): void => {
 // ── 업로드 카드 ─────────────────────────────
 /** 슬롯 하나의 카드. 미리보기 + 클릭/드롭 업로드 + 삭제.
  *  업로드 성공 뒤에도 파일 쓰기가 끝나기 전 요청이 갈 수 있으므로 몇 번 재시도한다. */
-function card(label: string, dotted: string, onChanged?: () => void, seq = false): HTMLElement {
+function card(label: string, dotted: string, onChanged?: () => void, seq = false, holdKey?: string): HTMLElement {
   const cell = $("div", "background:#241a10;border:2px solid #4a3320;border-radius:12px;overflow:hidden;cursor:pointer");
   const stage = $("div", `position:relative;height:140px;${CHECKER};display:flex;align-items:center;justify-content:center`);
   const img = document.createElement("img");
@@ -217,18 +217,22 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
     stage.prepend(a);
   };
 
+  // hold 슬롯이 붙으면 프레임 눈금을 다시 맞춘다. 없으면 아무 일도 없다.
+  let afterPaint: (() => void) | null = null;
+
   const paint = (): void => {
     const rel = assetPath(dotted);
     const n = frameCount(dotted);
     meta.textContent = rel ? (seq && n > 1 ? `${n}프레임 · ${rel}` : rel) : "(매니페스트에 없음)";
     meta.style.color = "#a8987c";
-    if (!rel) { img.style.display = "none"; clearMedia(); empty.style.display = "block"; return; }
-    if (isVideo(rel)) { showVideo(`${rel}?v=${Date.now()}`); return; }
-    if (isAudio(rel)) { showAudio(`${rel}?v=${Date.now()}`); return; }
+    if (!rel) { img.style.display = "none"; clearMedia(); empty.style.display = "block"; afterPaint?.(); return; }
+    if (isVideo(rel)) { showVideo(`${rel}?v=${Date.now()}`); afterPaint?.(); return; }
+    if (isAudio(rel)) { showAudio(`${rel}?v=${Date.now()}`); afterPaint?.(); return; }
     clearMedia();
     img.dataset["src"] = rel;
     img.dataset["retries"] = "1";
     img.src = `${rel}?v=${Date.now()}`;
+    afterPaint?.();
   };
   img.onload = (): void => { img.style.display = ""; empty.style.display = "none"; };
   img.onerror = (): void => {
@@ -304,6 +308,62 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
     meta.textContent = assetPath(dotted) ?? "";
     onChanged?.();
   };
+
+  // ── 최대 장전 프레임 (붉은말처럼 hold가 지정된 시퀀스에만) ──
+  // 한 시퀀스에 「당김 → 폄」이 다 들어 있어, 어디까지가 당김인지 코드가 알아야 한다.
+  if (holdKey) {
+    const bar = $("div", "padding:0 12px 10px");
+    const readHold = (): number => {
+      const v = assetValue(holdKey);
+      return typeof v === "number" && Number.isInteger(v) ? v : 0;
+    };
+    const label2 = $("div", "font-size:11px;color:#a8987c;margin-bottom:4px");
+    const range = document.createElement("input");
+    range.type = "range";
+    range.min = "0";
+    range.step = "1";
+    range.setAttribute("style", "width:100%");
+    const set = $("button",
+      "margin-top:6px;background:#2b1d10;color:#f0c96a;border:1px solid #4a3320;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer",
+      "이 프레임을 최대 장전으로");
+
+    /** 매니페스트의 프레임 목록. 스크러버는 이 배열을 훑는다. */
+    const frameList = (): string[] => {
+      const v = assetValue(dotted);
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    };
+
+    const syncBar = (): void => {
+      const list = frameList();
+      const hold = readHold();
+      if (list.length === 0) { bar.style.display = "none"; return; }
+      bar.style.display = "";
+      range.max = String(list.length - 1);
+      label2.textContent = `최대 장전: ${hold}번 프레임 / 전체 ${list.length}장 — 앞은 당김, 뒤는 토스`;
+    };
+
+    range.oninput = (): void => {
+      const list = frameList();
+      const f = list[Number(range.value)];
+      if (f) { img.dataset["retries"] = "1"; img.src = `${f}?v=${Date.now()}`; }
+    };
+    set.onclick = async (): Promise<void> => {
+      setAssetPath(holdKey, Number(range.value));
+      const res = await fetch("/__assets", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(state.manifest),
+      });
+      label2.style.color = res.ok ? "#8fdc8f" : "#ff8f7a";
+      if (res.ok) syncBar(); else label2.textContent = `저장 실패: ${await res.text()}`;
+    };
+
+    bar.append(label2, range, set);
+    cell.appendChild(bar);
+    syncBar();
+    // 업로드로 프레임 수가 바뀌면 눈금도 따라가야 한다
+    afterPaint = syncBar;
+  }
 
   paint();
   return cell;
@@ -455,7 +515,7 @@ function uploadGrid(items: UiUpload[], minWidth: number, onChanged?: () => void)
       grid.appendChild(groupHead(u.group, group === undefined));
       group = u.group;
     }
-    grid.appendChild(card(u.label, u.asset, onChanged, u.seq === true));
+    grid.appendChild(card(u.label, u.asset, onChanged, u.seq === true, u.hold));
   }
   return grid;
 }
