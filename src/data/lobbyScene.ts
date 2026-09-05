@@ -10,8 +10,13 @@
 // 「사슴 영상」이 아니라 **「3마리 구출 상태의 로비」**다. 에디터 라벨이 그렇게 적혀 있다.
 import { ANIMALS } from "./animals";
 
-/** 장면 키 목록 — 1마리 구출이 [0], 6마리가 [5]. */
-export const SCENE_KEYS: readonly string[] = ANIMALS.map((a) => a.id);
+/** 0마리 장면의 키. 아직 아무도 못 구한 로비 — 말 혼자 있는 화면이다.
+ *  스테이지 1을 깨기 전이 게임을 켜면 가장 먼저 보는 화면이라 여기도 영상이 돈다. */
+export const START_KEY = "horse";
+
+/** 장면 키를 **마릿수 순서로** 늘어놓은 것. 인덱스가 곧 구출 수다 —
+ *  [0] 말 혼자, [1] 한 마리, … [6] 여섯 마리. */
+export const SCENE_KEYS: readonly string[] = [START_KEY, ...ANIMALS.map((a) => a.id)];
 
 /**
  * 구출 수에 맞는 장면 키. **구출 수 이하 중 있는 것 가운데 가장 큰 것**을 고른다.
@@ -21,7 +26,7 @@ export const SCENE_KEYS: readonly string[] = ANIMALS.map((a) => a.id);
  *     3번 영상이 없으면 2번이 아니라 「3 이하 중 있는 것」으로 내려간다.
  *   · 아직 안 올라온 파일이 태반이다. 빈 자리는 건너뛰고 이전 장면을 계속 쓴다.
  *
- * 하나도 없거나 아직 한 마리도 못 구했으면 null — 호출부가 스틸 배경으로 간다.
+ * 한 편도 없으면 null — 호출부가 스틸 배경으로 간다.
  */
 export function sceneFor(rescuedCount: number, has: (key: string) => boolean): string | null {
   return sceneCandidates(rescuedCount).find(has) ?? null;
@@ -37,7 +42,7 @@ export function sceneFor(rescuedCount: number, has: (key: string) => boolean): s
  */
 export function sceneCandidates(rescuedCount: number): readonly string[] {
   if (!Number.isFinite(rescuedCount)) return [];
-  const n = Math.min(Math.floor(rescuedCount), SCENE_KEYS.length);
-  if (n < 1) return [];
-  return SCENE_KEYS.slice(0, n).reverse();
+  // 0마리도 장면이 있다 — 0 아래로는 내려갈 곳이 없으니 거기서 멈춘다.
+  const n = Math.max(0, Math.min(Math.floor(rescuedCount), SCENE_KEYS.length - 1));
+  return SCENE_KEYS.slice(0, n + 1).reverse();
 }

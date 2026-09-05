@@ -111,6 +111,15 @@
           "scale": 2
         },
         {
+          "id": "friendHorse",
+          "label": "로비 배경 · 0마리 · 말 혼자",
+          "x": 0,
+          "y": 0,
+          "w": 450,
+          "h": 800,
+          "asset": "lobby.friends.horse"
+        },
+        {
           "id": "friendRabbit",
           "label": "로비 배경 · 1마리 구출",
           "x": 0,
