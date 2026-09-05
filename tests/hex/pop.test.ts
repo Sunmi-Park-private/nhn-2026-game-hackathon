@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { key } from "../../src/engine/hex/coords";
 import { placeTile } from "../../src/engine/hex/grid";
 import { sameColorComponent, resolvePops, POP_THRESHOLD, ARMOR_LAYERS } from "../../src/engine/hex/pop";
-import type { Cell, Tier } from "../../src/engine/hex/types";
+import { MAX_TIER, type Cell, type Tier } from "../../src/engine/hex/types";
 
 /** 좌표-색 쌍으로 셀 맵을 만든다. */
 function makeCells(entries: Array<[number, number, Tier]>): Map<string, Cell> {
@@ -84,7 +84,7 @@ describe("resolvePops", () => {
   });
 
   it("최고 색도 예외 없이 그냥 터진다 — 폭발 규칙은 없다", () => {
-    const cells = makeCells([[0, 0, 5], [1, 0, 5], [0, 1, 5]]);
+    const cells = makeCells([[0, 0, MAX_TIER], [1, 0, MAX_TIER], [0, 1, MAX_TIER]]);
     // 주변에 다른 색을 둘러 둔다. 예전 황금 폭발이라면 이것들까지 휩쓸었다.
     placeTile(cells, { q: -1, r: 0 }, 1);
     placeTile(cells, { q: 2, r: 0 }, 1);

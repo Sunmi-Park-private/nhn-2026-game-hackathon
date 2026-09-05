@@ -59,16 +59,22 @@ export function openLoadingScreen(o: LoadingScreenOpts): LoadingScreen {
   }
 
   const pct = panelPercent(o.panel);
+  // 흰 판을 깔지 않는다 — 글자와 게이지만 영상 위에 얹는다(QA 요구).
+  // 대신 **글자 그림자**를 준다: 영상은 프레임마다 밝기가 바뀌어서, 판이 없으면
+  // 밝은 프레임에서 흰 글자가 통째로 사라진다. 판을 뺀 만큼 읽히게 하는 값이다.
   const panel = el("div",
     `position:absolute;left:${pct.left}%;top:${pct.top}%;width:${pct.width}%;height:${pct.height}%;`
-    + "box-sizing:border-box;padding:6% 7%;border-radius:1.2em;background:rgba(255,255,255,.84);"
-    + "box-shadow:0 0.4em 1.6em rgba(60,40,90,.18);display:flex;flex-direction:column;"
-    + "align-items:center;justify-content:center;gap:0.55em;font-family:system-ui,sans-serif;text-align:center");
-  const title = el("div", "font-weight:800;color:#4a3f6b;font-size:1em;line-height:1.3", LOADING_TEXT.title);
-  const tip = el("div", "color:#8a82a6;font-size:0.72em;line-height:1.3", LOADING_TEXT.tip);
-  const track = el("div", "width:82%;height:0.7em;border-radius:0.35em;background:#e9e3f6;overflow:hidden;margin-top:0.2em");
+    + "box-sizing:border-box;padding:6% 7%;display:flex;flex-direction:column;"
+    + "align-items:center;justify-content:center;gap:0.55em;font-family:system-ui,sans-serif;text-align:center;"
+    + "text-shadow:0 0.06em 0.18em rgba(20,12,6,.85), 0 0 0.5em rgba(20,12,6,.6)");
+  const title = el("div", "font-weight:800;color:#fff3dc;font-size:1em;line-height:1.3", LOADING_TEXT.title);
+  const tip = el("div", "color:#e6d9bd;font-size:0.72em;line-height:1.3", LOADING_TEXT.tip);
+  // 게이지의 홈은 남긴다 — 없으면 「어디까지 왔나」의 끝이 안 보여 길이를 못 읽는다
+  const track = el("div", "width:82%;height:0.7em;border-radius:0.35em;background:rgba(20,12,6,.55);"
+    + "box-shadow:0 0 0 1px rgba(255,243,220,.35) inset;overflow:hidden;margin-top:0.2em");
   const fill = el("div",
-    `height:100%;width:0%;border-radius:0.35em;background:${o.barColor ?? LOADING_BAR_COLOR};transition:width .25s ease-out`);
+    `height:100%;width:0%;border-radius:0.35em;background:${o.barColor ?? LOADING_BAR_COLOR};`
+    + "transition:width .25s ease-out");
   track.appendChild(fill);
   panel.append(title, tip, track);
   if (o.hidePanel !== true) host.appendChild(panel);

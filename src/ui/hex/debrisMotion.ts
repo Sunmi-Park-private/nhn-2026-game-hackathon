@@ -28,6 +28,10 @@ export const FADE_MS = 620;
 /** 안전장치 — 어떤 조각도 이보다 오래 살지 않는다(ms). */
 export const MAX_LIFE_MS = 3200;
 
+/** 조각끼리 부딪힐 때의 반발 계수. 벽(0.5)보다 무르다 — 서로 튕겨내되 튀지는 않는
+ *  정도다. QA 요구가 「약간의 반동」이라 세게 잡지 않는다. */
+export const PIECE_BOUNCE = 0.42;
+
 /** 한 조각이 지금 무엇을 하는 중인가. */
 export type DebrisPhase = "fall" | "roll" | "dead";
 
@@ -159,4 +163,52 @@ export function stepDebris(body: DebrisBody, dtSec: number, arena: DebrisArena, 
   }
 
   if (body.age >= MAX_LIFE_MS) body.phase = "dead";
+}
+
+/**
+ * 조각끼리 겹친 만큼 밀어내고 속도를 튕긴다. `bodies`를 제자리에서 고친다.
+ *
+ * 왜 있나: 터진 타일들이 서로를 그냥 통과해 내려가면 겹쳐 흐르는 한 덩어리로 보인다.
+ * 서로 부딪혀 튕겨야 「조각이 여럿」으로 읽힌다(QA: 「타일끼리 부딪힐 때 약간의
+ * 반동을 주고 떨어지게」).
+ *
+ * 질량은 모두 같다고 본다 — 같은 타일이다. 법선 방향 속도만 주고받고 접선 성분은
+ * 건드리지 않는다(마찰 없음). 멀어지는 중인 쌍은 튕기지 않는다 — 튕기면 한 번 붙은
+ * 두 조각이 매 프레임 서로를 밀어 덜덜 떤다.
+ *
+ * 조각 수는 한 발에 많아야 스무 개 남짓이라 쌍을 전부 도는 것으로 충분하다.
+ */
+export function collidePieces(bodies: DebrisBody[], arena: DebrisArena): void {
+  const d = arena.radius * 2;
+  for (let i = 0; i < bodies.length; i += 1) {
+    const a = bodies[i]!;
+    if (a.phase === "dead") continue;
+    for (let j = i + 1; j < bodies.length; j += 1) {
+      const b = bodies[j]!;
+      if (b.phase === "dead") continue;
+
+      let nx = b.x - a.x;
+      let ny = b.y - a.y;
+      let dist = Math.hypot(nx, ny);
+      if (dist >= d) continue;
+      // 완전히 겹쳤다 — 방향이 없으므로 좌우로 갈라 놓는다
+      if (dist < 1e-6) { nx = 1; ny = 0; dist = 0; } else { nx /= dist; ny /= dist; }
+
+      // 겹친 만큼 절반씩 물러난다
+      const push = (d - dist) / 2;
+      a.x -= nx * push;
+      a.y -= ny * push;
+      b.x += nx * push;
+      b.y += ny * push;
+
+      // 법선 방향으로 다가오는 중일 때만 튕긴다
+      const rel = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+      if (rel <= 0) continue;
+      const impulse = ((1 + PIECE_BOUNCE) * rel) / 2;
+      a.vx -= impulse * nx;
+      a.vy -= impulse * ny;
+      b.vx += impulse * nx;
+      b.vy += impulse * ny;
+    }
+  }
 }

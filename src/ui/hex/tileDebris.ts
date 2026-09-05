@@ -5,8 +5,9 @@
 // 방금까지 판에 있던 바로 그 타일이 굴러가야 「저게 떨어졌다」로 읽힌다.
 import { Container } from "pixi.js";
 
-import { penEdges, PEN, CELL_W } from "./geom";
-import { spawnDebris, stepDebris, type DebrisArena, type DebrisBody } from "./debrisMotion";
+import { penEdges, PEN, CELL_W, HEX_SIZE } from "./geom";
+import { spawnDebris, stepDebris, collidePieces, type DebrisArena, type DebrisBody } from "./debrisMotion";
+import { playLightSweep } from "./lightSweep";
 
 /** 조각이 멈추는 바닥 — 타일이 깔려 있던 배경 울타리의 하단 경계다. */
 const FLOOR_Y = PEN.lb.y;
@@ -50,6 +51,10 @@ export function createTileDebris(rand: () => number = Math.random): TileDebris {
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
     last = now;
 
+    // 조각끼리 부딪히면 서로 밀어내고 튕긴다 — 그냥 통과하면 겹쳐 흐르는 한 덩어리로
+    // 보인다. 전진시키기 **전에** 겹침을 푼다: 푼 뒤에 밀면 그 프레임에 다시 겹친다.
+    collidePieces(pieces.map((p) => p.body), arena);
+
     for (let i = pieces.length - 1; i >= 0; i -= 1) {
       const p = pieces[i]!;
       stepDebris(p.body, dt, arena, rand);
@@ -92,6 +97,8 @@ export function createTileDebris(rand: () => number = Math.random): TileDebris {
         view.x = body.x;
         view.y = body.y;
         root.addChild(view);
+        // 떨어지는 동안 그 위로 빛이 한 번 지나간다 — 낙하를 멈추지 않는다(QA 선택)
+        playLightSweep(view, HEX_SIZE);
         pieces.push({ view, body });
       }
       start();

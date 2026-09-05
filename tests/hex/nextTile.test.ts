@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { key } from "../../src/engine/hex/coords";
 import { placeTile } from "../../src/engine/hex/grid";
 import { presentTiers, pickNext } from "../../src/engine/hex/nextTile";
-import type { Cell, Tier } from "../../src/engine/hex/types";
+import { MAX_TIER, type Cell, type Tier } from "../../src/engine/hex/types";
 
 function board(tiers: Tier[]): Map<string, Cell> {
   const cells = new Map<string, Cell>();
@@ -55,8 +55,8 @@ describe("pickNext", () => {
   });
 
   it("한 가지 색만 깔린 판이면 항상 그 색이다", () => {
-    const cells = board([5, 5, 5]);
-    expect(pickNext(cells, fixed(0))).toBe(5);
-    expect(pickNext(cells, fixed(0.99))).toBe(5);
+    const cells = board([MAX_TIER, MAX_TIER, MAX_TIER]);
+    expect(pickNext(cells, fixed(0))).toBe(MAX_TIER);
+    expect(pickNext(cells, fixed(0.99))).toBe(MAX_TIER);
   });
 });

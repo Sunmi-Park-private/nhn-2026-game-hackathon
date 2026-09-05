@@ -17,6 +17,9 @@ export interface ShotResult {
   snap: Axial | null;
   /** 연출용 궤적 점 목록 */
   path: Array<{ x: number; y: number }>;
+  /** 좌우 벽에 부딪힌 자리, 부딪힌 순서대로. 조준 규칙이 **첫 반사**를 본다 —
+   *  판 하단에서 곧바로 튕기는 눕힌 각을 막기 위해서다(ui/hex/aimRule.ts). */
+  bounces: Array<{ x: number; y: number }>;
   /** 판에 닿지 못하고 다시 아래로 떨어졌다 — 헛발 */
   missed: boolean;
 }
@@ -94,6 +97,7 @@ export function simulateShot(
   let y = from.y;
 
   const path: Array<{ x: number; y: number }> = [{ x, y }];
+  const bounces: Array<{ x: number; y: number }> = [];
   let lastEmpty: Axial | null = null;
   /** 멈추게 한 점유 칸. 천장을 넘거나 헛발이면 null */
   let hit: Axial | null = null;
@@ -114,9 +118,11 @@ export function simulateShot(
     if (x < minX) {
       x = minX + (minX - x);
       vx = -vx;
+      bounces.push({ x: minX, y });
     } else if (x > maxX) {
       x = maxX - (x - maxX);
       vx = -vx;
+      bounces.push({ x: maxX, y });
     }
     path.push({ x, y });
 
@@ -141,8 +147,8 @@ export function simulateShot(
   }
 
   // 헛발은 지나온 빈 칸이 있어도 붙지 않는다 — 떨어진 타일이 공중에 남을 수 없다
-  if (missed) return { snap: null, path, missed };
-  return { snap: attachedSnap(cells, geom, hit, lastEmpty, { x, y }), path, missed };
+  if (missed) return { snap: null, path, bounces, missed };
+  return { snap: attachedSnap(cells, geom, hit, lastEmpty, { x, y }), path, bounces, missed };
 }
 
 /**

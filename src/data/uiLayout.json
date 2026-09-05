@@ -81,13 +81,63 @@
           "scale": 1.45
         },
         {
-          "id": "play",
-          "label": "PLAY",
+          "id": "stage1",
+          "label": "스테이지 1",
           "x": 130,
           "y": 630,
           "w": 194,
           "h": 54,
-          "asset": "lobby.play",
+          "asset": "lobby.stage1",
+          "scale": 2
+        },
+        {
+          "id": "stage2",
+          "label": "스테이지 2",
+          "x": 130,
+          "y": 630,
+          "w": 194,
+          "h": 54,
+          "asset": "lobby.stage2",
+          "scale": 2
+        },
+        {
+          "id": "stage3",
+          "label": "스테이지 3",
+          "x": 130,
+          "y": 630,
+          "w": 194,
+          "h": 54,
+          "asset": "lobby.stage3",
+          "scale": 2
+        },
+        {
+          "id": "stage4",
+          "label": "스테이지 4",
+          "x": 130,
+          "y": 630,
+          "w": 194,
+          "h": 54,
+          "asset": "lobby.stage4",
+          "scale": 2
+        },
+        {
+          "id": "stage5",
+          "label": "스테이지 5",
+          "x": 130,
+          "y": 630,
+          "w": 194,
+          "h": 54,
+          "asset": "lobby.stage5",
+          "scale": 2
+        },
+        {
+          "id": "stage6",
+          "label": "스테이지 6",
+          "x": 130,
+          "y": 630,
+          "w": 194,
+          "h": 54,
+          "asset": "lobby.stage6",
           "scale": 2
         },
         {
@@ -388,6 +438,15 @@
       "id": "ingame",
       "label": "인게임",
       "slots": [
+        {
+          "id": "bgBoard",
+          "label": "판 배경(전체)",
+          "x": 0,
+          "y": 0,
+          "w": 450,
+          "h": 800,
+          "asset": "hex.bg.board"
+        },
         {
           "id": "bgPanel",
           "label": "배경 패널",
@@ -978,16 +1037,6 @@
     {
       "label": "타일 보라",
       "asset": "hex.tiles.4",
-      "group": "타일"
-    },
-    {
-      "label": "타일 황금",
-      "asset": "hex.tiles.5",
-      "group": "타일"
-    },
-    {
-      "label": "말굽 타일",
-      "asset": "hex.horseshoe",
       "group": "타일"
     },
     {

@@ -3,10 +3,10 @@
 /** 타일 등급. 0=빨강(최하위, 발사체) 1=노랑 2=초록 3=파랑 4=보라 5=황금(최고).
  *  기획서의 T1~T6과 1:1 대응하되 배열 인덱스와 맞추기 위해 0부터 센다.
  *  이 순서는 가시광선의 파장 순서다 — 합칠수록 파장이 짧아진다. */
-export type Tier = 0 | 1 | 2 | 3 | 4 | 5;
+export type Tier = 0 | 1 | 2 | 3 | 4;
 
 /** 최고 등급. 여기서 합체가 일어나면 승급 대신 폭발한다. */
-export const MAX_TIER: Tier = 5;
+export const MAX_TIER: Tier = 4;
 
 /** 축좌표(axial). pointy-top 육각 격자, 가로 행 스태거. */
 export interface Axial {

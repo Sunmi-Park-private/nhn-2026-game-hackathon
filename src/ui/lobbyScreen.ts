@@ -1,6 +1,6 @@
 // ui/lobbyScreen.ts — 로비. 시안의 배치를 그대로 따른다.
 //
-// 상단 재화 바 · 우측 레일 4종(전부 목업) · 중앙 PLAY · 하단 4종(HOME·ANIMALS만 동작)
+// 상단 재화 바 · 우측 레일 4종(전부 목업) · 중앙 스테이지 1~6 · 하단 4종(HOME·ANIMALS만 동작)
 // · 좌우에 구출한 동물 친구(스테이지를 깰수록 늘어난다).
 // 배치는 data/uiLayout.json이 들고 있고 /ui.html 에디터로 조정한다.
 //
@@ -10,6 +10,7 @@ import { Application, Container, Graphics, Text, type Texture } from "pixi.js";
 import { BASE_W, stageTop, stageHeight, coverBox, contentRect } from "./stage";
 import { applySlotHitArea } from "./slotHitRect";
 import { fitSprite, loadTexture, playVideoTexture, VIDEO_LOAD_TIMEOUT_MS } from "./skin";
+import { shadowSprite, type DropShadow } from "./dropShadow";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection, type CollectionTextures } from "./collection";
 import { openRace, type RaceTextures } from "./race/raceScreen";
@@ -23,7 +24,9 @@ import type { Profile } from "../engine/profile";
 
 export interface LobbyTextures {
   bg?: Texture;
-  play?: Texture;
+  /** 스테이지 1~6 버튼 아트. 아직 전용 아트가 없으면 같은 장(PLAY)이 여섯 번 온다 —
+   *  자리와 번호는 코드가 그리고, 그림은 슬롯마다 따로 갈아끼울 수 있다. */
+  stages: Array<Texture | null>;
   gear?: Texture;
   /** 우측 레일·하단 내비 아이콘 — 없으면 라벨로 대신한다 */
   icons: Record<string, Texture | null>;
@@ -42,6 +45,21 @@ export interface LobbyTextures {
 
 const AREA = "lobby";
 
+/** 스테이지 버튼의 그림자. 각도는 시안 표기 그대로 180°(왼쪽)다. */
+const STAGE_SHADOW = { angle: 180, distance: 6, alpha: 0.38 } as const;
+
+/** 스테이지 1~6 폴백 자리. 여섯 칸이 **한 자리에 겹쳐** 있다 — 예전 PLAY 자리 그대로다.
+ *  판마다 버튼 그림이 다르므로 칸은 여섯 개지만, 화면에는 지금 판의 칸 하나만 뜬다.
+ *  실제 값은 uiLayout.json이 들고 있고 /?editor=1 로 조정한다 — 여섯 칸이 같은
+ *  x·y·w·h·배율을 갖는 것이 요구사항이라 하나를 옮기면 나머지도 같이 옮겨야 한다. */
+const STAGE_BOX = { x: 128, y: 632, w: 194, h: 54 };
+
+/** 지금 열려야 할 칸. 프로필이 범위를 벗어나면 첫 칸으로 돌아간다 —
+ *  마지막 판을 깬 뒤 stageIndex가 판 수와 같아지는 순간이 있다(main.ts가 되감기 전). */
+function clampStage(index: number, count: number): number {
+  return Number.isInteger(index) && index >= 0 && index < count ? index : 0;
+}
+
 function box(id: string, fallback: { x: number; y: number; w: number; h: number }): UiSlot {
   return slot(AREA, id) ?? { id, label: id, ...fallback };
 }
@@ -52,12 +70,19 @@ function box(id: string, fallback: { x: number; y: number; w: number; h: number 
  *  그려 준다. 한때 「배경 아트가 있으면 버튼은 배경이 그린 것」으로 가정했는데,
  *  버튼이 그려져 있지 않은 배경이 올라오자 버튼이 통째로 안 보였다.
  *  배경이 이미 버튼을 그리고 있다면 그 슬롯에 같은 그림을 올리면 된다. */
+interface HotspotOpts {
+  /** 아트가 있을 때만 뒤에 한 겹 깐다 — 폴백 사각형은 자리표시라 그림자를 두지 않는다 */
+  shadow?: DropShadow;
+  fill?: number;
+}
+
 function hotspot(
   b: UiSlot,
   tex: Texture | null | undefined,
   onTap: (() => void) | null,
-  fill = 0x6b4626,
+  o: HotspotOpts = {},
 ): Container {
+  const fill = o.fill ?? 0x6b4626;
   const c = new Container();
   c.x = b.x;
   c.y = b.y;
@@ -76,6 +101,7 @@ function hotspot(
     const s = fitSprite(tex, b.w, b.h);
     s.x = b.w / 2;
     s.y = b.h / 2;
+    if (o.shadow) c.addChild(shadowSprite(tex, s, o.shadow)); // 진짜 아트보다 먼저 — 뒤에 깔린다
     c.addChild(s);
   } else {
     const g = new Graphics().roundRect(0, 0, w, h, 8 * k).fill({ color: fill, alpha: onTap ? 1 : 0.55 });
@@ -140,15 +166,15 @@ function counter(b: UiSlot, value: number): Container {
  *  이름의 동물과 그 장면의 동물은 무관하다(data/lobbyScene.ts 참조). */
 const sceneSlotId = (key: string): string => `friend${key[0]!.toUpperCase()}${key.slice(1)}`;
 
-/** 로비를 띄우고 PLAY를 누를 때까지 기다린다. */
+/** 로비를 띄우고 스테이지 버튼을 누를 때까지 기다린다. 고른 판의 인덱스(0-based)를 돌려준다. */
 export function runLobby(
   app: Application,
   profile: Profile,
   tex: LobbyTextures,
   /** 레이스가 프로필을 바꾸면 알린다 — 저장은 호출자가 한다 */
   onProfile: (p: Profile) => void = () => {},
-): Promise<void> {
-  return new Promise<void>((resolve) => {
+): Promise<number> {
+  return new Promise<number>((resolve) => {
     const layer = new Container();
     app.stage.addChild(layer);
     playBgm("audio.bgmLobby");
@@ -167,7 +193,12 @@ export function runLobby(
     // 것으로 보였다(QA). 자리를 지금 잡아 둔다 — 나중에 인덱스를 세어 끼우면
     // 스틸이 없을 때 한 칸씩 밀려 테두리나 재화 바를 덮는다.
     const stillBg = tex.bg ? coverBox(tex.bg) : null;
-    if (stillBg) layer.addChild(stillBg);
+    if (stillBg) {
+      layer.addChild(stillBg);
+      // 배경도 에디터가 잡는다. 예전에는 슬롯이 uiLayout.json에 있는데 노드를 넘기지
+      // 않아 **에디터 목록에 뜨지도 않았다** — 좌표도 배율도 손댈 수 없었다(QA).
+      editable(AREA, box("bg", { x: 0, y: 0, w: BASE_W, h: 800 }), stillBg);
+    }
     const sceneLayer = new Container();
     layer.addChild(sceneLayer);
 
@@ -207,14 +238,34 @@ export function runLobby(
         if (!t) continue;
         if (layer.destroyed || sceneLayer.destroyed) return; // 그 사이 로비가 닫혔다
         stops.push(playVideoTexture(t, app.ticker)); // 영상이면 돈다. 스틸이면 아무 일도 없다
-        sceneLayer.addChild(coverBox(t)); // ② 스틸은 그대로 밑에 남는다
+        const view = coverBox(t);
+        sceneLayer.addChild(view); // ② 스틸은 그대로 밑에 남는다
+        // 배경 **영상**도 슬롯이다 — 실제로 트는 한 편만 등록된다(나머지는 노드가 없다)
+        editable(AREA, box(sceneSlotId(key), { x: 0, y: 0, w: BASE_W, h: 800 }), view);
         return;
       }
     })();
 
-    // ── PLAY ────────────────────────────────────
-    const play = box("play", { x: 138, y: 646, w: 174, h: 54 });
-    layer.addChild(hotspot(play, tex.play, () => finish(), 0x3faa48));
+    // ── 스테이지 1~6 ─────────────────────────────
+    // PLAY 한 칸이 있던 자리다. 여섯 칸이 **한 자리에 겹쳐** 있고, 지금 판의 칸
+    // 하나만 보인다 — 나머지 다섯은 꺼 둔다(보이지도, 눌리지도 않는다).
+    // 판마다 버튼 그림이 다르기 때문에 칸을 여섯 개 두는 것이지, 여섯 개를 동시에
+    // 보이려는 것이 아니다.
+    //
+    // **꺼진 칸도 노드는 만든다.** 에디터가 잡을 대상이 있어야 아트를 올릴 수 있다 —
+    // 노드를 안 만들면 그 판의 버튼 그림을 영영 못 올린다.
+    const current = clampStage(profile.stageIndex, tex.stages.length);
+    for (let i = 0; i < tex.stages.length; i += 1) {
+      const b = box(`stage${i + 1}`, STAGE_BOX);
+      const on = i === current;
+      const node = hotspot(b, tex.stages[i] ?? null, on ? () => finish(i) : null, {
+        fill: 0x3faa48,
+        shadow: STAGE_SHADOW,
+      });
+      // editable()이 슬롯의 hidden으로 visible을 정하므로 **그 뒤에** 끈다
+      if (!on) node.visible = false;
+      layer.addChild(node);
+    }
 
     // ── 하단 4종 — HOME·WORLD·ANIMALS 동작, EVENTS는 목업 ─────
     const home = box("navHome", { x: 18, y: 738, w: 96, h: 50 });
@@ -242,16 +293,17 @@ export function runLobby(
 
     // ── 설정 ────────────────────────────────────
     const gear = box("gear", { x: 396, y: 12, w: 40, h: 40 });
-    layer.addChild(hotspot(gear, tex.gear, () => { void openSettings(layer, tex.ui); }, 0x4a3320));
+    layer.addChild(hotspot(gear, tex.gear, () => { void openSettings(layer, tex.ui); }, { fill: 0x4a3320 }));
 
     let done = false;
-    function finish(): void {
+    /** 고른 스테이지 인덱스(0-based)를 돌려주고 로비를 내린다. */
+    function finish(stageIndex: number): void {
       if (done) return;
       done = true;
       for (const stop of stops) stop(); // 티커에 남으면 파괴된 텍스처를 계속 올린다
       clearEditable(AREA); // 파괴된 노드를 에디터가 계속 잡고 있으면 안 된다
       layer.destroy({ children: true });
-      resolve();
+      resolve(stageIndex);
     }
   });
 }

@@ -93,7 +93,13 @@ export function openArtPage<R>(
     root.addChild(veil);
 
     root.addChild(contentRect(0x241a10)); // 배경 아트가 없어도 박스가 비지 않게
-    if (o.bg) root.addChild(coverBox(o.bg));
+    if (o.bg) {
+      const view = coverBox(o.bg);
+      root.addChild(view);
+      // 배경도 에디터가 잡는다 — 슬롯은 있는데 노드를 안 넘겨 목록에 뜨지 않았다(QA)
+      const bgBox = slot(o.area, "bg");
+      if (bgBox) editable(o.area, bgBox, view);
+    }
     root.addChild(
       new Graphics()
         .rect(0.5, stageTop() + 0.5, BASE_W - 1, stageHeight() - 1)

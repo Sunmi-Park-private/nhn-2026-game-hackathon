@@ -26,23 +26,31 @@ describe("로비 RACE 교체", () => {
     expect(manifest.lobby.navRace).toBeTruthy();
   });
 
-  // 절대 y를 못박았더니 디자이너가 하단 행을 통째로 9px 올린 것만으로 깨졌다(738→729).
-  // 지키려던 사실은 「navRace가 나머지 셋과 같은 행에 같은 크기로, 두 번째 자리에 있다」이지
-  // 특정 좌표가 아니다. 행이 통째로 움직이는 것은 배치 작업이라 막을 이유가 없다.
-  it("navRace가 하단 4칸의 두 번째 자리에 같은 행·같은 크기로 놓여 있다", () => {
+  // 예전에는 여기서 [122, 738, 96, 50]을 **숫자로 못박았다.** 그 자리를 디자이너가
+  // 에디터에서 옮기면(4칸을 나란히 맞추면서 y와 scale이 함께 바뀐다) 테스트가 빨개졌고,
+  // 고치는 사람이 좌표를 옛 값으로 되돌리곤 했다 — 에디터 편집이 조용히 사라지는 경로였다.
+  // 못박을 것은 좌표가 아니라 **줄의 성질**이다: RACE는 하단 4칸의 둘째 칸이고,
+  // 네 칸은 같은 높이·같은 크기·같은 배율로 고르게 놓인다.
+  it("하단 4칸이 한 줄로 고르게 놓이고 RACE가 둘째 칸이다", () => {
     const lobby = uiAreas.find((a) => a.id === "lobby")!;
-    const order = ["navHome", "navRace", "navAnimals", "navEvents"];
-    const navs = order.map((id) => lobby.slots.find((s) => s.id === id)!);
-    expect(navs.every(Boolean)).toBe(true);
-    const race = navs[1]!;
-    // 같은 행 · 같은 크기
-    for (const n of navs) {
-      expect(n.y).toBe(race.y);
-      expect(n.w).toBe(race.w);
-      expect(n.h).toBe(race.h);
+    const row = ["navHome", "navRace", "navAnimals", "navEvents"]
+      .map((id) => lobby.slots.find((s) => s.id === id)!);
+    expect(row.every(Boolean)).toBe(true);
+
+    const [first] = row;
+    for (const s of row) {
+      expect([s.y, s.w, s.h], s.id).toEqual([first!.y, first!.w, first!.h]);
+      expect(s.scale ?? 1, s.id).toBe(first!.scale ?? 1);
     }
-    // 왼쪽에서 두 번째 — x 순서가 order와 같다
-    expect(navs.map((n) => n.x)).toEqual([...navs.map((n) => n.x)].sort((a, b) => a - b));
+    // 왼쪽부터 차례로 놓이고 서로 겹치지 않는다. 겹치면 큰 쪽이 탭을 가로챈다 —
+    // 실제로 RACE 자리표시가 HOME을 덮고 탭까지 먹은 적이 있다(ui/lobbyScreen.ts).
+    // 간격이 정확히 같기까지 요구하지는 않는다. 픽셀 몇 개는 디자이너의 몫이다.
+    row.slice(1).forEach((s, i) => {
+      const prev = row[i]!;
+      expect(s.x, `${prev.id} → ${s.id} 순서가 뒤집혔다`).toBeGreaterThan(prev.x);
+      expect(s.x, `${prev.id}와 ${s.id}가 겹친다`).toBeGreaterThanOrEqual(prev.x + prev.w);
+    });
+    expect(row[1]!.id).toBe("navRace");
   });
 
   it("worldScreen은 파일로 남되 아무도 import하지 않는다 — 번들에서 빠진다", () => {
