@@ -62,8 +62,8 @@
         {
           "id": "play",
           "label": "PLAY",
-          "x": 140,
-          "y": 646,
+          "x": 128,
+          "y": 640,
           "w": 194,
           "h": 54,
           "asset": "lobby.play",
