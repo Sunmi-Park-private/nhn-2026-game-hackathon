@@ -12,6 +12,7 @@ import { stageLeft, stageTop, stageWidth, stageHeight } from "./stage";
 import { fitSprite } from "./skin";
 import { hotspot, plate } from "./panelBits";
 import { editable, clearEditable } from "./layoutEditor";
+import { applySlotHitArea } from "./slotHitRect";
 import { GAMEOVER_AREA, GAMEOVER_FALLBACK, type GameOverSlotId } from "./gameOverLayout";
 
 /** 슬롯 한 칸 — uiLayout의 UiSlot과 같은 모양이지만 여기서는 타입만 받는다. */
@@ -111,9 +112,13 @@ export function openGameOver(parent: Container, opts: GameOverOptions = {}): Pro
       const b = box(id);
       const c = new Container();
       c.addChild(plate(b, t, fill, label));
-      c.addChild(hotspot(null, b, () => finish(id === "retry")));
+      const tap = hotspot(null, b, () => finish(id === "retry"));
+      c.addChild(tap);
       root.addChild(c);
       editable(GAMEOVER_AREA, b, c);
+      // 배율은 바깥 컨테이너에 걸린다(로비·다시도전 모두 1.5). 그대로 두면 120×48이
+      // 180×72가 되어 두 버튼이 48px 겹쳤고, 나중에 붙은 「다시 도전」이 이겼다.
+      applySlotHitArea(tap, b, c);
     };
     button("lobby", tex.lobby, 0x53341c, "로비로");
     button("retry", tex.retry, 0xd23b30, "다시 도전");
