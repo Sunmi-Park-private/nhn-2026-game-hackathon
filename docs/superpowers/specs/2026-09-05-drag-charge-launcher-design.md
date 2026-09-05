@@ -26,7 +26,12 @@
 
 ## 3. 코드베이스 실측
 
-측정 시점 `ecfa34a`. **이미 되어 있는 것을 다시 만들지 않기 위한 절이다.**
+측정 시점 `1dd9e60`(2026-09-05 리베이스 후). **이미 되어 있는 것을 다시 만들지 않기 위한 절이다.**
+
+> 리베이스로 들어온 것: 구조 동물 **6종 확정(펭귄 제외)**, 창살이 동물별
+> `cageLocked`(시퀀스)·`cageOpen`(스틸)로 갈라짐, 업로드 항목에 `group` 필드,
+> `tests/hex/assetManifest.test.ts` 신설. **발사대 쪽은 하나도 안 건드렸다** —
+> 아래 판정은 그대로 선다.
 
 ### 3-1. 그대로 살림 — 수정 0
 
@@ -34,8 +39,8 @@
 |---|---|---|
 | `ui/sequence.ts` (73줄) | 프레임 배열 → 재생기. 한 장이면 스틸 | 스크럽에 필요한 것은 `sprite.texture` 교체뿐. 재생 루프는 토스 구간에 그대로 쓴다 |
 | `data/hexAssets.ts`의 `frames()` | 문자열/배열 양쪽을 프레임 목록으로 정규화 | `hex.horse`는 이미 시퀀스로 파싱된다 |
-| `uiLayout.json`의 `uploads` | `{label:"붉은말(발사대) — 시퀀스", asset:"hex.horse", seq:true}` | **에디터는 이미 붉은말 시퀀스를 여러 장 받는다.** 슬롯을 새로 만들 이유가 없다 |
-| `tools/uiEditor.ts`의 `input.multiple = seq` (277행) | 시퀀스 슬롯 다중 업로드 | 위와 같음 |
+| `uiLayout.json`의 `uploads` | `{label:"붉은말(발사대)", asset:"hex.horse", group:"발사대", seq:true}` | **에디터는 이미 붉은말 시퀀스를 여러 장 받는다.** 슬롯을 새로 만들 이유가 없다 |
+| `tools/uiEditor.ts`의 `input.multiple = seq` | 시퀀스 슬롯 다중 업로드 | 위와 같음 |
 | `engine/hex/coords.ts`, `grid.ts`, `gravity.ts`, `pop.ts` | 좌표·합체·낙하 | 발사 모델과 무관 |
 
 ### 3-2. 수정해서 재사용
@@ -45,9 +50,9 @@
 | `engine/hex/shot.ts` (92줄) | 직선·무한 사거리. `simulateShot(cells, geom, from, angle)` | 속도·중력 추가. 인자에 `power`, 결과에 헛발 구분 |
 | `engine/hex/stageRun.ts` `fireAt` (73~108행) | `if (!snap) return empty` — 헛발이 아무 대가가 없다 | 헛발도 `shotsLeft`를 깎는다 |
 | `ui/hex/launcher.ts` (202줄) | 포인터 위치 → 각도. 말은 12fps 무한 루프 | 각도·파워를 밖에서 주입받는다. 말은 파워로 **스크럽**되고 발사 때 앞으로 재생 |
-| `ui/hex/stageScreen.ts` (267줄) | pointerdown/move/up에서 직접 `aimAt` | 새 `dragAim` 모듈에 위임 |
-| `data/hexAssets.ts` | `horse: string[]` | `horseHold: number` 추가 (최대 장전 프레임) |
-| `tools/uiEditor.ts` | 시퀀스는 장수만 표시 | 붉은말 카드에 프레임 스크러버 + 「최대 장전으로 지정」 |
+| `ui/hex/stageScreen.ts` (268줄) | pointerdown/move/up에서 직접 `aimAt` | 새 `dragAim` 모듈에 위임 |
+| `data/hexAssets.ts` (164줄) | `horse: string[]` | `horseHold: number` 추가 (최대 장전 프레임) |
+| `tools/uiEditor.ts` (610줄) | 시퀀스는 장수만 표시 | 붉은말 카드에 프레임 스크러버 + 「최대 장전으로 지정」 |
 | `tests/hex/shot.test.ts` (96줄) | 직선 전제 | 포물선 전제로 고쳐 쓴다 |
 
 ### 3-3. 참조만 — 이 레포 밖
@@ -214,8 +219,13 @@ function frameIndex(v: unknown, len: number): number {
 - 「최대 장전으로 지정」 버튼 — 지금 보고 있는 프레임을 `hex.horseHold`에 쓴다.
 - 현재 값은 스크러버 눈금 위에 표시한다.
 
-`seq` 슬롯 전부가 아니라 `holdKey`가 지정된 업로드 항목에만 붙는다.
-`uiLayout.json`의 붉은말 항목에 `"hold": "hex.horseHold"` 한 줄을 더해 표시한다.
+`seq` 슬롯 전부가 아니라 `hold`가 지정된 업로드 항목에만 붙는다.
+`uiLayout.json`의 붉은말 항목에 `"hold": "hex.horseHold"` 한 줄을 더하고,
+`data/uiLayout.ts`의 `parseUploads`(88~99행)가 `group`과 같은 방식으로 보존한다.
+
+저장 경로가 없다 — `assets.json`은 `/__upload`가 파일을 쓸 때만 곁다리로 갱신되고,
+`/__assets`는 **GET 전용**이다(`vite.config.ts:91`). 숫자 하나를 쓰려고 파일을
+올릴 수는 없으므로 `/__assets`에 POST를 연다. 배치 저장(`/__uilayout`)과 같은 모양이다.
 
 ## 7. 리스크
 
@@ -235,6 +245,9 @@ function frameIndex(v: unknown, len: number): number {
   케이스는 최대 파워로 유지(직선에 가깝다). **추가**: 최소 파워 헛발, 파워가
   클수록 사거리가 단조 증가, 좌우 대칭.
 - `tests/hex/stageRun.test.ts` — **추가**: 헛발이 `shotsLeft`를 깎고 장전을 넘긴다.
+- `tests/hex/assetManifest.test.ts` — **추가**: 붉은말 업로드 항목이 `hold`를 갖고,
+  `horseHold`가 프레임 범위 밖이면 기본값으로 접힌다. (리베이스로 들어온 파일이다 —
+  매니페스트 검증은 전부 여기 모은다)
 - `tests/hex/dragAim.test.ts` [신규] — 새총 각도(당긴 반대), 데드존, 파워 클램프,
   `MAX_ANGLE` 클램프. Pixi 없이 좌표만 넣는다.
 - `tests/hex/shot.test.ts` — **추가**: 최소 파워로 빈 판의 꼭대기 행(r=0)에 스냅한다.
