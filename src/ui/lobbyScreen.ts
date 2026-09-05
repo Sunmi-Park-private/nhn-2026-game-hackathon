@@ -1,6 +1,7 @@
 // ui/lobbyScreen.ts — 로비. 시안의 배치를 그대로 따른다.
 //
-// 상단 재화 바 · 우측 레일 4종(전부 목업) · 중앙 PLAY · 하단 4종(HOME·ANIMALS만 동작).
+// 상단 재화 바 · 우측 레일 4종(전부 목업) · 중앙 PLAY · 하단 4종(HOME·ANIMALS만 동작)
+// · 좌우에 구출한 동물 친구(스테이지를 깰수록 늘어난다).
 // 배치는 data/uiLayout.json이 들고 있고 /ui.html 에디터로 조정한다.
 //
 // 배경 아트가 오면 버튼 모양은 아트가 그린다 — 그때 이 코드는 히트 영역만 얹는다.
@@ -13,6 +14,7 @@ import { openCollection, type CollectionTextures } from "./collection";
 import { openWorld } from "./worldScreen";
 import { openEvent, type EventTextures } from "./eventScreen";
 import { slot, type UiSlot } from "../data/uiLayout";
+import { ANIMALS } from "../data/animals";
 import { buzz } from "./settings";
 import { playBgm, playSfx } from "./audio";
 import { editable, clearEditable } from "./layoutEditor";
@@ -24,6 +26,8 @@ export interface LobbyTextures {
   gear?: Texture;
   /** 우측 레일·하단 내비 아이콘 — 없으면 라벨로 대신한다 */
   icons: Record<string, Texture | null>;
+  /** 로비에 서는 구출한 동물 — 아직 안 올라온 동물은 키가 없다 */
+  friends: Partial<Record<string, Texture>>;
   /** 도감 — 패널과 동물마다 해제·잠김 카드 */
   collection: CollectionTextures;
   /** 월드 지도 화면 */
@@ -114,6 +118,37 @@ function counter(b: UiSlot, value: number): Container {
   return c;
 }
 
+/** 슬롯 id는 동물 id에서 만든다 — friendRabbit, friendSheep … 도감의 cellXxx와 같은 규칙이다. */
+const friendId = (animalId: string): string => `friend${animalId[0]!.toUpperCase()}${animalId.slice(1)}`;
+
+/** 로비 좌우에 서는 동물 한 마리. 구출한 동물만 부른다.
+ *  아트가 있으면 그림만 그리고, 없으면 자리와 정체가 보이도록 글리프를 그린다 —
+ *  배경 아트가 이미 그 동물을 그리고 있다면 슬롯을 hidden으로 끄면 된다. */
+function friend(b: UiSlot, tex: Texture | null, glyph: string): Container {
+  const c = new Container();
+  c.x = b.x;
+  c.y = b.y;
+
+  if (tex) {
+    const s = fitSprite(tex, b.w, b.h);
+    s.x = b.w / 2;
+    s.y = b.h / 2;
+    c.addChild(s);
+  } else {
+    const g = new Graphics().circle(b.w / 2, b.h / 2, Math.min(b.w, b.h) / 2).fill({ color: 0xf3e2c0, alpha: 0.85 });
+    g.circle(b.w / 2, b.h / 2, Math.min(b.w, b.h) / 2).stroke({ width: 2, color: 0x8a5a2b });
+    c.addChild(g);
+    const t = new Text({ text: glyph, style: { fontSize: Math.min(b.w, b.h) * 0.5 } });
+    t.anchor.set(0.5);
+    t.x = b.w / 2;
+    t.y = b.h / 2;
+    c.addChild(t);
+  }
+
+  editable(AREA, b, c);
+  return c;
+}
+
 /** 로비를 띄우고 PLAY를 누를 때까지 기다린다. */
 export function runLobby(app: Application, profile: Profile, tex: LobbyTextures): Promise<void> {
   return new Promise<void>((resolve) => {
@@ -143,6 +178,19 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
       ["statHorseshoe", { x: 285, y: 50, w: 60, h: 22 }, profile.horseshoes],
     ];
     for (const [id, fb, value] of counters) layer.addChild(counter(box(id, fb), value));
+
+    // ── 구출한 동물 친구 ─────────────────────────
+    // 스테이지를 깨서 구출한 동물만 좌우에 선다 — 로비가 진행도를 보여주는 자리다.
+    // 자리가 없는(슬롯이 지워진) 동물은 그리지 않는다: 좌표를 코드가 지어내면
+    // 배경 아트 위 아무 데나 서게 된다.
+    // 「숨기기」는 여기서 거르지 않는다 — editable()이 노드를 등록한 뒤 visible을 끈다.
+    // 여기서 continue하면 슬롯이 에디터 목록에서 통째로 사라져 숨김을 되돌릴 길이 없다.
+    for (const a of ANIMALS) {
+      if (!profile.rescued.includes(a.id)) continue;
+      const b = slot(AREA, friendId(a.id));
+      if (!b) continue;
+      layer.addChild(friend(b, tex.friends[a.id] ?? null, a.glyph));
+    }
 
     // ── PLAY ────────────────────────────────────
     const play = box("play", { x: 138, y: 646, w: 174, h: 54 });

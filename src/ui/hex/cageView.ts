@@ -3,8 +3,9 @@
 // 이 뷰는 stage.cages(고정 목록)와 state.rescued를 대조해 그린다.
 //
 // 구출은 세 박자다:
-//   ① 잠김  — 창살 스틸(tex.closed) + 가벼운 상하 흔들림. 흔들림은 코드가 만든다.
-//   ② 해제  — 자물쇠가 떨어지고 창살이 열린다. **이미지 시퀀스**(tex.open)를 한 번 재생한다.
+//   ① 잠김  — 창살 **시퀀스**(tex.locked[animalId])를 계속 돌린다. 아트가 없을 때만
+//             코드가 그린 창살 + 상하 흔들림 목업으로 폴백한다.
+//   ② 해제  — 자물쇠가 떨어지고, 열린 창살 **스틸**(tex.open[animalId])이 그 자리를 덮는다.
 //   ③ 낙하  — 동물이 우루루 쏟아진다. 바닥에 가까워질수록 **커진다** —
 //             카메라 쪽으로 다가온다는 뜻이다. 지금은 한 장을 여러 마리로 쓰는 목업이고,
 //             아트가 오면 여기가 **동물 시퀀스 묶음** 자리다.
@@ -16,10 +17,10 @@ import type { Cage, RunState } from "../../engine/hex/types";
 import { cageProgress } from "../../engine/hex/cageFaces";
 
 export interface CageTextures {
-  /** 잠긴 우리 — 스틸 한 장 */
-  closed: Texture | null;
-  /** 잠금이 풀리는 순간 — 이미지 시퀀스. 한 장만 넣으면 스틸로 동작한다 */
-  open: readonly Texture[];
+  /** 창살(잠금) — 동물마다 시퀀스. 한 장이면 스틸. 없는 동물은 코드 폴백 */
+  locked: Record<string, readonly Texture[]>;
+  /** 창살(해제) — 동물마다 스틸 한 장. 없으면 폴백 연출만 돈다 */
+  open: Record<string, Texture>;
   /** 동물마다 시퀀스. 한 장이면 스틸 */
   animals: Record<string, readonly Texture[]>;
 }
@@ -37,9 +38,9 @@ export interface CageView {
    *  **sync가 이미 그 케이지를 지웠다면 아무 일도 하지 않고 즉시 resolve한다** —
    *  이 경우 연출은 보이지 않는다. 위 sync의 순서 계약 참조. */
   playRescue(cage: Cage): Promise<void>;
-  /** 유휴 흔들림을 멈춘다 — 설정창이 열려 있는 동안 화면이 정말로 멎게. */
+  /** 유휴 흔들림과 창살 시퀀스를 멈춘다 — 설정창이 열려 있는 동안 화면이 정말로 멎게. */
   pause(): void;
-  /** 흔들림을 되살린다. */
+  /** 흔들림과 창살 시퀀스를 되살린다. */
   resume(): void;
   destroy(): void;
 }
@@ -48,6 +49,7 @@ export interface CageView {
 const IDLE_BOB_PX = 1.6;      // 잠김 idle 진폭
 const IDLE_BOB_HZ = 0.35;
 const UNLOCK_MS = 320;        // 자물쇠가 떨어지고 창살이 열리기까지
+const LOCKED_FPS = 10;        // 잠김 창살 시퀀스 재생 속도
 const FALL_MS = 900;          // 동물이 바닥에 닿기까지
 const ANIMAL_COUNT = 6;       // 우루루 — 한 케이지에서 쏟아지는 마릿수
 const ANIMAL_SCALE_NEAR = 0.5; // 출발(멀다)
@@ -157,9 +159,15 @@ interface CageBody {
   /** 열림 연출에서 사라지는 부분 — 창살과 자물쇠 */
   bars: Container | null;
   lock: Container | null;
-  /** 아트가 있을 때만: 잠긴 우리 스프라이트. 해제 때 이 자리를 시퀀스가 덮는다 */
-  closedSprite: Sprite | null;
+  /** 아트가 있을 때만: 잠긴 창살 시퀀스. 해제 때 이 자리를 열린 스틸이 덮는다 */
+  lockedSeq: SequenceView | null;
   size: number;
+}
+
+/** 잠김 창살 재생 — 붙일 때와 되살릴 때가 **같은 함수를 거쳐야** 한다.
+ *  파라미터가 어긋나면 설정창을 한 번 열고 닫은 뒤부터 창살 속도가 달라진다. */
+function playLocked(seq: SequenceView): void {
+  void seq.play({ fps: LOCKED_FPS, loop: true });
 }
 
 function makeAnimalView(cage: Cage, tex: CageTextures, w: number, h: number): Container {
@@ -197,18 +205,20 @@ function makeCageBody(cage: Cage, tex: CageTextures): CageBody {
 
   // 그리는 순서가 곧 「갇혀 있다」를 만든다 — 동물을 먼저 깔고 창살을 그 위에 덮는다.
   // 아트 경로에서 순서가 뒤집혀 동물이 창살 앞에 서 있었다.
-  let closedSprite: Sprite | null = null;
-  if (tex.closed) {
-    // 아트가 있으면: 그늘 → 동물 → 창살 한 장(안쪽이 비어 있어 동물이 비쳐 보인다)
+  // 창살은 **동물마다 따로 판단한다** — 한 종만 도착해도 그 종은 아트로 그려야 한다
+  // 재생기를 **먼저** 만든다 — 그늘·동물을 깔고 나서 실패하면 아래 폴백이
+  // 같은 box에 두 번째 그늘과 두 번째 동물을 겹쳐 그린다.
+  const lockedFrames = tex.locked[cage.animalId] ?? [];
+  // 덩어리 전체를 덮는 큰 flat-top 육각 — 가로:세로 = 2 : √3
+  const lockedSeq = lockedFrames.length > 0 ? makeSequence(lockedFrames, w, h) : null;
+  if (lockedSeq) {
+    // 아트가 있으면: 그늘 → 동물 → 창살 시퀀스(안쪽이 비어 있어 동물이 비쳐 보인다)
     box.addChild(new Graphics().poly(flatHexPoints(size - 1)).fill(CAGE_DARK));
     box.addChild(makeAnimalView(cage, tex, w * 0.5, h * 0.5));
-
-    // 덩어리 전체를 덮는 큰 flat-top 육각 한 장 — 가로:세로 = 2 : √3
-    closedSprite = new Sprite(tex.closed);
-    closedSprite.anchor.set(0.5);
-    fitContain(closedSprite, w, h); // 원본 비율 유지
-    box.addChild(closedSprite);
-    return { box, bars: null, lock: null, closedSprite, size };
+    // 갇혀 있는 동안 계속 돈다 — 한 장짜리는 makeSequence가 스틸로 다룬다
+    playLocked(lockedSeq);
+    box.addChild(lockedSeq.root);
+    return { box, bars: null, lock: null, lockedSeq, size };
   }
 
   // 아트가 없으면: 그늘 → 동물 → 코드가 그린 창살·자물쇠
@@ -223,7 +233,7 @@ function makeCageBody(cage: Cage, tex: CageTextures): CageBody {
   lock.y = h / 2 - 11;
   box.addChild(bars, lock);
 
-  return { box, bars, lock, closedSprite, size };
+  return { box, bars, lock, lockedSeq: null, size };
 }
 
 /** rAF 루프를 Promise로 감싼다. onFrame이 false를 돌려주거나 시간이 다하면 끝난다. */
@@ -253,6 +263,14 @@ export function createCageView(textures: CageTextures): CageView {
   root.addChild(crackLayer, bodyLayer, fallLayer);
 
   interface Entry { body: CageBody; baseY: number; phase: number; crack: Graphics; crackLevel: number }
+
+  /** 케이지 하나를 화면에서 걷어 낸다. 창살 시퀀스의 rAF를 먼저 세운다 —
+   *  노드만 부수면 다음 프레임까지 파괴된 스프라이트를 만진다. */
+  function dropBody(entry: Entry): void {
+    entry.body.lockedSeq?.stop();
+    if (!entry.body.box.destroyed) entry.body.box.destroy({ children: true });
+    if (!entry.crack.destroyed) entry.crack.destroy();
+  }
   const bodies = new Map<string, Entry>();
   const animating = new Set<string>();
   let idleRaf = 0;
@@ -267,16 +285,24 @@ export function createCageView(textures: CageTextures): CageView {
     drawCracks(entry.crack, p.topFace.map(cellToScreen), level);
   }
 
-  /** 잠김 idle — 아트가 오면 이 자리가 idle 시퀀스로 바뀐다.
-   *  지금은 아주 가벼운 상하 흔들림 목업이다. 연출 중인 케이지는 건드리지 않는다. */
+  /** 흔들 케이지가 하나라도 있나. 아트가 다 올라오면 0이 된다 —
+   *  그때도 rAF를 돌리면 매 프레임 아무것도 안 하는 루프가 영원히 산다. */
+  function needsIdle(): boolean {
+    for (const e of bodies.values()) if (!e.body.lockedSeq && !e.body.box.destroyed) return true;
+    return false;
+  }
+
+  /** 잠김 idle — **아트가 없는 케이지만** 흔든다. 창살 시퀀스가 있으면 살아 있는
+   *  느낌은 아트가 만들므로, 코드가 겹쳐 흔들면 두 움직임이 싸운다.
+   *  연출 중인 케이지는 건드리지 않는다. */
   function startIdle(): void {
-    if (idleRaf !== 0) return;
+    if (idleRaf !== 0 || !needsIdle()) return;
     const tick = (): void => {
       idleRaf = 0;
-      if (root.destroyed || bodies.size === 0) return;
+      if (root.destroyed || !needsIdle()) return;
       const t = performance.now() / 1000;
       for (const [id, e] of bodies) {
-        if (animating.has(id) || e.body.box.destroyed) continue;
+        if (animating.has(id) || e.body.box.destroyed || e.body.lockedSeq) continue;
         e.body.box.y = e.baseY + Math.sin(t * Math.PI * 2 * IDLE_BOB_HZ + e.phase) * IDLE_BOB_PX;
       }
       idleRaf = requestAnimationFrame(tick);
@@ -289,22 +315,22 @@ export function createCageView(textures: CageTextures): CageView {
     idleRaf = 0;
   }
 
-  /** ② 해제 — 자물쇠가 떨어지고 창살이 열린다. 열림 시퀀스를 한 번 재생한다. */
-  async function playUnlock(entry: Entry): Promise<void> {
-    const { box, bars, lock, closedSprite, size } = entry.body;
+  /** ② 해제 — 자물쇠가 떨어지고, 열린 창살 스틸이 잠긴 창살을 덮는다. */
+  async function playUnlock(cage: Cage, entry: Entry): Promise<void> {
+    const { box, bars, lock, lockedSeq, size } = entry.body;
 
-    // 열림 시퀀스가 있으면 잠긴 우리를 덮고 그 자리에서 재생한다.
-    // 잠긴 스프라이트를 지우지 않고 덮는 이유는, 시퀀스 첫 프레임이 자리를 잡기 전
-    // 한 프레임이라도 빈 칸이 보이면 우리가 사라진 것처럼 깜빡이기 때문이다.
-    let seq: SequenceView | null = null;
-    if (textures.open.length > 0 && !box.destroyed) {
-      seq = makeSequence(textures.open, 2 * size, Math.sqrt(3) * size);
-      if (seq) {
-        box.addChild(seq.root);
-        void seq.play({ fps: Math.max(8, Math.round((textures.open.length * 1000) / UNLOCK_MS)) });
-      }
+    // 열린 창살은 스틸 한 장이라 「열리는 과정」이 없다 — 페이드로 갈아탄다.
+    // 잠긴 쪽을 곧바로 지우지 않는 이유는, 한 프레임이라도 빈 칸이 보이면
+    // 우리가 사라진 것처럼 깜빡이기 때문이다.
+    let openSprite: Sprite | null = null;
+    const openTex = textures.open[cage.animalId];
+    if (openTex && !box.destroyed) {
+      openSprite = new Sprite(openTex);
+      openSprite.anchor.set(0.5);
+      fitContain(openSprite, 2 * size, Math.sqrt(3) * size); // 원본 비율 유지
+      openSprite.alpha = 0;
+      box.addChild(openSprite);
     }
-    if (closedSprite && seq && !closedSprite.destroyed) closedSprite.visible = false;
 
     const lockFromY = lock?.y ?? 0;
     await animate(UNLOCK_MS, (t) => {
@@ -317,6 +343,9 @@ export function createCageView(textures: CageTextures): CageView {
       }
       // 창살이 열린다 — 폴백에서는 흐려지는 것으로 대신한다
       if (bars && !bars.destroyed) bars.alpha = 1 - t * 0.85;
+      // 아트가 있으면 잠긴 창살에서 열린 창살로 건너간다
+      if (openSprite && !openSprite.destroyed) openSprite.alpha = t;
+      if (lockedSeq && !lockedSeq.root.destroyed) lockedSeq.root.alpha = openSprite ? 1 - t : 1 - t * 0.85;
       box.scale.set(1 + 0.06 * Math.sin(Math.PI * t)); // 덜컹
       return true;
     });
@@ -388,8 +417,7 @@ export function createCageView(textures: CageTextures): CageView {
           // 구출 연출이 도는 중이면 건드리지 않는다 — playRescue가 끝내고 스스로 치운다
           if (animating.has(cage.id)) continue;
           if (existing) {
-            existing.body.box.destroy({ children: true });
-            existing.crack.destroy();
+            dropBody(existing);
             bodies.delete(cage.id);
           }
           continue;
@@ -416,7 +444,7 @@ export function createCageView(textures: CageTextures): CageView {
         const e = bodies.get(cage.id);
         if (e) syncCracks(state, cage, e);
       }
-      if (bodies.size > 0) startIdle();
+      startIdle(); // 흔들 대상이 없으면 스스로 돌아선다
     },
 
     async playRescue(cage: Cage): Promise<void> {
@@ -425,36 +453,41 @@ export function createCageView(textures: CageTextures): CageView {
 
       animating.add(cage.id);
       try {
-        await playUnlock(entry);
+        await playUnlock(cage, entry);
         await playFall(cage, entry);
       } finally {
         // 연출이 끝났으니 스스로 치운다 — 이후 sync가 다시 그리지 않는다
         animating.delete(cage.id);
-        if (!entry.body.box.destroyed) entry.body.box.destroy({ children: true });
-        if (!entry.crack.destroyed) entry.crack.destroy();
+        dropBody(entry);
         bodies.delete(cage.id);
         if (bodies.size === 0) stopIdle();
       }
     },
 
-    /** 일시정지 — 설정창이 열려 있는 동안 흔들림을 멈춘다.
-     *  멈추지 않으면 「멈춘 게임」 위에서 케이지만 계속 움직여 어색하다. */
+    /** 일시정지 — 설정창이 열려 있는 동안 흔들림과 창살을 멈춘다.
+     *  멈추지 않으면 「멈춘 게임」 위에서 케이지만 계속 움직여 어색하다.
+     *  창살 시퀀스는 idle 흔들림과 **다른 rAF**라 따로 세워야 한다 —
+     *  stopIdle만 부르면 아트가 올라온 케이지는 그대로 움직인다. */
     pause(): void {
       stopIdle();
+      for (const e of bodies.values()) e.body.lockedSeq?.stop();
     },
 
-    /** 재개. 케이지가 하나도 없으면(전부 구출) 되살릴 것이 없다. */
+    /** 재개. 흔들림은 흔들 케이지가 남아 있을 때만 돌고(startIdle이 스스로 판단한다),
+     *  창살은 그와 무관하게 케이지마다 되건다 — 아트가 다 올라오면 흔들림 대상이 0이다.
+     *  연출 중인 케이지는 건드리지 않는다: 해제 페이드가 지우고 있는 중이다. */
     resume(): void {
-      if (bodies.size > 0) startIdle();
+      startIdle();
+      for (const [id, e] of bodies) {
+        if (animating.has(id) || !e.body.lockedSeq || e.body.lockedSeq.root.destroyed) continue;
+        playLocked(e.body.lockedSeq);
+      }
     },
 
     destroy(): void {
       stopIdle(); // rAF가 살아 있으면 파괴된 노드를 계속 만진다
       animating.clear();
-      for (const e of bodies.values()) {
-        if (!e.body.box.destroyed) e.body.box.destroy({ children: true });
-        if (!e.crack.destroyed) e.crack.destroy();
-      }
+      for (const e of bodies.values()) dropBody(e);
       bodies.clear();
       root.destroy({ children: true });
     },

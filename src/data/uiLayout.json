@@ -105,6 +105,60 @@
           "w": 96,
           "h": 50,
           "asset": "lobby.navEvents"
+        },
+        {
+          "id": "friendRabbit",
+          "label": "로비 친구 · 토끼",
+          "x": 368,
+          "y": 506,
+          "w": 76,
+          "h": 76,
+          "asset": "lobby.friends.rabbit"
+        },
+        {
+          "id": "friendMonkey",
+          "label": "로비 친구 · 원숭이",
+          "x": 92,
+          "y": 448,
+          "w": 76,
+          "h": 76,
+          "asset": "lobby.friends.monkey"
+        },
+        {
+          "id": "friendDeer",
+          "label": "로비 친구 · 사슴",
+          "x": 312,
+          "y": 444,
+          "w": 76,
+          "h": 76,
+          "asset": "lobby.friends.deer"
+        },
+        {
+          "id": "friendSheep",
+          "label": "로비 친구 · 양",
+          "x": 2,
+          "y": 424,
+          "w": 76,
+          "h": 76,
+          "asset": "lobby.friends.sheep"
+        },
+        {
+          "id": "friendZebra",
+          "label": "로비 친구 · 얼룩말",
+          "x": 6,
+          "y": 326,
+          "w": 76,
+          "h": 76,
+          "asset": "lobby.friends.zebra"
+        },
+        {
+          "id": "friendElephant",
+          "label": "로비 친구 · 코끼리",
+          "x": 366,
+          "y": 380,
+          "w": 76,
+          "h": 76,
+          "asset": "lobby.friends.elephant"
         }
       ]
     },
@@ -472,88 +526,162 @@
   ],
   "uploads": [
     {
-      "label": "붉은말(발사대) — 시퀀스",
+      "label": "붉은말(발사대)",
       "asset": "hex.horse",
+      "group": "발사대",
       "seq": true
     },
     {
       "label": "타일 빨강",
-      "asset": "hex.tiles.0"
+      "asset": "hex.tiles.0",
+      "group": "타일"
     },
     {
       "label": "타일 노랑",
-      "asset": "hex.tiles.1"
+      "asset": "hex.tiles.1",
+      "group": "타일"
     },
     {
       "label": "타일 초록",
-      "asset": "hex.tiles.2"
+      "asset": "hex.tiles.2",
+      "group": "타일"
     },
     {
       "label": "타일 파랑",
-      "asset": "hex.tiles.3"
+      "asset": "hex.tiles.3",
+      "group": "타일"
     },
     {
       "label": "타일 보라",
-      "asset": "hex.tiles.4"
+      "asset": "hex.tiles.4",
+      "group": "타일"
     },
     {
       "label": "타일 황금",
-      "asset": "hex.tiles.5"
+      "asset": "hex.tiles.5",
+      "group": "타일"
     },
     {
       "label": "말굽 타일",
-      "asset": "hex.horseshoe"
+      "asset": "hex.horseshoe",
+      "group": "타일"
     },
     {
-      "label": "우리(닫힘)",
-      "asset": "hex.cageClosed"
-    },
-    {
-      "label": "우리(열림) — 시퀀스",
-      "asset": "hex.cageOpen",
+      "label": "창살(잠금) · 토끼",
+      "asset": "hex.cageLocked.rabbit",
+      "group": "창살(잠금)",
       "seq": true
     },
     {
-      "label": "동물 · 양 — 시퀀스",
-      "asset": "hex.animals.sheep",
+      "label": "창살(잠금) · 원숭이",
+      "asset": "hex.cageLocked.monkey",
+      "group": "창살(잠금)",
       "seq": true
     },
     {
-      "label": "동물 · 얼룩말 — 시퀀스",
-      "asset": "hex.animals.zebra",
+      "label": "창살(잠금) · 사슴",
+      "asset": "hex.cageLocked.deer",
+      "group": "창살(잠금)",
       "seq": true
     },
     {
-      "label": "동물 · 사슴 — 시퀀스",
+      "label": "창살(잠금) · 양",
+      "asset": "hex.cageLocked.sheep",
+      "group": "창살(잠금)",
+      "seq": true
+    },
+    {
+      "label": "창살(잠금) · 얼룩말",
+      "asset": "hex.cageLocked.zebra",
+      "group": "창살(잠금)",
+      "seq": true
+    },
+    {
+      "label": "창살(잠금) · 코끼리",
+      "asset": "hex.cageLocked.elephant",
+      "group": "창살(잠금)",
+      "seq": true
+    },
+    {
+      "label": "창살(해제) · 토끼",
+      "asset": "hex.cageOpen.rabbit",
+      "group": "창살(해제)"
+    },
+    {
+      "label": "창살(해제) · 원숭이",
+      "asset": "hex.cageOpen.monkey",
+      "group": "창살(해제)"
+    },
+    {
+      "label": "창살(해제) · 사슴",
+      "asset": "hex.cageOpen.deer",
+      "group": "창살(해제)"
+    },
+    {
+      "label": "창살(해제) · 양",
+      "asset": "hex.cageOpen.sheep",
+      "group": "창살(해제)"
+    },
+    {
+      "label": "창살(해제) · 얼룩말",
+      "asset": "hex.cageOpen.zebra",
+      "group": "창살(해제)"
+    },
+    {
+      "label": "창살(해제) · 코끼리",
+      "asset": "hex.cageOpen.elephant",
+      "group": "창살(해제)"
+    },
+    {
+      "label": "동물 · 토끼",
+      "asset": "hex.animals.rabbit",
+      "group": "동물",
+      "seq": true
+    },
+    {
+      "label": "동물 · 원숭이",
+      "asset": "hex.animals.monkey",
+      "group": "동물",
+      "seq": true
+    },
+    {
+      "label": "동물 · 사슴",
       "asset": "hex.animals.deer",
+      "group": "동물",
+      "seq": true
+    },
+    {
+      "label": "동물 · 양",
+      "asset": "hex.animals.sheep",
+      "group": "동물",
+      "seq": true
+    },
+    {
+      "label": "동물 · 얼룩말",
+      "asset": "hex.animals.zebra",
+      "group": "동물",
+      "seq": true
+    },
+    {
+      "label": "동물 · 코끼리",
+      "asset": "hex.animals.elephant",
+      "group": "동물",
       "seq": true
     },
     {
       "label": "게임판 배경",
-      "asset": "hex.bg.board"
+      "asset": "hex.bg.board",
+      "group": "배경"
     },
     {
       "label": "좌 패널",
-      "asset": "hex.bg.panelLeft"
+      "asset": "hex.bg.panelLeft",
+      "group": "배경"
     },
     {
       "label": "우 패널",
-      "asset": "hex.bg.panelRight"
-    },
-    {
-      "label": "동물 · 코끼리 — 시퀀스",
-      "asset": "hex.animals.elephant",
-      "seq": true
-    },
-    {
-      "label": "동물 · 토끼 — 시퀀스",
-      "asset": "hex.animals.rabbit",
-      "seq": true
-    },
-    {
-      "label": "동물 · 원숭이 — 시퀀스",
-      "asset": "hex.animals.monkey",
-      "seq": true
+      "asset": "hex.bg.panelRight",
+      "group": "배경"
     }
   ],
   "videos": [

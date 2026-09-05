@@ -37,6 +37,9 @@ export interface UiUpload {
   asset: string;
   /** 이미지 시퀀스 슬롯 — 에디터가 여러 장을 한 번에 받는다 */
   seq?: boolean;
+  /** 묶음 이름 — 에디터가 같은 값끼리 모아 구분선과 머리글을 그린다.
+   *  목록 순서가 곧 표시 순서다. 없으면 앞 항목의 묶음에 이어 붙는다. */
+  group?: string;
 }
 
 export interface UiArea {
@@ -87,7 +90,12 @@ function parseUploads(raw: unknown): UiUpload[] {
   return raw
     .map((u) => u as Record<string, unknown>)
     .filter((u) => typeof u.asset === "string")
-    .map((u) => ({ label: String(u.label ?? u.asset), asset: String(u.asset), seq: u.seq === true }));
+    .map((u) => ({
+      label: String(u.label ?? u.asset),
+      asset: String(u.asset),
+      seq: u.seq === true,
+      group: typeof u.group === "string" ? u.group : undefined,
+    }));
 }
 
 export const uiUploads: UiUpload[] = parseUploads((layoutJson as { uploads?: unknown }).uploads);
