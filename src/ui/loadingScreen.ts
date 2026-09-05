@@ -60,14 +60,19 @@ export function openLoadingScreen(o: LoadingScreenOpts): LoadingScreen {
 
   const pct = panelPercent(o.panel);
   // 흰 판을 깔지 않는다 — 글자와 게이지만 영상 위에 얹는다(QA 요구).
-  // 대신 **글자 그림자**를 준다: 영상은 프레임마다 밝기가 바뀌어서, 판이 없으면
-  // 밝은 프레임에서 흰 글자가 통째로 사라진다. 판을 뺀 만큼 읽히게 하는 값이다.
+  //
+  // 글자 그림자도 뺐다. 대신 **제목 뒤에만** 검은 판(40%)을 깐다 — 영상은 프레임마다
+  // 밝기가 바뀌어서 아무 받침도 없으면 밝은 프레임에서 글자가 사라진다.
+  // 팁은 요구대로 받침 없이 글자만 둔다.
   const panel = el("div",
     `position:absolute;left:${pct.left}%;top:${pct.top}%;width:${pct.width}%;height:${pct.height}%;`
     + "box-sizing:border-box;padding:6% 7%;display:flex;flex-direction:column;"
-    + "align-items:center;justify-content:center;gap:0.55em;font-family:system-ui,sans-serif;text-align:center;"
-    + "text-shadow:0 0.06em 0.18em rgba(20,12,6,.85), 0 0 0.5em rgba(20,12,6,.6)");
-  const title = el("div", "font-weight:800;color:#fff3dc;font-size:1em;line-height:1.3", LOADING_TEXT.title);
+    + "align-items:center;justify-content:center;gap:0.55em;font-family:system-ui,sans-serif;text-align:center");
+  // 판은 글자를 감싸는 만큼만 — flex column의 align-items:center가 폭을 내용에 맞춘다.
+  // 세로 padding을 주지 않으면 line-height에 딱 붙어 「직사각형」으로 안 읽힌다.
+  const title = el("div",
+    "font-weight:800;color:#fff3dc;font-size:1em;line-height:1.3;"
+    + "padding:0.35em 0.7em;background:rgba(0,0,0,.4)", LOADING_TEXT.title);
   const tip = el("div", "color:#e6d9bd;font-size:0.72em;line-height:1.3", LOADING_TEXT.tip);
   // 게이지의 홈은 남긴다 — 없으면 「어디까지 왔나」의 끝이 안 보여 길이를 못 읽는다
   const track = el("div", "width:82%;height:0.7em;border-radius:0.35em;background:rgba(20,12,6,.55);"
