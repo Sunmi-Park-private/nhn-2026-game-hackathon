@@ -15,6 +15,13 @@ const config: CapacitorConfig = {
     // 그 안에서 스스로 레터박스를 만든다.
     backgroundColor: '#111111',
   },
+  plugins: {
+    // Capacitor 8 내장 SystemBars 플러그인. 기본값(insetsHandling: 'css')이면 Android 15에서
+    // WebView 부모에 상태바 높이만큼 패딩을 넣어 **위에 흰 띠가 남는다**(에뮬레이터에서 확인).
+    // 바를 숨기고 인셋 처리를 끄면 WebView가 화면 전체를 쓴다. MainActivity는 알림창을
+    // 내렸다 올린 뒤 다시 숨기는 것만 맡는다.
+    SystemBars: { hidden: true, insetsHandling: 'disable' },
+  },
 }
 
 export default config
