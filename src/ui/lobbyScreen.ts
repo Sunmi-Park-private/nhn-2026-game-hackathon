@@ -61,27 +61,37 @@ function hotspot(
   c.x = b.x;
   c.y = b.y;
 
+  // 슬롯의 `scale`은 **아트**를 슬롯 상자보다 크게 그리라는 디자이너의 지시다
+  // (하단 내비 4종이 전부 2다 — 아트에 투명 여백이 있어 그래야 크기가 맞는다).
+  // 그런데 applyStyle이 컨테이너째 키우므로 **아트가 없을 때는** 꽉 찬 폴백 사각형과
+  // 히트 영역까지 같이 커진다. 실제로 RACE 자리표시가 HOME을 덮고 탭까지 가로챘다.
+  // 아트가 없는 슬롯은 배율을 되돌려 **자기 슬롯 크기 그대로** 서게 한다 —
+  // 자리표시가 할 일은 슬롯이 어디에 얼마만 한지를 보여주는 것이다.
+  const k = tex ? 1 : 1 / (b.scale !== undefined && b.scale > 0 ? b.scale : 1);
+  const w = b.w * k;
+  const h = b.h * k;
+
   if (tex) {
     const s = fitSprite(tex, b.w, b.h);
     s.x = b.w / 2;
     s.y = b.h / 2;
     c.addChild(s);
   } else {
-    const g = new Graphics().roundRect(0, 0, b.w, b.h, 8).fill({ color: fill, alpha: onTap ? 1 : 0.55 });
-    g.roundRect(2, 2, b.w - 4, b.h - 4, 6).stroke({ width: 2, color: 0xffffff, alpha: 0.18 });
+    const g = new Graphics().roundRect(0, 0, w, h, 8 * k).fill({ color: fill, alpha: onTap ? 1 : 0.55 });
+    g.roundRect(2 * k, 2 * k, w - 4 * k, h - 4 * k, 6 * k).stroke({ width: 2 * k, color: 0xffffff, alpha: 0.18 });
     c.addChild(g);
     const t = new Text({
       text: b.label,
-      style: { fontSize: Math.min(12, b.h * 0.28), fill: onTap ? 0xfff3dc : 0xa8987c, fontWeight: "bold" },
+      style: { fontSize: Math.min(12, b.h * 0.28) * k, fill: onTap ? 0xfff3dc : 0xa8987c, fontWeight: "bold" },
     });
     t.anchor.set(0.5);
-    t.x = b.w / 2;
-    t.y = b.h / 2;
+    t.x = w / 2;
+    t.y = h / 2;
     c.addChild(t);
   }
 
   // 투명이어도 히트 판정을 받으려면 실제로 채워야 한다(alpha 0)
-  c.addChild(new Graphics().rect(0, 0, b.w, b.h).fill({ color: 0xffffff, alpha: 0 }));
+  c.addChild(new Graphics().rect(0, 0, w, h).fill({ color: 0xffffff, alpha: 0 }));
 
   editable(AREA, b, c); // 인게임 레이아웃 에디터가 이 노드를 잡는다
   if (onTap) {
