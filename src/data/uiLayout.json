@@ -2,6 +2,11 @@
   "_note": "UI 슬롯 배치. 좌표계는 중앙 콘텐츠 컬럼 450×800이다. /ui.html 에디터로 조정하고 저장한다.",
   "areas": [
     {
+      "id": "intro",
+      "label": "인트로",
+      "slots": []
+    },
+    {
       "id": "loading",
       "label": "게임시작 로딩",
       "slots": [

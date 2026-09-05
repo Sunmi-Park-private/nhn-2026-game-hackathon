@@ -524,6 +524,12 @@ const AREA_UPLOAD_GROUPS: Record<string, { groups: string[]; note: string }> = {
 /** 영역 탭에 함께 뜨는 **영상** 슬롯 — 「영상」 탭에도 있지만, 그 화면을 만드는 사람이
  *  자기 탭에서 바로 올릴 수 있게 같은 항목을 여기에도 띄운다(같은 슬롯이다). */
 const AREA_VIDEO_UPLOADS: Record<string, { assets: string[]; note: string }> = {
+  intro: {
+    assets: ["video.intro"],
+    note: "게임을 열면 **가장 먼저** 재생됩니다 — 로딩 화면보다 앞이고, 에셋은 이 영상이 도는 동안 뒤에서 받습니다. "
+      + "9:16 · mp4 그대로 씁니다(DOM 재생). 자동재생 정책 때문에 무음으로 시작하고 화면의 🔇 버튼으로 소리를 켭니다. "
+      + "건너뛰기 버튼은 코드가 우측 상단에 그립니다. 파일이 없으면 바로 로딩 화면으로 갑니다.",
+  },
   loading: {
     assets: ["video.loading"],
     note: "에셋을 받는 동안 세로 컬럼 전체를 덮고 도는 **무음 루프**입니다. 9:16 · mp4 그대로 씁니다(DOM 재생). "

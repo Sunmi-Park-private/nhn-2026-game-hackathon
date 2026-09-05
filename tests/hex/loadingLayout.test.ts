@@ -45,6 +45,16 @@ describe("게임시작 로딩 배치", () => {
   });
 });
 
+describe("인트로 탭", () => {
+  it("에디터 첫 탭이 인트로다 — 게임이 여는 순서와 같다", () => {
+    expect(uiAreas[0]?.id).toBe("intro");
+    expect(uiAreas[1]?.id).toBe(LOADING_AREA);
+  });
+  it("인트로 영상 슬롯이 에디터 영상 목록에 있다", () => {
+    expect(uiVideos.find((v) => v.asset === "video.intro")).toBeDefined();
+  });
+});
+
 describe("게임시작 로딩 영상 배선", () => {
   it("영상 슬롯 id에 loading이 있고 매니페스트 경로가 문자열이다", () => {
     expect(VIDEO_SLOT_IDS).toContain("loading");

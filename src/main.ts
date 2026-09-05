@@ -103,8 +103,37 @@ async function main(): Promise<void> {
   // E2E 테스트용 씬 마커 — 현재 단계 노출 (게임 로직에선 미사용)
   const mark = (s: string): void => { (window as unknown as { __scene?: string }).__scene = s; };
 
-  // 받는 동안 로딩 화면(배경 영상 + 게이지)을 보인다. 느린 회선(터널·모바일)에서는 이 자리가
-  // 몇 분이라, 갈색 단색만 있으면 「멎었다」로 보인다 — 로더의 상한을 없앤 대신 여기서 알린다.
+  // 에셋 로드는 **인트로가 도는 동안 백그라운드에서** 시작한다 — 인트로 길이만큼 로딩이 숨는다.
+  // 여기서 await하지 않는다. 진행률은 loadProgress가 세고, 로딩 화면이 나중에 읽는다.
+  const assetsReady = Promise.all([
+    loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
+    loadSlots(uiAssetPaths),
+    loadSlots(lobbyAssetPaths),
+    loadSlots(raceAssetPaths.bg),
+    loadSlots(raceAssetPaths.ui),
+    loadSlots(raceAssetPaths.booster),
+    loadRunnerFrames(raceAssetPaths.runners),
+    loadSlots(raceAssetPaths.faces),
+    loadSlots(raceAssetPaths.winner),
+    loadSlots(raceAssetPaths.card),
+    loadSlots(raceAssetPaths.row),
+    loadSlots(raceAssetPaths.medal),
+    loadSlots(eventAssetPaths),
+    loadSlots({ panel: collectionAssetPaths.panel, close: collectionAssetPaths.close }),
+    loadSlots(collectionAssetPaths.cards),
+    loadSlots(collectionAssetPaths.locked),
+  ]);
+
+  // 인트로 — 파일이 없으면 그냥 지나간다. 에디터로 배치를 맞추는 중에는 방해가 되므로 건너뛴다.
+  // 에디터 「인트로」 탭에서 올린다(video.intro).
+  if (!new URLSearchParams(location.search).has("editor")) {
+    mark("intro");
+    await playVideo(videoAssetPaths.intro);
+  }
+
+  // 아직 덜 받았으면 로딩 화면(배경 영상 + 게이지)을 보인다. 느린 회선(터널·모바일)에서는
+  // 이 자리가 몇 분이라, 갈색 단색만 있으면 「멎었다」로 보인다 — 로더의 상한을 없앤 대신 여기서 알린다.
+  // 인트로 동안 다 받았으면 아래 await가 곧바로 풀려 한 프레임도 안 보인다.
   // 패널 자리는 uiLayout.json의 loading 영역(에디터 「게임시작 로딩」 탭)이 정한다.
   const loadingSlot = slot(LOADING_AREA, "panel");
   const loadingScreen = openLoadingScreen({
@@ -124,24 +153,7 @@ async function main(): Promise<void> {
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
   const [hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, eventSlots, collectionSlots, collectionCards, collectionLocked]
-    = await Promise.all([
-    loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
-    loadSlots(uiAssetPaths),
-    loadSlots(lobbyAssetPaths),
-    loadSlots(raceAssetPaths.bg),
-    loadSlots(raceAssetPaths.ui),
-    loadSlots(raceAssetPaths.booster),
-    loadRunnerFrames(raceAssetPaths.runners),
-    loadSlots(raceAssetPaths.faces),
-    loadSlots(raceAssetPaths.winner),
-    loadSlots(raceAssetPaths.card),
-    loadSlots(raceAssetPaths.row),
-    loadSlots(raceAssetPaths.medal),
-    loadSlots(eventAssetPaths),
-    loadSlots({ panel: collectionAssetPaths.panel, close: collectionAssetPaths.close }),
-    loadSlots(collectionAssetPaths.cards),
-    loadSlots(collectionAssetPaths.locked),
-  ]);
+    = await assetsReady;
   offProgress();
   loadingScreen.close();
   // 로비의 bg 슬롯을 에디터에서 끄면 여기서도 빠진다 — 같은 아트를 두 곳에서 따로 끌 이유가 없다
@@ -202,12 +214,6 @@ async function main(): Promise<void> {
     // 저장이 막혀 있어도(사파리 프라이빗 등) 게임은 계속 굴러가야 한다
     try { localStorage.setItem(PROFILE_KEY, serializeProfile(profile)); } catch { /* 무시 */ }
   };
-
-  // 인트로 — 파일이 없으면 그냥 지나간다. 에디터로 배치를 맞추는 중에는 방해가 되므로 건너뛴다.
-  if (!new URLSearchParams(location.search).has("editor")) {
-    mark("intro");
-    await playVideo(videoAssetPaths.intro);
-  }
 
   /** 게임오버 창에서 「다시 도전」을 골랐다 — 로비를 거치지 않고 같은 판을 다시 연다. */
   let retry = false;
