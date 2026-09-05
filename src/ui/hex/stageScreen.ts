@@ -175,6 +175,16 @@ export async function runStageScreen(
     failMark.root, board.root, debris.root, cages.root, fx,
     launcher.root, pullArea.root, hud.root, gauge.root,
   );
+  // 구출 동물은 커진 채(배율 11.6) 오른쪽으로 걸어 나간다. 콘텐츠 컬럼(450) 밖은
+  // 모든 화면 밑에 깔린 좌우 고정배경이라 그 위를 걸어가면 안 된다. 컬럼에서 자른다.
+  // 마스크는 흔들림을 따라가지 않게 cages.root의 **형제**로 둔다 — 같이 떨면
+  // 최대 진폭만큼 경계 밖이 열린다. 세로는 넉넉히 열어 둔다(자를 것은 좌우뿐이다).
+  const columnClip = new Graphics()
+    .rect(0, -BASE_H, BASE_W, BASE_H * 3)
+    .fill({ color: 0xffffff });
+  layer.addChild(columnClip);
+  cages.root.mask = columnClip;
+
   app.stage.addChild(layer);
 
   /** 케이지를 뺀 나머지 갱신. 구출 연출 전에는 이것만 부른다 —
