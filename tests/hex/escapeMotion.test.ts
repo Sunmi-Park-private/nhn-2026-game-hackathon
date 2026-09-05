@@ -4,7 +4,7 @@ import {
   cageShakeX, cageDropY, cageDropRot, cageDropAlpha,
   CAGE_SHAKE_MS, CAGE_SHAKE_AMP, CAGE_DROP_MS, CAGE_DROP_DIST, CAGE_TOTAL_MS,
   spawnEscape, stepEscape, escapeDurationMs,
-  ANIMAL_COUNT, ANIMAL_STAGGER_MS, FALL_MS, START_SCALE, LAND_SCALE, POP_MS, WALK_SPEED,
+  ANIMAL_COUNT, ANIMAL_STAGGER_MS, FALL_MS, START_SCALE, LAND_SCALE, POP_MS, POP_HOLD_MS, WALK_SPEED,
   type EscapeArena, type EscapeBody,
 } from "../../src/ui/hex/escapeMotion";
 
@@ -123,16 +123,22 @@ describe("동물 — 창살 자리에서 떨어져 걸어 나간다", () => {
       if (b.phase !== "fall") break;
       expect(b.scale).toBeGreaterThanOrEqual(prevScale);
       expect(b.y).toBeGreaterThanOrEqual(prevY);
-      // 튀어나온 뒤에는 착지 배율 그대로다 — 낙하 전반부(1/4 지점)에 이미 다 커져 있다
-      if (b.age - b.delay >= FALL_MS / 4) expect(b.scale).toBeCloseTo(LAND_SCALE, 5);
+      const sinceFall = b.age - b.delay;
+      // 잠깐은 기본 크기 그대로 **보인다** — 반투명이면 기본 크기 구간이 안 읽힌다
+      if (sinceFall <= POP_HOLD_MS) {
+        expect(b.scale).toBe(START_SCALE);
+        expect(b.alpha).toBe(1);
+      }
+      // 튀어나온 뒤에는 착지 배율 그대로다 — 낙하 절반이 되기 전에 이미 다 커져 있다
+      if (sinceFall >= POP_HOLD_MS + POP_MS) expect(b.scale).toBeCloseTo(LAND_SCALE, 5);
       prevScale = b.scale;
       prevY = b.y;
     }
     expect(b.phase).toBe("walk");
   });
 
-  it("커지는 데 걸리는 시간은 낙하보다 훨씬 짧다", () => {
-    expect(POP_MS).toBeLessThan(FALL_MS / 4);
+  it("기본 크기 구간과 커지는 시간을 합쳐도 낙하의 절반 안이다", () => {
+    expect(POP_HOLD_MS + POP_MS).toBeLessThan(FALL_MS / 2);
   });
 
   it("바닥에 닿을 때 착지 배율이 된다 — 바닥은 우리 하단 경계다", () => {

@@ -69,7 +69,10 @@ export const LAND_SCALE = 11.6;
  *  처음엔 낙하 거리에 비례해 선형으로 키웠다(원근). 그런데 바닥 근처에서야 커져
  *  「나왔다」가 늦게 읽혔다(본선 QA). 창살을 벗어나는 순간 튀어나오듯 커지고,
  *  그 크기 그대로 떨어지게 한다 — 원근은 잃지만 해방감이 먼저다. */
-export const POP_MS = 110;
+export const POP_MS = 200;
+/** 커지기 전에 **기본 크기로 보이는** 시간(ms). 이게 없으면 첫 프레임부터 이미 커져 있어
+ *  「처음부터 컸다」로 읽혔다(본선 QA). 한 칸 크기로 잠깐 나타난 뒤 튀어 오른다. */
+export const POP_HOLD_MS = 90;
 /** 착지 뒤 오른쪽으로 걷는 속도(px/s). 「빠르게 빠져나간다」다. */
 export const WALK_SPEED = 265;
 /** 걸을 때 위아래로 흔들리는 폭(px)과 진동수(Hz). 발소리 대신이다. */
@@ -143,10 +146,11 @@ export function stepEscape(body: EscapeBody, dtSec: number, arena: EscapeArena):
 
   if (body.phase === "fall") {
     const t = clamp01((body.age - body.delay) / FALL_MS);
-    body.alpha = Math.min(1, t * 5);
+    // 나오는 순간 바로 보인다 — 페이드인이 있으면 기본 크기 구간이 반투명이라 안 읽힌다
+    body.alpha = 1;
     body.x = arena.anchor.x + body.spread * t;
     body.y = arena.anchor.y + (arena.floorY - arena.anchor.y) * t * t;
-    const p = clamp01((body.age - body.delay) / POP_MS);
+    const p = clamp01((body.age - body.delay - POP_HOLD_MS) / POP_MS);
     const pop = 1 - (1 - p) * (1 - p); // easeOut — 처음에 확 크고 끝에서 멈춘다
     body.scale = START_SCALE + (LAND_SCALE - START_SCALE) * pop;
     if (t >= 1) {
