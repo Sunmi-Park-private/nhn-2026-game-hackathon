@@ -64,6 +64,8 @@ export interface ShotOutcome {
   steps: PopStep[];
   dropped: Axial[];
   rescued: Cage[];
+  /** 판에 닿지 못하고 떨어졌다. 한 발은 소모된다 */
+  missed: boolean;
 }
 
 /**
@@ -75,13 +77,22 @@ export function fireAt(
   geom: BoardGeom,
   from: { x: number; y: number },
   angleRad: number,
+  power = 1,
   rng: () => number = Math.random,
 ): ShotOutcome {
-  const empty: ShotOutcome = { snapped: null, steps: [], dropped: [], rescued: [] };
+  const empty: ShotOutcome = { snapped: null, steps: [], dropped: [], rescued: [], missed: false };
   if (state.shotsLeft <= 0) return empty;
 
-  const { snap } = simulateShot(state.cells, geom, from, angleRad);
-  if (!snap) return empty;
+  const { snap, missed } = simulateShot(state.cells, geom, from, angleRad, power);
+  if (!snap) {
+    // 헛발도 대가를 치른다 — 한 발을 깎고 **장전까지 넘긴다**.
+    // 같은 타일이 손에 남아 있으면 「소모했다」가 화면에서 읽히지 않는다.
+    if (!missed) return empty; // 스냅도 헛발도 아닌 경우(발사 지점이 막힘) — 판이 안 움직인다
+    state.shotsLeft -= 1;
+    state.loaded = state.next;
+    state.next = pickNext(state.cells, rng);
+    return { ...empty, missed: true };
+  }
 
   state.shotsLeft -= 1;
   placeTile(state.cells, snap, state.loaded);
@@ -104,7 +115,7 @@ export function fireAt(
   // 합체·낙하가 모두 끝난 뒤의 판에서 뽑는다 — 방금 사라진 색이 장전되지 않게
   state.next = pickNext(state.cells, rng);
 
-  return { snapped: snap, steps, dropped, rescued };
+  return { snapped: snap, steps, dropped, rescued, missed: false };
 }
 
 /** 낙하 처리. 지우기 전에 셀의 종류를 읽어 말굽을 센다 —
