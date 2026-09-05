@@ -351,6 +351,9 @@ export async function runStageScreen(
       pullArea.setActive(false);
       // 데드존 안에서 뗐다 — 쏘지 않고 자세만 되돌린다
       if (!aim) { launcher.settleBack(); return; }
+      // 첫 반사가 판 하단 1/3이면 쏘지 않는다(ui/hex/aimRule.ts). 조준선이 이미
+      // 붉게 떠 있었으므로 여기서는 조용히 되돌리기만 한다 — 소리도 내지 않는다.
+      if (launcher.isBlocked()) { launcher.settleBack(); return; }
 
       busy = true;
       try {

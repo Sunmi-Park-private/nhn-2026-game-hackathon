@@ -10,12 +10,15 @@ import { editable } from "../layoutEditor";
 import type { UiSlot } from "../../data/uiLayout";
 import { fitContain } from "../skin";
 import type { Aim } from "./dragAim";
+import { aimBlocked } from "./aimRule";
 
 export interface Launcher {
   root: Container;
   setLoaded(tier: Tier): void;
   /** 드래그 중 매 프레임. null이면 조준을 지운다. */
   setAim(aim: Aim | null, cells: Map<string, Cell>): void;
+  /** 마지막 setAim 기준으로 이 조준이 규칙에 막혀 있는가. 손을 뗄 때 stageScreen이 본다. */
+  isBlocked(): boolean;
   /** 손을 뗐다 — 발사. 말이 던지는 동작을 재생하고 첫 프레임으로 돌아간다. */
   playToss(): Promise<void>;
   /** 오발 — 쏘지 않고 제자리로 되돌린다. */
@@ -145,6 +148,8 @@ export function createLauncher(opts: LauncherOptions = {}): Launcher {
 
   let currentAngle = 0;
   let currentPower = 0;
+  /** 지금 조준이 규칙에 막혀 있는가(첫 반사가 판 하단 1/3). setAim이 갱신한다. */
+  let blocked = false;
   let loadedTier: Tier = 0;
   /** settleBack의 rAF 핸들. 오발 후 되돌아가는 도중 새 드래그가 시작되거나
    *  설정창이 열리면 이 루프를 반드시 끊어야 한다 — 안 그러면 setAim이 매 프레임
@@ -179,6 +184,7 @@ export function createLauncher(opts: LauncherOptions = {}): Launcher {
       cancelSettle();
       if (aim === null) {
         guide.clear();
+        blocked = false;
         scrub(0);
         setTilt(0);
         return;
@@ -188,14 +194,23 @@ export function createLauncher(opts: LauncherOptions = {}): Launcher {
       scrub(aim.power);
       setTilt(aim.angle * TILT_RATIO);
 
-      const { path } = simulateShot(cells, BOARD, launchOriginLocal(), aim.angle, aim.power);
+      const { path, bounces } = simulateShot(cells, BOARD, launchOriginLocal(), aim.angle, aim.power);
       guide.clear();
-      // 점선 — 4스텝마다 한 점씩. 중력이 들어갔으므로 자동으로 곡선이 되고,
-      // 점선의 끝이 곧 사거리다.
-      for (let i = 0; i < path.length; i += 4) {
+      // 첫 반사가 판 하단 1/3이면 쏠 수 없다(aimRule). 조준선을 붉게 그어 **떼기 전에**
+      // 알린다 — 손을 뗀 뒤에야 「안 나갔다」를 알면 조작 실수인지 규칙인지 모른다.
+      blocked = aimBlocked(bounces);
+      const color = blocked ? 0xff6b5a : 0xffffff;
+      const alpha = blocked ? 0.75 : 0.85;
+      // 점선 — 5스텝마다 한 점씩. 중력이 들어갔으므로 자동으로 곡선이 되고,
+      // 점선의 끝이 곧 사거리다. 점이 얇으면 여러 겹이 겹칠 때 실뭉치로 보인다(QA).
+      for (let i = 0; i < path.length; i += 5) {
         const p = path[i]!;
-        guide.circle(ORIGIN.x + p.x, ORIGIN.y + p.y, 3).fill({ color: 0xffffff, alpha: 0.55 });
+        guide.circle(ORIGIN.x + p.x, ORIGIN.y + p.y, 5).fill({ color, alpha });
       }
+    },
+
+    isBlocked(): boolean {
+      return blocked;
     },
 
     /** 손을 뗐다. 최대 장전 프레임부터 끝까지 재생하고 첫 프레임으로 돌아간다. */
