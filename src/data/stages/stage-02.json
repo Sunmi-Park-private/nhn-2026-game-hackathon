@@ -3,7 +3,7 @@
   "cols": 11,
   "rows": 20,
   "objective": 1,
-  "pushSeconds": 15,
+  "pushSeconds": 25,
   "armorChance": 0.0,
   "cages": [
     {
@@ -61,7 +61,7 @@
         "q": 2,
         "r": 0
       },
-      "tier": 2
+      "tier": 0
     },
     {
       "at": {
@@ -124,14 +124,14 @@
         "q": 0,
         "r": 1
       },
-      "tier": 1
+      "tier": 0
     },
     {
       "at": {
         "q": 3,
         "r": 1
       },
-      "tier": 1
+      "tier": 0
     },
     {
       "at": {
@@ -194,7 +194,7 @@
         "q": 3,
         "r": 2
       },
-      "tier": 2
+      "tier": 0
     },
     {
       "at": {
@@ -243,14 +243,14 @@
         "q": -1,
         "r": 3
       },
-      "tier": 2
+      "tier": 0
     },
     {
       "at": {
         "q": 2,
         "r": 3
       },
-      "tier": 1
+      "tier": 0
     },
     {
       "at": {
