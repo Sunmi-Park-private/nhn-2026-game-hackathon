@@ -17,6 +17,10 @@ export interface BoardView {
   /** 셀 맵과 화면을 맞춘다. 사라진 것은 지우고 새로 생긴 것은 만든다. */
   sync(cells: Map<string, Cell>): void;
   viewAt(a: Axial): Container | undefined;
+  /** 그 칸의 표시 객체를 **파괴하지 않고** 넘긴다. 뷰 맵에서는 빠지므로 다음 sync가
+   *  새로 만들지 않는다 — 받은 쪽이 소유권을 갖는다(터진 타일이 굴러가는 연출).
+   *  빈 칸이면 undefined다. */
+  detach(a: Axial): Container | undefined;
   destroy(): void;
 }
 
@@ -68,6 +72,16 @@ export function createBoardView(textures: TileTextures): BoardView {
 
     viewAt(a: Axial): Container | undefined {
       return views.get(key(a))?.view;
+    },
+
+    detach(a: Axial): Container | undefined {
+      const k = key(a);
+      const entry = views.get(k);
+      if (!entry) return undefined;
+      views.delete(k);
+      if (entry.view.destroyed) return undefined;
+      root.removeChild(entry.view);
+      return entry.view;
     },
 
     destroy(): void {

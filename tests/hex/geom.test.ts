@@ -49,12 +49,18 @@ describe("헛간 우리(사다리꼴) 안쪽에 들어간다", () => {
     }
   });
 
-  it("판 좌우 끝이 FIELD_X ~ FIELD_X+FIELD_W와 맞는다", () => {
-    // 짝수 행 왼쪽 끝이 판 좌단, 홀수 행 오른쪽 끝이 판 우단이다(스태거 반 칸).
+  it("두 위상의 합집합이 FIELD_X ~ FIELD_X+FIELD_W를 딱 채운다", () => {
+    // 판은 줄이 내려올 때마다 반 칸씩 좌우로 오간다(pushRow). 우리에 닿는 것은
+    // **왼쪽 위상의 짝수 행 좌단**과 **오른쪽 위상의 짝수 행 우단(열 COLS)** 이다.
     const left = cellToScreen({ q: 0, r: 0 }).x - CELL_W / 2;
-    const right = cellToScreen({ q: COLS - 1, r: 1 }).x + CELL_W / 2;
+    const right = cellToScreen({ q: COLS, r: 0 }).x + CELL_W / 2;
     expect(left).toBeCloseTo(FIELD_X, 5);
     expect(right).toBeCloseTo(FIELD_X + FIELD_W, 5);
+  });
+
+  it("한 위상만으로는 우리를 다 채우지 않는다 — 남는 반 칸이 자글거림의 폭이다", () => {
+    const onePhase = cellToScreen({ q: COLS - 1, r: 1 }).x + CELL_W / 2;
+    expect(FIELD_X + FIELD_W - onePhase).toBeCloseTo(CELL_W / 2, 5);
   });
 
   it("판이 우측 HUD 레일을 침범하지 않는다", () => {

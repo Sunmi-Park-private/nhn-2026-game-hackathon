@@ -72,9 +72,17 @@ export const FIELD_TOP = 98;
 export const FIELD_W = 277;
 export const FIELD_X = (PEN.lt.x + PEN.rt.x) / 2 - FIELD_W / 2; // ≈ 91.45
 
-/** pointy-top 스태거 격자는 홀수 행이 반 칸 밀리므로 실제 폭이 COLS + 0.5칸이다.
- *  COLS로 나누면 마지막 홀수 행이 판 밖으로 넘치고 반사벽도 우리 밖에 놓인다. */
-export const CELL_W = FIELD_W / (COLS + 0.5); // ≈ 24.09
+/**
+ * 셀 폭. 나누는 수가 **COLS + 1**이다.
+ *
+ * 두 가지가 겹쳐서 이 값이 된다.
+ *   ① pointy-top 스태거 격자는 홀수 행이 반 칸 밀리므로 한 위상의 폭이 COLS+0.5칸이다.
+ *   ② 판은 줄이 내려올 때마다 **반 칸씩 좌우로 오간다**(pushRow). 두 위상의 합집합은
+ *      그보다 반 칸 더 넓다.
+ *
+ * COLS+0.5로 나누면 오른쪽 위상에서 마지막 열이 우리 밖으로 반 칸 삐져나간다.
+ */
+export const CELL_W = FIELD_W / (COLS + 1); // ≈ 23.08
 
 /** 육각 반지름은 셀 폭에서 역산한다. 셀 폭 = √3 × 반지름. */
 export const HEX_SIZE = CELL_W / Math.sqrt(3); // ≈ 13.91
@@ -84,7 +92,11 @@ export const ROW_H = HEX_SIZE * 1.5; // ≈ 20.86
 
 export const BOARD: BoardGeom = { size: HEX_SIZE, cols: COLS, rows: ROWS };
 
-/** 셀 (0,0) 중심의 논리 좌표. 판 좌상단 모서리가 (FIELD_X, FIELD_TOP)에 오도록 잡는다. */
+/** 셀 (0,0) 중심의 논리 좌표.
+ *
+ *  x는 좌우로 오가는 판의 **왼쪽 끝 위상**이 FIELD_X에 딱 붙는 자리다. 오른쪽 위상은
+ *  반 칸 밀려 FIELD_X + FIELD_W에 붙는다 — 둘이 번갈아 우리 양 끝에 닿으면서
+ *  「판이 자글거리며 내려온다」가 된다. */
 export const ORIGIN = {
   x: FIELD_X + CELL_W / 2,
   y: FIELD_TOP + HEX_SIZE,

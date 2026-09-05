@@ -8,7 +8,7 @@
 // S7(봇이 실제로 클리어한다)은 봇이 생기면 stageSolvable.test.ts로 따로 붙인다.
 import { describe, it, expect } from "vitest";
 import { stages } from "../../src/data/stages";
-import { key, neighbors, distance, ring, inBounds, toCol } from "../../src/engine/hex/coords";
+import { key, neighbors, distance, ring, inAuthoredBounds, toCol } from "../../src/engine/hex/coords";
 import { cageCenter, cageFaces, topFaceIndex } from "../../src/engine/hex/cageFaces";
 import { buildCells } from "../../src/engine/hex/grid";
 import type { Axial, StageDef } from "../../src/engine/hex/types";
@@ -78,7 +78,7 @@ function ruleCells(stage: StageDef, cageIndex: number): Axial[] {
   return faces
     .filter((_, i) => i !== top)
     .flat()
-    .filter((a) => inBounds(a, stage.cols, stage.rows));
+    .filter((a) => inAuthoredBounds(a, stage.cols, stage.rows));
 }
 
 describe.each(stages.map((s) => [s.id, s] as const))("%s 배치 불변식", (_id, stage) => {
@@ -102,7 +102,7 @@ describe.each(stages.map((s) => [s.id, s] as const))("%s 배치 불변식", (_id
       const center = cageCenter(cage);
       expect(center).not.toBeNull();
       const unfilled = ring(center!, 2)
-        .filter((a) => inBounds(a, stage.cols, stage.rows))
+        .filter((a) => inAuthoredBounds(a, stage.cols, stage.rows))
         .filter((a) => !occ.has(key(a)));
       expect(unfilled).toEqual([]);
     }

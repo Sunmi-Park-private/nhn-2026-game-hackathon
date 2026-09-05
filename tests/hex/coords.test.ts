@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   DIRS, key, parseKey, eq, add, neighbors, distance, ring,
-  toPixel, fromPixel, toCol, inBounds,
+  toPixel, fromPixel, toCol, inBounds, inAuthoredBounds,
 } from "../../src/engine/hex/coords";
 
 describe("key / parseKey", () => {
@@ -125,6 +125,35 @@ describe("toCol / inBounds", () => {
 
   it("열이 범위를 벗어나면 거짓이다", () => {
     expect(inBounds({ q: -1, r: 0 }, 7, 10)).toBe(false);
-    expect(inBounds({ q: 7, r: 0 }, 7, 10)).toBe(false);
+    expect(inBounds({ q: 8, r: 0 }, 7, 10)).toBe(false);
+  });
+
+  it("짝수 행은 열 cols까지 허용한다 — 판이 반 칸 오른쪽으로 갔을 때의 마지막 칸이다", () => {
+    // 여기서 잘라내면 발사체가 그 타일을 통과한다(simulateShot은 보드 밖을 충돌로 안 센다).
+    expect(inBounds({ q: 7, r: 0 }, 7, 10)).toBe(true);
+    expect(toCol({ q: 7, r: 0 })).toBe(7);
+  });
+
+  it("홀수 행은 열 cols를 허용하지 않는다 — 이미 반 칸 오른쪽이라 우리 밖으로 나간다", () => {
+    expect(toCol({ q: 7, r: 1 })).toBe(7);
+    expect(inBounds({ q: 7, r: 1 }, 7, 10)).toBe(false);
+    expect(inBounds({ q: 6, r: 1 }, 7, 10)).toBe(true);
+  });
+});
+
+describe("inAuthoredBounds", () => {
+  it("배치 경계는 여분 반 칸을 주지 않는다 — 거기 적은 타일은 첫 밀기에 우리 밖으로 나간다", () => {
+    expect(inBounds({ q: 7, r: 0 }, 7, 10)).toBe(true);
+    expect(inAuthoredBounds({ q: 7, r: 0 }, 7, 10)).toBe(false);
+  });
+
+  it("그 밖에는 inBounds와 같다", () => {
+    for (let r = 0; r < 10; r += 1) {
+      for (let q = -6; q <= 8; q += 1) {
+        const col = toCol({ q, r });
+        if (col === 7) continue; // 여분 칸만 다르다
+        expect(inAuthoredBounds({ q, r }, 7, 10)).toBe(inBounds({ q, r }, 7, 10));
+      }
+    }
   });
 });

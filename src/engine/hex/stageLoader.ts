@@ -1,7 +1,7 @@
 // engine/hex/stageLoader.ts — 스테이지 JSON 런타임 검증.
 // 규약 3조: 새 JSON은 as unknown as로 받지 않는다. 디자이너 오투입을
 // 런타임이 아니라 로드 시점에 잡는다.
-import { key, inBounds } from "./coords";
+import { key, inAuthoredBounds } from "./coords";
 import type { Axial, Cage, StageDef, Tier } from "./types";
 
 function fail(msg: string): never {
@@ -60,7 +60,7 @@ export function parseStage(raw: unknown): StageDef {
 
   const occupied = new Map<string, string>();
   const claim = (a: Axial, what: string): void => {
-    if (!inBounds(a, cols, rows)) fail(`${what}가 보드 범위를 벗어났다 (q=${a.q}, r=${a.r})`);
+    if (!inAuthoredBounds(a, cols, rows)) fail(`${what}가 보드 범위를 벗어났다 (q=${a.q}, r=${a.r})`);
     const k = key(a);
     const prev = occupied.get(k);
     if (prev !== undefined) fail(`${what}가 ${prev}와 자리가 겹친다 (q=${a.q}, r=${a.r})`);

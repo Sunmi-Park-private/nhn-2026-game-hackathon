@@ -1,12 +1,13 @@
 // ui/hex/stageScreen.ts — 한 스테이지의 화면. 입력 → 엔진 → 렌더를 배선한다.
 // 상태는 RunState 하나로 모으고 모듈 전역에 두지 않는다(규약 4조).
 import { Application, Container, Graphics, Sprite, type FederatedPointerEvent, type Texture } from "pixi.js";
-import { createRun, fireAt, isCleared, isFailed } from "../../engine/hex/stageRun";
+import { createRun, fireAt, isCleared, isFailed, type ShotOutcome } from "../../engine/hex/stageRun";
 import { simulateShot } from "../../engine/hex/shot";
 import type { Boosters, RunState, StageDef } from "../../engine/hex/types";
 import { fullRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
 import { BOARD, ROW_H, cellToScreen, launchOrigin, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
+import { createTileDebris } from "./tileDebris";
 import { createCageView } from "./cageView";
 import { createHudView } from "./hudView";
 import { pushRow, hasReachedFailRow, failRow } from "../../engine/hex/pushRow";
@@ -139,6 +140,7 @@ export async function runStageScreen(
   playBgm("audio.bgmStage");
 
   const board = createBoardView({ tiles: textures.tiles, horseshoe: textures.horseshoe });
+  const debris = createTileDebris();
   const cages = createCageView({
     locked: textures.cageLocked,
     open: textures.cageOpen,
@@ -167,8 +169,11 @@ export async function runStageScreen(
   // 발사체(launcher)는 케이지보다 위다 — 창살 앞을 지나가는 것이 맞다.
   // 당김 가이드는 **말보다 앞**이다. 뒤에 두면 말 몸통이 가운데를 가려
   // 좌우 변만 남아 사각형으로 읽히지 않는다. 얇은 윤곽선이라 캐릭터를 해치지 않는다.
+  // 파편은 판보다 **앞**이다. 판 뒤에 두면 아직 남아 있는 타일에 가려 굴러가는
+  // 것이 안 보인다. 창살보다는 뒤라 큰 창살을 파편이 덮지 않는다.
   layer.addChild(
-    failMark.root, board.root, cages.root, fx, launcher.root, pullArea.root, hud.root, gauge.root,
+    failMark.root, board.root, debris.root, cages.root, fx,
+    launcher.root, pullArea.root, hud.root, gauge.root,
   );
   app.stage.addChild(layer);
 
@@ -195,6 +200,26 @@ export async function runStageScreen(
   function redraw(): void {
     redrawExceptCages();
     cages.sync(state);
+  }
+
+  /** 파편이 흩어질 기준점. 스냅한 자리가 곧 터진 자리다.
+   *  헛발이면 스냅 좌표가 없으므로 발사 지점을 쓴다 — 아래에서 위로 튀어 오른다. */
+  function snappedScreen(outcome: ShotOutcome): { x: number; y: number } {
+    return outcome.snapped ? cellToScreen(outcome.snapped) : launchOrigin();
+  }
+
+  /** 이번 발로 사라진 칸의 타일을 판에서 떼어 파편 층으로 넘긴다.
+   *  터진 것과 받침을 잃고 떨어진 것이 같은 경로를 탄다 — 둘 다 「떨어졌다」가 맞다. */
+  function tumble(outcome: ShotOutcome, from: { x: number; y: number }): void {
+    const gone = [...outcome.steps.flatMap((s) => s.cleared), ...outcome.dropped];
+    const pieces: Array<{ view: Container; x: number; y: number }> = [];
+    for (const a of gone) {
+      const view = board.detach(a);
+      if (!view) continue;
+      const p = cellToScreen(a);
+      pieces.push({ view, x: p.x, y: p.y });
+    }
+    if (pieces.length > 0) debris.burst(pieces, from);
   }
   redraw(); // 아직 아무것도 구출되지 않았으므로 전체 갱신으로 시작한다
 
@@ -234,6 +259,7 @@ export async function runStageScreen(
       board.root.y = y;
       cages.root.x = x;
       cages.root.y = y;
+      // 파편에는 걸지 않는다 — 판을 떠난 물건이라 판이 자글거려도 같이 떨지 않는다
     }
 
     function tick(): void {
@@ -286,6 +312,7 @@ export async function runStageScreen(
       pullArea.destroy();
       hud.destroy();
       cages.destroy();
+      debris.destroy();
       board.destroy();
       layer.destroy({ children: true });
       resolve(outcome);
@@ -350,8 +377,14 @@ export async function runStageScreen(
             };
           });
 
+        // 사라질 타일도 **파괴하기 전에** 떼어 낸다. board.sync가 먼저 돌면
+        // 스프라이트가 이미 없어져 굴릴 것이 남지 않는다. 붙잡아 둔 말발굽 칸과는
+        // 겹치지 않는다 — damaged는 벗겨졌을 뿐 사라지지 않은 칸이다.
+        tumble(outcome, snappedScreen(outcome));
+
         // 흔들림 → 다시 그리기 → 말발굽 낙하 순서다. 다시 그리기가 먼저면
         // 붙잡아 둔 표시 객체가 파괴돼 흔들 것이 없어진다.
+        // 파편은 이 흔들림과 나란히 굴러간다 — 이미 판을 떠났으므로 서로 안 기다린다.
         await playArmorHits(fx, hits, redrawExceptCages);
 
         for (const cage of outcome.rescued) {
@@ -389,6 +422,7 @@ export async function runStageScreen(
         // 진짜 멈춘다 — 막이 입력을 먹는 것만으로는 케이지 흔들림과 조준선이 계속 돈다.
         // 「멈춘 게임」 위에서 뒤 배경만 살아 움직이면 설정창이 겹쳐 뜬 것으로만 읽힌다.
         cages.pause();
+        debris.pause();
         aimer.cancel();
         gauge.set(null);
         pullArea.setActive(false);
@@ -406,6 +440,7 @@ export async function runStageScreen(
           }
           // 뷰는 finish 뒤에 되살리지 않는다 — 이미 파괴된 것을 만지게 된다
           cages.resume();
+        debris.resume();
           launcher.resume();
         });
       },

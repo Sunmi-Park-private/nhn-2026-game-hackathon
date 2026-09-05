@@ -97,8 +97,33 @@ export function toCol(a: Axial): number {
   return a.q + Math.floor(a.r / 2);
 }
 
-/** cols×rows 직사각 보드 안인가. */
+/**
+ * 발사체가 놓일 수 있는 자리인가 — **스냅·충돌 판정용 경계**다.
+ *
+ * 판은 줄이 내려올 때마다 반 칸씩 좌우로 오간다(pushRow). 오른쪽 위상에서는
+ * 짝수 행의 마지막 칸이 오프셋 열 `cols`에 놓이므로 `col < cols`로 자르면 그 칸이
+ * 「보드 밖」이 된다. 그러면 옆에 스냅할 수 없을 뿐 아니라 **발사체가 그 타일을
+ * 통과해 버린다**(simulateShot이 보드 밖 칸은 충돌로 세지 않는다).
+ *
+ * 홀수 행은 이미 반 칸 오른쪽에 있어서 `cols`까지 허용하면 우리 밖으로 나간다 —
+ * 그래서 행 패리티로 갈린다. 두 경우를 합치면 화면 x가 정확히 셀 폭 `cols + 1`칸,
+ * 곧 우리 폭이 된다(`geom.CELL_W`).
+ */
 export function inBounds(a: Axial, cols: number, rows: number): boolean {
+  if (a.r < 0 || a.r >= rows) return false;
+  const col = toCol(a);
+  if (col < 0) return false;
+  return a.r % 2 === 0 ? col <= cols : col < cols;
+}
+
+/**
+ * 스테이지 정의가 쓸 수 있는 자리인가 — **배치 작성용 경계**다.
+ *
+ * 배치는 좌우로 오가지 않는 기준 위상에서 짜므로 열이 정확히 `cols`칸이다.
+ * `inBounds`의 여분 반 칸은 밀기 중에만 잠깐 쓰이는 자리라, 여기에 타일을 적어 두면
+ * 첫 밀기에서 우리 밖으로 나간다. 그래서 배치 검증은 이쪽을 쓴다.
+ */
+export function inAuthoredBounds(a: Axial, cols: number, rows: number): boolean {
   if (a.r < 0 || a.r >= rows) return false;
   const col = toCol(a);
   return col >= 0 && col < cols;
