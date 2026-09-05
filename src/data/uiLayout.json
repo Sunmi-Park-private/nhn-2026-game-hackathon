@@ -725,22 +725,22 @@
         {
           "id": "lobby",
           "label": "로비 버튼",
-          "x": 99,
-          "y": 436,
-          "w": 120,
+          "x": 110,
+          "y": 420,
+          "w": 115,
           "h": 48,
           "asset": "ui.btnGameOverLobby",
-          "scale": 1.5
+          "scale": 1.35
         },
         {
           "id": "retry",
           "label": "다시 도전 버튼",
-          "x": 231,
-          "y": 436,
-          "w": 120,
+          "x": 225,
+          "y": 420,
+          "w": 115,
           "h": 48,
           "asset": "ui.btnGameOverRetry",
-          "scale": 1.5
+          "scale": 1.4
         }
       ]
     },
