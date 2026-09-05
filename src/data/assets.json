@@ -177,7 +177,7 @@
       "finish": "assets/race/finish.png"
     },
     "ui": {
-      "back": "assets/race/ui-back.png",
+      "back": "assets/race/ui-back.webp",
       "gear": "assets/race/ui-gear.webp",
       "btnSelect": "assets/race/btn-select.webp",
       "btnRace": "assets/race/btn-race.webp",
@@ -194,20 +194,20 @@
       "elephant": "assets/race/run-elephant.png"
     },
     "faces": {
-      "rabbit": "assets/race/face-rabbit.png",
-      "sheep": "assets/race/face-sheep.png",
-      "monkey": "assets/race/face-monkey.png",
-      "zebra": "assets/race/face-zebra.png",
-      "deer": "assets/race/face-deer.png",
-      "elephant": "assets/race/face-elephant.png"
+      "rabbit": "assets/race/face-rabbit.webp",
+      "sheep": "assets/race/face-sheep.webp",
+      "monkey": "assets/race/face-monkey.webp",
+      "zebra": "assets/race/face-zebra.webp",
+      "deer": "assets/race/face-deer.webp",
+      "elephant": "assets/race/face-elephant.webp"
     },
     "winner": {
-      "rabbit": "assets/race/winner-rabbit.png",
-      "sheep": "assets/race/winner-sheep.png",
-      "monkey": "assets/race/winner-monkey.png",
-      "zebra": "assets/race/winner-zebra.png",
-      "deer": "assets/race/winner-deer.png",
-      "elephant": "assets/race/winner-elephant.png"
+      "rabbit": "assets/race/winner-rabbit.webp",
+      "sheep": "assets/race/winner-sheep.webp",
+      "monkey": "assets/race/winner-monkey.webp",
+      "zebra": "assets/race/winner-zebra.webp",
+      "deer": "assets/race/winner-deer.webp",
+      "elephant": "assets/race/winner-elephant.webp"
     },
     "card": {
       "grid": "assets/race/card-grid.webp",
