@@ -13,6 +13,7 @@
 // 있으므로 그리기 전에 디스크와 맞춘다(GET /__uilayout · /__assets).
 import { uiAreas, uiUploads, uiVideos, uiAudios, type UiArea, type UiSlot, type UiUpload } from "../data/uiLayout";
 import assetsJson from "../data/assets.json";
+import { frameIndex } from "../data/hexAssets";
 import { createHistory, restoreInto, type History } from "../ui/layoutHistory";
 
 const W = 450;
@@ -333,20 +334,26 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
       return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
     };
 
-    const syncBar = (): void => {
-      const list = frameList();
-      const hold = readHold();
-      if (list.length === 0) { bar.style.display = "none"; return; }
-      bar.style.display = "";
-      range.max = String(list.length - 1);
-      label2.textContent = `최대 장전: ${hold}번 프레임 / 전체 ${list.length}장 — 앞은 당김, 뒤는 토스`;
-    };
-
-    range.oninput = (): void => {
-      const list = frameList();
+    /** 슬라이더가 가리키는 프레임을 그대로 보여 준다 — oninput과 syncBar가 같은 동작을 쓴다. */
+    const showFrame = (list: string[]): void => {
       const f = list[Number(range.value)];
       if (f) { img.dataset["retries"] = "1"; img.src = `${f}?v=${Date.now()}`; }
     };
+
+    const syncBar = (): void => {
+      const list = frameList();
+      if (list.length === 0) { bar.style.display = "none"; return; }
+      bar.style.display = "";
+      range.max = String(list.length - 1);
+      // 저장된 값이 지금 프레임 수를 벗어나면(짧아진 시퀀스로 교체된 경우)
+      // 게임 코드(frameIndex)와 같은 규칙으로 되돌린다 — 다른 판단을 만들지 않는다
+      const hold = frameIndex(readHold(), list.length);
+      range.value = String(hold);
+      label2.textContent = `최대 장전: ${hold}번 프레임 / 전체 ${list.length}장 — 앞은 당김, 뒤는 토스`;
+      showFrame(list);
+    };
+
+    range.oninput = (): void => { showFrame(frameList()); };
     set.onclick = async (): Promise<void> => {
       setAssetPath(holdKey, Number(range.value));
       const res = await fetch("/__assets", {
