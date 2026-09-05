@@ -189,6 +189,23 @@ export const collectionAssetPaths: CollectionAssetPaths = {
   locked: record(manifestJson, "collection", "locked"),
 };
 
+// ── 대사 초상 ────────────────────────────────────────────────
+// 스테이지 사이 대사창(ui/storyDialog.ts)의 좌우 그림. 붉은말 한 장과 동물 6종이다.
+// **없어도 된다** — 비면 인게임 동물 시퀀스의 첫 장과 발사대 붉은말 프레임으로 내려간다.
+// 그래서 여기 경로는 파일이 아직 없어도 문제가 되지 않는다(loadSlots가 null로 준다).
+
+export interface StoryAssetPaths {
+  /** 왼쪽 초상 — 붉은말. 대사마다 바뀌지 않는다(1종) */
+  horse?: string;
+  /** 오른쪽 초상 — 동물 id → 한 장. 키는 data/animals.ts의 id다 */
+  animals: Record<string, string>;
+}
+
+export const storyAssetPaths: StoryAssetPaths = {
+  ...pick(manifestJson, "story", ["horse"] as const),
+  animals: record(manifestJson, "story", "animals"),
+};
+
 // ── 소리 ────────────────────────────────────────────────────
 // BGM 2종과 효과음 6종. 파일이 없는 슬롯은 그냥 소리가 안 난다 — 게임은 정상 동작한다.
 
