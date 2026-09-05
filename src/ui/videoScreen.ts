@@ -11,10 +11,10 @@
 // 거절된다. 그때만 무음으로 되돌려 **재생 자체는 살리고**, 화면 어디든 첫 번째
 // 터치·클릭·키에서 스스로 소리를 켠다. 소리를 얻자고 영상을 통째로 잃지 않는다.
 //
-// 설정에서 소리를 꺼 둔 사람에게는 무음으로 시작한다 — 「항상 켜기」가 그 설정을
-// 덮으면 그건 설정이 아니다.
+// **설정의 소리 항목은 보지 않는다.** 인트로는 늘 소리를 켜고 시작하고, 끄고 싶은
+// 사람은 오른쪽 위 버튼으로 끈다(QA 요구). 그 항목은 게임 안의 BGM·효과음을 위한
+// 것이고, 이 영상은 그 전에 한 번 도는 별개의 화면이다.
 import { BASE_W, BASE_H } from "./stage";
-import { settings } from "./settings";
 
 /** 캔버스가 그려진 자리에 정확히 겹치도록 콘텐츠 컬럼(450×800)의 화면 좌표를 구한다.
  *  로딩 화면(loadingScreen.ts)도 같은 자리를 덮으므로 함께 쓴다. */
@@ -39,11 +39,13 @@ export function playVideo(url: string | undefined, label = "건너뛰기"): Prom
     const host = document.createElement("div");
     host.style.cssText = "position:fixed;z-index:1400;background:#000;overflow:hidden";
 
-    const wantSound = settings().sound;
+    /** 소리를 원하는 상태인가. 늘 켜고 시작하고, **사용자가 버튼으로 끈 순간에만**
+     *  false가 된다 — 그래야 자동 켜기가 그 선택을 되돌리지 않는다. */
+    let wantSound = true;
     const video = document.createElement("video");
     video.src = url;
     video.autoplay = true;
-    video.muted = !wantSound;  // 켜고 시작한다. 브라우저가 막으면 아래에서 되돌린다
+    video.muted = false;       // 켜고 시작한다. 브라우저가 막으면 아래에서 되돌린다
     video.playsInline = true;
     video.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
     host.appendChild(video);
@@ -63,6 +65,7 @@ export function playVideo(url: string | undefined, label = "건너뛰기"): Prom
     sound.onclick = (e): void => {
       e.stopPropagation();
       video.muted = !video.muted;
+      wantSound = !video.muted; // 사용자가 끈 것은 되돌리지 않는다
       syncSoundLabel();
       if (!video.muted) void video.play().catch(() => {});
     };
@@ -99,8 +102,12 @@ export function playVideo(url: string | undefined, label = "건너뛰기"): Prom
     /** 자동재생이 막혀 무음으로 되돌아갔을 때, 첫 제스처에서 스스로 소리를 켠다.
      *  버튼을 찾아 누르게 하지 않는다 — 그 무렵이면 인트로가 이미 절반쯤 지나 있다. */
     const armUnmute = (): void => {
-      const on = (): void => {
+      const on = (e: Event): void => {
         off();
+        // 소리 버튼 위에서 난 제스처는 건너뛴다. 여기서 켜 버리면 이어서 도는
+        // 버튼의 토글이 그것을 곧바로 도로 끈다 — 사용자는 🔇를 눌렀는데 여전히
+        // 무음인 채로 남는다(실측으로 잡았다). 그 터치는 버튼에게 맡긴다.
+        if (e.target instanceof Node && sound.contains(e.target)) return;
         if (done || !video.muted || !wantSound) return;
         video.muted = false;
         syncSoundLabel();
