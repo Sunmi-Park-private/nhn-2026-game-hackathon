@@ -4,10 +4,17 @@
 // 로딩이 멈추는 사례가 있었고, 어차피 그동안 게임은 아무것도 그리지 않으므로
 // 캔버스 안에 넣을 이유가 없다.
 //
-// 자동재생 정책 때문에 **무음으로 시작**한다. 소리는 사용자가 켠다 — 첫 제스처 전에는
-// 어떤 브라우저도 소리 있는 재생을 허용하지 않으므로, 몰래 시도하다 재생이 통째로
-// 막히는 것보다 버튼을 내주는 편이 낫다.
+// **소리를 켜고 시작한다.** 예전에는 무음으로 시작하고 버튼으로 켜게 했는데, 그러면
+// 첫 접속자는 소리 없는 인트로를 본다(QA).
+//
+// 자동재생 정책은 그대로 있다 — 브라우저가 소리 있는 자동재생을 거부하면 play()가
+// 거절된다. 그때만 무음으로 되돌려 **재생 자체는 살리고**, 화면 어디든 첫 번째
+// 터치·클릭·키에서 스스로 소리를 켠다. 소리를 얻자고 영상을 통째로 잃지 않는다.
+//
+// 설정에서 소리를 꺼 둔 사람에게는 무음으로 시작한다 — 「항상 켜기」가 그 설정을
+// 덮으면 그건 설정이 아니다.
 import { BASE_W, BASE_H } from "./stage";
+import { settings } from "./settings";
 
 /** 캔버스가 그려진 자리에 정확히 겹치도록 콘텐츠 컬럼(450×800)의 화면 좌표를 구한다.
  *  로딩 화면(loadingScreen.ts)도 같은 자리를 덮으므로 함께 쓴다. */
@@ -32,10 +39,11 @@ export function playVideo(url: string | undefined, label = "건너뛰기"): Prom
     const host = document.createElement("div");
     host.style.cssText = "position:fixed;z-index:1400;background:#000;overflow:hidden";
 
+    const wantSound = settings().sound;
     const video = document.createElement("video");
     video.src = url;
     video.autoplay = true;
-    video.muted = true;        // 자동재생 정책 — 소리는 아래 버튼으로 켠다
+    video.muted = !wantSound;  // 켜고 시작한다. 브라우저가 막으면 아래에서 되돌린다
     video.playsInline = true;
     video.style.cssText = "width:100%;height:100%;object-fit:cover;display:block";
     host.appendChild(video);
@@ -50,11 +58,12 @@ export function playVideo(url: string | undefined, label = "건너뛰기"): Prom
       host.appendChild(b);
       return b;
     };
-    const sound = btn("🔇", 96);
+    const sound = btn(video.muted ? "🔇" : "🔊", 96);
+    const syncSoundLabel = (): void => { sound.textContent = video.muted ? "🔇" : "🔊"; };
     sound.onclick = (e): void => {
       e.stopPropagation();
       video.muted = !video.muted;
-      sound.textContent = video.muted ? "🔇" : "🔊";
+      syncSoundLabel();
       if (!video.muted) void video.play().catch(() => {});
     };
     const skip = btn(label, 16);
@@ -76,6 +85,7 @@ export function playVideo(url: string | undefined, label = "건너뛰기"): Prom
       if (done) return;
       done = true;
       window.removeEventListener("resize", place);
+      unarm?.(); // 영상이 끝난 뒤에도 남으면 다음 탭이 엉뚱하게 소리를 켠다
       video.pause();
       host.remove();
       resolve();
@@ -85,6 +95,40 @@ export function playVideo(url: string | undefined, label = "건너뛰기"): Prom
     video.onended = finish;
     // 파일이 없거나 코덱을 못 읽으면 여기로 온다 — 화면이 검은 채로 멈추면 안 된다
     video.onerror = finish;
-    void video.play().catch(finish);
+
+    /** 자동재생이 막혀 무음으로 되돌아갔을 때, 첫 제스처에서 스스로 소리를 켠다.
+     *  버튼을 찾아 누르게 하지 않는다 — 그 무렵이면 인트로가 이미 절반쯤 지나 있다. */
+    const armUnmute = (): void => {
+      const on = (): void => {
+        off();
+        if (done || !video.muted || !wantSound) return;
+        video.muted = false;
+        syncSoundLabel();
+        void video.play().catch(() => { video.muted = true; syncSoundLabel(); });
+      };
+      const off = (): void => {
+        for (const t of ["pointerdown", "keydown", "touchstart"] as const) {
+          document.removeEventListener(t, on);
+        }
+      };
+      for (const t of ["pointerdown", "keydown", "touchstart"] as const) {
+        document.addEventListener(t, on, { once: true });
+      }
+      unarm = off;
+    };
+
+    let unarm: (() => void) | null = null;
+    video.play().catch(() => {
+      // 소리 있는 자동재생이 막혔다 — 무음으로 되살리고 첫 제스처를 기다린다.
+      // 그마저 실패하면 재생이 정말 안 되는 것이므로 화면을 넘긴다.
+      if (!video.muted) {
+        video.muted = true;
+        syncSoundLabel();
+        armUnmute();
+        void video.play().catch(finish);
+        return;
+      }
+      finish();
+    });
   });
 }
