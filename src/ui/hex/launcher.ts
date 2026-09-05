@@ -31,8 +31,14 @@ const HORSE_H = 190;
 /** 조준각을 몸 기울기로 옮기는 비율. 1이면 몸이 조준각 그대로 눕는다 — 과하다. */
 const TILT_RATIO = 0.35;
 
-/** 토스 재생 속도(프레임/초). */
-const TOSS_FPS = 24;
+/** 토스 재생에 걸리는 시간(ms).
+ *
+ *  fps가 아니라 **총 시간**으로 잡는다. fps로 두면 재생 길이가 프레임 수에 묶여
+ *  아트가 길어질수록 던지는 동작이 느려진다 — 24fps·18프레임이 0.75초였고,
+ *  손을 뗀 뒤 그만큼 팔이 굼떠 보였다.
+ *
+ *  던지는 동작은 짧아야 탄력이 산다. 실제 배구 토스가 0.3초 안쪽이다. */
+const TOSS_MS = 320;
 
 /** 오발로 되돌아가는 시간. 뚝 끊기면 조작 실수가 버그처럼 보인다. */
 const SETTLE_MS = 180;
@@ -153,7 +159,7 @@ export function createLauncher(
       await new Promise<void>((resolve) => {
         const tick = (): void => {
           if (horse.destroyed) { resolve(); return; }
-          const i = Math.floor(((performance.now() - start) / 1000) * TOSS_FPS);
+          const i = Math.floor(((performance.now() - start) / TOSS_MS) * count);
           if (i >= count) { resolve(); return; }
           const tex = horseFrames[hold + i];
           if (tex && horse.texture !== tex) {
