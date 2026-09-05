@@ -46,10 +46,10 @@ export function parseStage(raw: unknown): StageDef {
   const cols = asInt(o.cols, "cols");
   const rows = asInt(o.rows, "rows");
   const objective = asInt(o.objective, "objective");
-  const shots = asInt(o.shots, "shots");
+  const pushSeconds = asInt(o.pushSeconds, "pushSeconds");
 
   if (cols <= 0 || rows <= 0) fail("cols/rows는 1 이상이어야 한다");
-  if (shots <= 0) fail("shots는 1 이상이어야 한다");
+  if (pushSeconds <= 0) fail("pushSeconds는 1 이상이어야 한다");
 
   const occupied = new Map<string, string>();
   const claim = (a: Axial, what: string): void => {
@@ -90,5 +90,5 @@ export function parseStage(raw: unknown): StageDef {
     return a;
   });
 
-  return { id, cols, rows, objective, shots, cages, tiles, horseshoes };
+  return { id, cols, rows, objective, pushSeconds, cages, tiles, horseshoes };
 }

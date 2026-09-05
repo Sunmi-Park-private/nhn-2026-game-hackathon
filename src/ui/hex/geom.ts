@@ -51,7 +51,10 @@ export const RAIL_LEFT = CENTER_W - RAIL_W - RAIL_MARGIN;
 // 1칸짜리 타일이 감싼다. 그러려면 케이지 하나가 가로 3열·세로 3행을 먹으므로
 // 7열 격자로는 두 개를 놓을 자리가 없다. 칸을 잘게 쪼개 자리를 만든다.
 export const COLS = 11;
-export const ROWS = 16;
+/** 16 → 20. 위에서 줄이 내려오므로 **떨어질 높이**가 곧 유예 시간이다.
+ *  세로를 늘리는 비용은 0이다 — 셀 크기는 FIELD_W ÷ (COLS+0.5)에서 나오지 ROWS와 무관하다.
+ *  우리 바닥(y≈558)까지 남아 있던 빈 자리를 쓰는 것뿐이다. */
+export const ROWS = 20;
 
 /** 판 상단. 우리 상단(97.8) 바로 아래에 붙인다. */
 export const FIELD_TOP = 98;

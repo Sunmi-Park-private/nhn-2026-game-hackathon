@@ -34,8 +34,8 @@ export interface StageDef {
   rows: number;
   /** 구출 목표 마릿수 */
   objective: number;
-  /** 발사 횟수 제한 */
-  shots: number;
+  /** 새 줄이 한 칸 내려오는 주기(초). 실패 조건이 여기서 나온다. */
+  pushSeconds: number;
   cages: Cage[];
   tiles: Array<{ at: Axial; tier: Tier }>;
   horseshoes: Axial[];
@@ -53,7 +53,16 @@ export interface RunState {
   stage: StageDef;
   /** key(Axial) → Cell. 키가 없으면 빈 칸이다. */
   cells: Map<string, Cell>;
-  shotsLeft: number;
+  /** 지금까지 쏜 횟수. 제한이 아니라 기록이다 — 봇 측정의 단위가 된다. */
+  shotsFired: number;
+  /** 위에서 내려보낸 줄 수. 난이도의 새 단위다. */
+  pushes: number;
+  /** 창살의 **현재** 자리. 줄이 내려오면 창살도 같이 내려가므로
+   *  stage.cages(고정 정의)를 그대로 쓸 수 없다. */
+  cages: Cage[];
+  /** 새 줄에 깔 색. 스테이지 초기 타일에서 뽑아 고정한다 —
+   *  판에 남은 색에서 뽑으면 판이 비어 갈수록 색이 줄어 새 줄이 단조로워진다. */
+  palette: Tier[];
   /** 구출한 animalId */
   rescued: string[];
   /** 획득한 말굽 수 */

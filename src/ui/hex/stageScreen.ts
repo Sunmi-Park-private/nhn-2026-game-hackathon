@@ -9,6 +9,7 @@ import { BOARD, launchOrigin, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
 import { createCageView } from "./cageView";
 import { createHudView } from "./hudView";
+import { pushRow, hasReachedFailRow } from "../../engine/hex/pushRow";
 import { createLauncher } from "./launcher";
 import { createDragAim } from "./dragAim";
 import { createPowerGauge } from "./powerGauge";
@@ -183,6 +184,40 @@ export async function runStageScreen(
   return await new Promise<StageOutcome>((resolve) => {
     let finished = false;
 
+    // ── 줄 내려오기 ──
+    // 타이머는 UI가 소유한다. 엔진은 「한 줄 내려라」만 알고 시계는 모른다.
+    //
+    // **발사 연출 중에는 시계가 멈춘다.** 내 발이 날아가는 도중에 줄이 내려와
+    // 지는 것은 불공정하고, 착탄과 푸시가 같은 프레임에 겹치면 스냅 좌표가
+    // 방금 밀린 판과 어긋난다.
+    const pushMs = Math.max(1, state.stage.pushSeconds) * 1000;
+    let sinceLastPush = 0;
+    let lastTick = performance.now();
+
+    function tick(): void {
+      const now = performance.now();
+      const dt = now - lastTick;
+      lastTick = now;
+      if (finished) return;
+      if (!busy) sinceLastPush += dt;
+      hud.setCountdown((pushMs - sinceLastPush) / 1000);
+
+      if (!busy && sinceLastPush >= pushMs) {
+        sinceLastPush -= pushMs;
+        pushRow(state);
+        redraw();
+        playSfx("audio.sfxTap");
+        if (hasReachedFailRow(state) && !isCleared(state)) {
+          playSfx("audio.sfxFail");
+          finish("failed");
+          return;
+        }
+      }
+      pushFrame = requestAnimationFrame(tick);
+    }
+    let pushFrame = requestAnimationFrame(tick);
+    hud.setCountdown(state.stage.pushSeconds);
+
     function finish(result: StageResult): void {
       if (finished) return;
       finished = true;
@@ -191,6 +226,7 @@ export async function runStageScreen(
         rescued: [...state.rescued],
         horseshoes: state.horseshoes,
       };
+      cancelAnimationFrame(pushFrame);
       input.off("pointerdown", onDown);
       input.off("pointermove", onMove);
       input.off("globalpointermove", onMove);

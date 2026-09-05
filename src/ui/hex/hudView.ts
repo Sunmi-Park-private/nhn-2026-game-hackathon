@@ -21,6 +21,8 @@ const NEXT_CHIP_W = 34;
 export interface HudView {
   root: Container;
   sync(state: RunState): void;
+  /** 다음 줄이 내려올 때까지 남은 초. UI가 타이머를 소유하므로 밖에서 넣어 준다. */
+  setCountdown(seconds: number): void;
   destroy(): void;
 }
 
@@ -155,7 +157,6 @@ export function createHudView(stageIndex: number, tex: HudTextures = {}): HudVie
 
     sync(state: RunState): void {
       counter.text = `${state.rescued.length}/${state.stage.objective}`;
-      shots.text = `남은 발사 ${state.shotsLeft}`;
 
       if (state.next !== lastNextTier) {
         nextSlot.removeChildren().forEach((c) => c.destroy());
@@ -175,6 +176,11 @@ export function createHudView(stageIndex: number, tex: HudTextures = {}): HudVie
       for (const [id, text] of boosterTexts) {
         text.text = String(state.boosters[id as "bomb" | "rainbow" | "horseshoe"]);
       }
+    },
+
+    setCountdown(seconds: number): void {
+      // 발사 제한이 사라진 자리에 이게 들어간다 — 압박의 근원이 바뀌었으니 표시도 바뀐다.
+      shots.text = `다음 줄 ${Math.max(0, Math.ceil(seconds))}초`;
     },
 
     destroy(): void {
