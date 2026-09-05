@@ -440,7 +440,7 @@ spm = 60 / max(lastGap, sinceTap)
 누르는 중에는 간격이, 손을 떼면 흐른 시간이 분모를 잡는다. 감쇠 상수가 따로 없어도
 손을 떼면 `sinceTap`이 자라 리듬이 저절로 식는다. 이 형태라야 검산이 맞는다 —
 초당 1탭 → 60 spm → 보폭 0.8 → **0.8 m/s**, 초당 3탭 → 180 spm → 1.5 → **4.5 m/s**,
-초당 4탭 → 240 spm → 1.75 → **7.0 m/s**.
+초당 4탭 → 240 spm → 1.85 → **7.4 m/s**.
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
@@ -488,7 +488,7 @@ describe("걸음", () => {
   });
 
   it("스펙의 세 속도가 실제로 나온다", () => {
-    const cases: Array<[number, number]> = [[1, 0.8], [1 / 3, 4.5], [0.25, 7.0]];
+    const cases: Array<[number, number]> = [[1, 0.8], [1 / 3, 4.5], [0.25, 7.4]];
     for (const [gap, expected] of cases) {
       const r = makeRunner("a", 0);
       const taps = Math.round(12 / gap);          // 12초어치
