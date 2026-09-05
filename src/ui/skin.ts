@@ -17,11 +17,16 @@ function bust(url: string): string {
 }
 const BOOT = Date.now();
 
-export async function loadTexture(url: string | undefined): Promise<Texture | null> {
+/** 영상은 상한을 길게 준다. 이 상한은 「없는 파일 때문에 화면이 멎지 않게」 하려고
+ *  둔 것인데(스틸 한 장 기준 4초), 전체화면 영상은 용량이 커서 4초 안에 못 올 수
+ *  있다. 짧게 두면 파일이 멀쩡한데도 재시도 없이 영상이 사라진다. */
+export const VIDEO_LOAD_TIMEOUT_MS = 60_000;
+
+export async function loadTexture(url: string | undefined, timeoutMs = LOAD_TIMEOUT_MS): Promise<Texture | null> {
   if (!url) return null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), LOAD_TIMEOUT_MS);
+    timer = setTimeout(() => resolve(null), timeoutMs);
   });
   try {
     return await Promise.race([Assets.load<Texture>(bust(url)).catch(() => null), timeout]);

@@ -24,11 +24,20 @@ export const SCENE_KEYS: readonly string[] = ANIMALS.map((a) => a.id);
  * 하나도 없거나 아직 한 마리도 못 구했으면 null — 호출부가 스틸 배경으로 간다.
  */
 export function sceneFor(rescuedCount: number, has: (key: string) => boolean): string | null {
-  if (!Number.isFinite(rescuedCount)) return null;
+  return sceneCandidates(rescuedCount).find(has) ?? null;
+}
+
+/**
+ * 구출 수에 맞는 장면 키를 **큰 것부터** 늘어놓는다. 앞에서부터 받아 보다가
+ * 처음 성공하는 것을 쓰면 된다.
+ *
+ * 「있는지」를 경로만 보고는 알 수 없다 — 매니페스트에는 여섯 칸이 늘 다 들어 있고
+ * (파일을 지워도 경로는 남긴다) 파일이 실제로 있는지는 받아 봐야 안다. 그래서
+ * 호출부가 이 목록을 따라 내려가며 시도한다.
+ */
+export function sceneCandidates(rescuedCount: number): readonly string[] {
+  if (!Number.isFinite(rescuedCount)) return [];
   const n = Math.min(Math.floor(rescuedCount), SCENE_KEYS.length);
-  for (let i = n; i >= 1; i -= 1) {
-    const key = SCENE_KEYS[i - 1];
-    if (key !== undefined && has(key)) return key;
-  }
-  return null;
+  if (n < 1) return [];
+  return SCENE_KEYS.slice(0, n).reverse();
 }

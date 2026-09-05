@@ -85,3 +85,62 @@ describe("로비 배경 영상", () => {
     }
   });
 });
+
+describe("붉은말 최대 장전 프레임", () => {
+  it("매니페스트에서 숫자로 읽힌다", () => {
+    expect(Number.isInteger(hexAssetPaths.horseHold)).toBe(true);
+    expect(hexAssetPaths.horseHold).toBeGreaterThanOrEqual(0);
+  });
+
+  it("프레임 범위를 벗어나지 않는다", () => {
+    const len = hexAssetPaths.horse.length;
+    if (len === 0) {
+      expect(hexAssetPaths.horseHold).toBe(0);
+      return;
+    }
+    expect(hexAssetPaths.horseHold).toBeLessThan(len);
+  });
+
+  it("에디터의 붉은말 항목이 저장 경로를 들고 있다", () => {
+    const horse = uiUploads.find((u) => u.asset === "hex.horse");
+    expect(horse?.hold).toBe("hex.horseHold");
+  });
+});
+
+describe("frameIndex 가드 — 규약 3조", () => {
+  // 현재 매니페스트의 horse는 문자열 한 장이라 frames()가 길이 1 배열로
+  // 접어버린다 — len === 0 분기는 실측 데이터로는 닿지 않는다. 그래서 여기서
+  // len을 합성해 모든 분기를 직접 때린다.
+  const len = 5; // fallback = Math.floor(5 / 2) = 2
+
+  it("범위 안의 정수는 그대로 돌려준다", () => {
+    expect(frameIndex(0, len)).toBe(0);
+    expect(frameIndex(3, len)).toBe(3);
+    expect(frameIndex(len - 1, len)).toBe(len - 1);
+  });
+
+  it("음수는 한가운데로 접는다", () => {
+    expect(frameIndex(-1, len)).toBe(2);
+  });
+
+  it("길이 이상의 값은 한가운데로 접는다", () => {
+    expect(frameIndex(len, len)).toBe(2);
+    expect(frameIndex(len + 10, len)).toBe(2);
+  });
+
+  it("정수가 아닌 숫자는 한가운데로 접는다", () => {
+    expect(frameIndex(1.5, len)).toBe(2);
+  });
+
+  it("숫자가 아닌 값은 한가운데로 접는다", () => {
+    expect(frameIndex(undefined, len)).toBe(2);
+    expect(frameIndex("2", len)).toBe(2);
+  });
+
+  it("길이가 0이면 무엇을 넣어도 0이다", () => {
+    expect(frameIndex(0, 0)).toBe(0);
+    expect(frameIndex(-1, 0)).toBe(0);
+    expect(frameIndex(999, 0)).toBe(0);
+    expect(frameIndex(undefined, 0)).toBe(0);
+  });
+});

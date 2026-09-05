@@ -329,7 +329,7 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
 
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,audio/mpeg,audio/wav,audio/ogg,audio/mp4";
+  input.accept = "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,audio/mpeg,audio/wav,audio/ogg,audio/mp4";
   input.multiple = seq; // 시퀀스 슬롯은 여러 장을 한 번에 받는다
   input.style.display = "none";
   input.onchange = (): void => { void upload([...(input.files ?? [])]); input.value = ""; };
@@ -424,6 +424,10 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
 function renderStage(): void {
   stageWrap.replaceChildren();
   for (const s of area().slots) {
+    // 배경 영상 슬롯은 스테이지에 그리지 않는다. 화면 전체(0,0,450,800)를 차지해
+    // **다른 슬롯을 전부 덮고 클릭을 가로챈다** — PLAY도 설정도 고를 수 없게 된다.
+    // 좌표를 쓰지 않는 자리라 끌어 맞출 것도 없다. 업로드는 아래 묶음 판에서 한다.
+    if (s.asset?.startsWith(SCENE_PREFIX) === true) continue;
     const on = s.id === state.selected;
     const el = $("div",
       `position:absolute;left:${s.x * SCALE}px;top:${s.y * SCALE}px;width:${s.w * SCALE}px;height:${s.h * SCALE}px;`
