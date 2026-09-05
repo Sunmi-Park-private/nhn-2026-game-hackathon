@@ -49,6 +49,9 @@ const TITLE_LINE_H = 1.3;
  *  padding을 만지면 내려가는 양도 같이 따라와야 한다. */
 const PLATE_H = TITLE_LINE_H + TITLE_PAD_Y * 2;
 
+/** 판 높이의 몇 배만큼 내릴 것인가. 더 내리라는 요구가 오면 이 숫자만 올린다. */
+const DROP_STEPS = 2;
+
 export function openLoadingScreen(o: LoadingScreenOpts): LoadingScreen {
   // 인트로 영상(z 1400)보다 아래 — 로딩이 끝나고 인트로가 뜨면 그쪽이 덮는다
   const host = el("div", "position:fixed;z-index:1300;overflow:hidden;pointer-events:none");
@@ -78,11 +81,11 @@ export function openLoadingScreen(o: LoadingScreenOpts): LoadingScreen {
     `position:absolute;left:${pct.left}%;top:${pct.top}%;width:${pct.width}%;height:${pct.height}%;`
     + "box-sizing:border-box;padding:6% 7%;display:flex;flex-direction:column;"
     + "align-items:center;justify-content:center;gap:0.55em;font-family:system-ui,sans-serif;text-align:center;"
-    // 두 문구를 **직사각형 높이만큼** 내린다(QA 요구). 문구만 내리면 팁이 게이지를
-    // 덮으므로 게이지까지 같은 만큼 함께 내린다 — 간격은 그대로 유지된다.
+    // 문구와 게이지를 통째로 **직사각형 높이의 두 배**만큼 내린다(QA 요구 — 한 번
+    // 내린 뒤 「그만큼 더 아래로」). 문구만 내리면 팁이 게이지를 덮으므로 같이 민다.
     // 흐름이 아니라 transform으로 민다: 흐름에서 밀면 패널이 가운데 정렬이라
     // 내려간 양이 절반으로 줄고, 게이지가 눌려 사라진다.
-    + `transform:translateY(${PLATE_H}em)`);
+    + `transform:translateY(${PLATE_H * DROP_STEPS}em)`);
   // 판은 글자를 감싸는 만큼만 — flex column의 align-items:center가 폭을 내용에 맞춘다.
   // 세로 padding을 주지 않으면 line-height에 딱 붙어 「직사각형」으로 안 읽힌다.
   const title = el("div",
