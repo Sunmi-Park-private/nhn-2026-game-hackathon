@@ -25,7 +25,7 @@ import { createRunnerLayer } from "./runnerLayer";
 import { createRoster } from "./rosterView";
 import { createRaceHud } from "./raceHud";
 import { createRaceIntro } from "./raceIntro";
-import { createRaceResult } from "./raceResultView";
+import { buildRaceResult } from "./raceResultView";
 
 const AREA = "race";
 
@@ -162,7 +162,7 @@ export function openRace(
         playSfx(out.reward.improved ? "audio.sfxRecord" : "audio.sfxFinish");
       }
 
-      S.result = createRaceResult({
+      S.result = buildRaceResult({
         slots: {
           resultPanel: B.resultPanel, resultTitle: B.resultTitle, resultList: B.resultList,
           bestTag: B.bestTag, rewardIcon: B.rewardIcon, rewardLabel: B.rewardLabel,
@@ -173,16 +173,10 @@ export function openRace(
           retry: tex.ui.retry, close: tex.ui.close,
           reward: S.reward?.booster ? tex.booster[S.reward.booster] : undefined,
         },
-        rows: ranking(race).map((r, i) => ({
-          rank: i + 1,
-          name: byId.get(r.id)?.name ?? r.id,
-          glyph: byId.get(r.id)?.glyph ?? "?",
-          time: r.finishedAt,
-          mine: r.id === race.myId,
-        })),
-        improved: S.reward?.improved ?? false,
-        previous: S.reward?.previous ?? null,
-        rewardName: S.reward?.booster ? BOOSTER_KO[S.reward.booster] ?? null : null,
+        race,
+        animalOf: (id) => ({ name: byId.get(id)?.name ?? id, glyph: byId.get(id)?.glyph ?? "?" }),
+        reward: S.reward,
+        boosterName: (id) => BOOSTER_KO[id] ?? null,
         onRetry: () => { buzz(); restart(); },
         onClose: () => { buzz(); close("back"); },
       });

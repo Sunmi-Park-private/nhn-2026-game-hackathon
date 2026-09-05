@@ -4,6 +4,9 @@
 // 좌표와 텍스처는 주입받는다 — 이 파일은 ../../data를 모른다(규약 2조).
 import { Container, Graphics, Text, type Texture } from "pixi.js";
 import { fitSprite } from "../skin";
+import { ranking } from "../../engine/race/raceRun";
+import type { RaceState } from "../../engine/race/types";
+import type { RaceReward } from "../../engine/race/reward";
 
 export interface ResultBox { x: number; y: number; w: number; h: number }
 
@@ -147,4 +150,34 @@ export function createRaceResult(o: RaceResultOpts): Container {
   root.addChild(button(s.retry!, "다시 달리기", o.tex.retry, 0x3faa48, o.onRetry));
   root.addChild(button(s.close!, "로비로", o.tex.close, 0x6b4626, o.onClose));
   return root;
+}
+
+/** 레이스 한 판을 결과 화면으로 만든다.
+ *
+ *  「순위를 어떻게 행으로 펴는가」는 결과 화면의 일이다 — 화면 조립부가 알 필요가 없다. */
+export function buildRaceResult(o: {
+  slots: Record<string, ResultBox>;
+  tex: RaceResultOpts["tex"];
+  race: RaceState;
+  /** 동물 id → 이름과 글리프 */
+  animalOf: (id: string) => { name: string; glyph: string };
+  reward: RaceReward | null;
+  /** 부스터 id → 사람이 읽는 이름 */
+  boosterName: (id: string) => string | null;
+  onRetry: () => void;
+  onClose: () => void;
+}): Container {
+  return createRaceResult({
+    slots: o.slots,
+    tex: o.tex,
+    rows: ranking(o.race).map((r, i) => {
+      const a = o.animalOf(r.id);
+      return { rank: i + 1, name: a.name, glyph: a.glyph, time: r.finishedAt, mine: r.id === o.race.myId };
+    }),
+    improved: o.reward?.improved ?? false,
+    previous: o.reward?.previous ?? null,
+    rewardName: o.reward?.booster ? o.boosterName(o.reward.booster) : null,
+    onRetry: o.onRetry,
+    onClose: o.onClose,
+  });
 }
