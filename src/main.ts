@@ -107,14 +107,16 @@ async function main(): Promise<void> {
   // E2E 테스트용 씬 마커 — 현재 단계 노출 (게임 로직에선 미사용)
   const mark = (s: string): void => { (window as unknown as { __scene?: string }).__scene = s; };
 
-  // 인트로 — 파일이 없으면 그냥 지나간다. 에디터로 배치를 맞추는 중에는 방해가 되므로 건너뛴다.
-  // 에디터 「인트로」 탭에서 올린다(video.intro).
+  // 인트로 — 파일이 없으면 그냥 지나간다. 에디터 「인트로」 탭에서 올린다(video.intro).
+  //
+  // **에디터에서도 튼다.** 예전에는 ?editor=1이면 건너뛰었는데, 그러면 인트로를 올린
+  // 사람이 자기가 올린 것을 확인할 길이 없다 — 「인트로가 아예 안 나온다」로 보였다.
+  // 방해가 되면 건너뛰기 버튼으로 넘긴다. 그러라고 있는 버튼이다.
+  //
   // **이 동안 에셋을 받지 않는다.** 뒤에서 100MB를 받으면 실제 빌드에서 영상이 버벅였다 —
   // 에셋은 아래 로딩 화면이 뜬 뒤에 시작한다.
-  if (!new URLSearchParams(location.search).has("editor")) {
-    mark("intro");
-    await playVideo(videoAssetPaths.intro);
-  }
+  mark("intro");
+  await playVideo(videoAssetPaths.intro);
 
   // 받는 동안 로딩 화면(배경 영상 + 게이지)을 보인다. 느린 회선(터널·모바일)에서는
   // 이 자리가 몇 분이라, 갈색 단색만 있으면 「멎었다」로 보인다 — 로더의 상한을 없앤 대신 여기서 알린다.
