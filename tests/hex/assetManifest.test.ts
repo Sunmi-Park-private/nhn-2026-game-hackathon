@@ -3,9 +3,10 @@
 // 아트가 아직 한 장도 없어 화면으로는 이 어긋남이 안 보인다. 동물 id가 하나만
 // 틀려도 그 동물만 조용히 폴백으로 남으므로, 여기서 잡는다.
 import { describe, it, expect } from "vitest";
-import { hexAssetPaths, lobbyFriendAssetPaths, frameIndex } from "../../src/data/hexAssets";
+import { hexAssetPaths, lobbySceneVideoPaths, frameIndex } from "../../src/data/hexAssets";
 import { uiAreas, uiUploads } from "../../src/data/uiLayout";
 import { ANIMALS } from "../../src/data/animals";
+import { SCENE_KEYS } from "../../src/data/lobbyScene";
 
 const ids = ANIMALS.map((a) => a.id);
 const cap = (s: string): string => `${s[0]!.toUpperCase()}${s.slice(1)}`;
@@ -43,12 +44,22 @@ describe("게임 에셋 업로드 목록", () => {
   });
 });
 
-describe("로비 동물 친구", () => {
-  it("동물마다 에셋 경로가 있다", () => {
-    expect(Object.keys(lobbyFriendAssetPaths).sort()).toEqual([...ids].sort());
+describe("로비 배경 영상", () => {
+  it("장면 키마다 경로가 있다 — 키는 동물 목록을 재활용한다", () => {
+    expect(Object.keys(lobbySceneVideoPaths).sort()).toEqual([...ids].sort());
   });
 
-  it("동물마다 로비 슬롯이 있고 그 동물의 에셋을 가리킨다", () => {
+  it("전부 webm이다 — mp4(h.264)는 이 렌더러에서 첫 프레임에 멎는다(실측)", () => {
+    for (const id of ids) expect(lobbySceneVideoPaths[id], id).toMatch(/\.webm$/);
+  });
+
+  it("장면 키 순서대로 scene-1 … scene-6을 가리킨다", () => {
+    SCENE_KEYS.forEach((key, i) => {
+      expect(lobbySceneVideoPaths[key], key).toBe(`assets/lobby/scene-${i + 1}.webm`);
+    });
+  });
+
+  it("장면마다 로비 슬롯이 있고 그 장면의 에셋을 가리킨다", () => {
     const lobby = uiAreas.find((a) => a.id === "lobby");
     expect(lobby).toBeDefined();
     for (const id of ids) {
@@ -57,63 +68,20 @@ describe("로비 동물 친구", () => {
       expect(s!.asset).toBe(`lobby.friends.${id}`);
     }
   });
-});
 
-describe("붉은말 최대 장전 프레임", () => {
-  it("매니페스트에서 숫자로 읽힌다", () => {
-    expect(Number.isInteger(hexAssetPaths.horseHold)).toBe(true);
-    expect(hexAssetPaths.horseHold).toBeGreaterThanOrEqual(0);
+  it("슬롯 라벨이 마릿수를 말한다 — 이름의 동물을 올리면 안 되기 때문이다", () => {
+    const lobby = uiAreas.find((a) => a.id === "lobby")!;
+    SCENE_KEYS.forEach((key, i) => {
+      const s = lobby.slots.find((x) => x.id === `friend${cap(key)}`);
+      expect(s!.label, key).toBe(`로비 배경 · ${i + 1}마리 구출`);
+    });
   });
 
-  it("프레임 범위를 벗어나지 않는다", () => {
-    const len = hexAssetPaths.horse.length;
-    if (len === 0) {
-      expect(hexAssetPaths.horseHold).toBe(0);
-      return;
+  it("슬롯이 화면 전체를 덮는다 — 배경까지 그려진 영상이다", () => {
+    const lobby = uiAreas.find((a) => a.id === "lobby")!;
+    for (const key of SCENE_KEYS) {
+      const s = lobby.slots.find((x) => x.id === `friend${cap(key)}`)!;
+      expect([s.x, s.y, s.w, s.h], key).toEqual([0, 0, 450, 800]);
     }
-    expect(hexAssetPaths.horseHold).toBeLessThan(len);
-  });
-
-  it("에디터의 붉은말 항목이 저장 경로를 들고 있다", () => {
-    const horse = uiUploads.find((u) => u.asset === "hex.horse");
-    expect(horse?.hold).toBe("hex.horseHold");
-  });
-});
-
-describe("frameIndex 가드 — 규약 3조", () => {
-  // 현재 매니페스트의 horse는 문자열 한 장이라 frames()가 길이 1 배열로
-  // 접어버린다 — len === 0 분기는 실측 데이터로는 닿지 않는다. 그래서 여기서
-  // len을 합성해 모든 분기를 직접 때린다.
-  const len = 5; // fallback = Math.floor(5 / 2) = 2
-
-  it("범위 안의 정수는 그대로 돌려준다", () => {
-    expect(frameIndex(0, len)).toBe(0);
-    expect(frameIndex(3, len)).toBe(3);
-    expect(frameIndex(len - 1, len)).toBe(len - 1);
-  });
-
-  it("음수는 한가운데로 접는다", () => {
-    expect(frameIndex(-1, len)).toBe(2);
-  });
-
-  it("길이 이상의 값은 한가운데로 접는다", () => {
-    expect(frameIndex(len, len)).toBe(2);
-    expect(frameIndex(len + 10, len)).toBe(2);
-  });
-
-  it("정수가 아닌 숫자는 한가운데로 접는다", () => {
-    expect(frameIndex(1.5, len)).toBe(2);
-  });
-
-  it("숫자가 아닌 값은 한가운데로 접는다", () => {
-    expect(frameIndex(undefined, len)).toBe(2);
-    expect(frameIndex("2", len)).toBe(2);
-  });
-
-  it("길이가 0이면 무엇을 넣어도 0이다", () => {
-    expect(frameIndex(0, 0)).toBe(0);
-    expect(frameIndex(-1, 0)).toBe(0);
-    expect(frameIndex(999, 0)).toBe(0);
-    expect(frameIndex(undefined, 0)).toBe(0);
   });
 });

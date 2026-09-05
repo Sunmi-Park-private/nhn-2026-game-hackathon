@@ -15,6 +15,35 @@ const PUBLIC_DIR = path.resolve('public')
  * 이 옵션이 없으면 알파 0인 자리의 색이 뭉개져 확대했을 때 가장자리에 얼룩이 남는다.
  * cwebp가 없는 환경이면 조용히 원본을 그대로 쓴다 — 업로드가 실패하면 안 된다.
  */
+/**
+ * mp4·mov를 **webm(VP9)으로** 바꾼다. 실패하면 null — 원본을 그대로 둔다.
+ *
+ * 로비 배경처럼 **게임 화면 안에서(텍스처로)** 도는 영상은 mp4로 넣으면 첫 프레임에서 멎는다
+ * (요소는 재생되는데 그 프레임이 텍스처로 안 올라온다 — docs/ART_SPEC.md 참조).
+ * 디자이너가 그 차이를 알고 올릴 이유가 없으므로 서버가 받는 자리에서 바꾼다.
+ * png·jpg를 webp로 바꾸는 것과 같은 자리, 같은 이유다.
+ *
+ * 인코딩은 **빠른 쪽으로** 맞춘다(realtime·cpu-used 5). 업로드 요청이 그동안
+ * 붙잡혀 있어서, 화질을 조금 얻자고 디자이너를 몇 분씩 기다리게 할 수 없다.
+ */
+function toWebm(abs: string): string | null {
+  if (!/\.(mp4|mov|m4v)$/i.test(abs)) return null
+  const out = abs.replace(/\.[^./]+$/, '.webm')
+  try {
+    execFileSync('ffmpeg', [
+      '-y', '-loglevel', 'error', '-i', abs,
+      '-c:v', 'libvpx-vp9', '-b:v', '4M', '-pix_fmt', 'yuv420p',
+      '-deadline', 'realtime', '-cpu-used', '5', '-row-mt', '1',
+      '-an', out,
+    ], { timeout: 5 * 60 * 1000 })
+  } catch {
+    return null // ffmpeg 없음·변환 실패 — 원본을 그대로 둔다
+  }
+  if (!fs.existsSync(out) || fs.statSync(out).size === 0) return null
+  fs.unlinkSync(abs)
+  return out
+}
+
 function toWebp(abs: string): string | null {
   if (!/\.(png|jpe?g)$/i.test(abs)) return null
   const out = abs.replace(/\.[^./]+$/, '.webp')
@@ -240,10 +269,16 @@ function assetUploadPlugin(): Plugin {
           fs.mkdirSync(path.dirname(abs), { recursive: true })
           fs.writeFileSync(abs, buf)
 
-          // png·jpg는 webp로 바꾼다 — 매니페스트에 들어가는 이름도 그 결과를 따른다
-          const converted = toWebp(abs)
-          const finalRel = converted ? rel.replace(/\.[^./]+$/, '.webp') : rel
-          const finalExt = converted ? 'webp' : ext
+          // png·jpg는 webp로, mp4는 webm으로 바꾼다 — 매니페스트에 들어가는 이름도 그 결과를 따른다.
+          //
+          // **인트로·엔딩(video.*)은 예외로 원본 그대로 둔다.** 이 둘은 게임 화면 안이
+          // 아니라 DOM <video>로 틀기 때문에(ui/videoScreen.ts) mp4가 그대로 잘 돌고,
+          // webm 지원이 늦은 Safari에서는 mp4 쪽이 오히려 안전하다. 변환이 필요한 것은
+          // 텍스처로 올라가는 영상(로비 배경)이다.
+          const domPlayed = dotted.startsWith('video.')
+          const converted = toWebp(abs) ?? (domPlayed ? null : toWebm(abs))
+          const finalExt = converted ? (converted.endsWith('.webp') ? 'webp' : 'webm') : ext
+          const finalRel = converted ? rel.replace(/\.[^./]+$/, `.${finalExt}`) : rel
 
           if (isSeq) {
             // 프레임이 다 올라온 뒤에 한 번만 쓴다 — 중간에 쓰면 게임이 반쪽 시퀀스를 읽는다

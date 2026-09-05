@@ -8,13 +8,13 @@
 // 아트가 없으면 자리와 이름이 보이도록 폴백을 그린다.
 import { Application, Container, Graphics, Text, type Texture } from "pixi.js";
 import { BASE_W, stageTop, stageHeight, coverBox, fullRect } from "./stage";
-import { fitSprite } from "./skin";
+import { fitSprite, loadTexture, playVideoTexture } from "./skin";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection, type CollectionTextures } from "./collection";
 import { openWorld } from "./worldScreen";
 import { openEvent, type EventTextures } from "./eventScreen";
 import { slot, type UiSlot } from "../data/uiLayout";
-import { ANIMALS } from "../data/animals";
+import { sceneFor } from "../data/lobbyScene";
 import { buzz } from "./settings";
 import { playBgm, playSfx } from "./audio";
 import { editable, clearEditable } from "./layoutEditor";
@@ -26,8 +26,10 @@ export interface LobbyTextures {
   gear?: Texture;
   /** 우측 레일·하단 내비 아이콘 — 없으면 라벨로 대신한다 */
   icons: Record<string, Texture | null>;
-  /** 로비에 서는 구출한 동물 — 아직 안 올라온 동물은 키가 없다 */
-  friends: Partial<Record<string, Texture>>;
+  /** 로비 배경 영상 경로 — 마릿수마다 한 편. 아직 안 올라온 자리는 키가 없다.
+   *  텍스처가 아니라 **경로**를 받는다: 용량이 커서 부팅 때 받으면 첫 화면이 늦고,
+   *  실제로 쓰는 것은 한 편뿐이라 로비가 그때 받는 편이 싸다. */
+  scenes: Partial<Record<string, string>>;
   /** 도감 — 패널과 동물마다 해제·잠김 카드 */
   collection: CollectionTextures;
   /** 월드 지도 화면 */
@@ -118,36 +120,9 @@ function counter(b: UiSlot, value: number): Container {
   return c;
 }
 
-/** 슬롯 id는 동물 id에서 만든다 — friendRabbit, friendSheep … 도감의 cellXxx와 같은 규칙이다. */
-const friendId = (animalId: string): string => `friend${animalId[0]!.toUpperCase()}${animalId.slice(1)}`;
-
-/** 로비 좌우에 서는 동물 한 마리. 구출한 동물만 부른다.
- *  아트가 있으면 그림만 그리고, 없으면 자리와 정체가 보이도록 글리프를 그린다 —
- *  배경 아트가 이미 그 동물을 그리고 있다면 슬롯을 hidden으로 끄면 된다. */
-function friend(b: UiSlot, tex: Texture | null, glyph: string): Container {
-  const c = new Container();
-  c.x = b.x;
-  c.y = b.y;
-
-  if (tex) {
-    const s = fitSprite(tex, b.w, b.h);
-    s.x = b.w / 2;
-    s.y = b.h / 2;
-    c.addChild(s);
-  } else {
-    const g = new Graphics().circle(b.w / 2, b.h / 2, Math.min(b.w, b.h) / 2).fill({ color: 0xf3e2c0, alpha: 0.85 });
-    g.circle(b.w / 2, b.h / 2, Math.min(b.w, b.h) / 2).stroke({ width: 2, color: 0x8a5a2b });
-    c.addChild(g);
-    const t = new Text({ text: glyph, style: { fontSize: Math.min(b.w, b.h) * 0.5 } });
-    t.anchor.set(0.5);
-    t.x = b.w / 2;
-    t.y = b.h / 2;
-    c.addChild(t);
-  }
-
-  editable(AREA, b, c);
-  return c;
-}
+/** 슬롯 id는 장면 키에서 만든다 — friendRabbit, friendMonkey … 순서가 곧 마릿수다.
+ *  이름의 동물과 그 장면의 동물은 무관하다(data/lobbyScene.ts 참조). */
+const sceneSlotId = (key: string): string => `friend${key[0]!.toUpperCase()}${key.slice(1)}`;
 
 /** 로비를 띄우고 PLAY를 누를 때까지 기다린다. */
 export function runLobby(app: Application, profile: Profile, tex: LobbyTextures): Promise<void> {
@@ -155,6 +130,11 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     const layer = new Container();
     app.stage.addChild(layer);
     playBgm("audio.bgmLobby");
+
+    const scenePaths = tex.scenes;
+    /** 배경 영상을 멈추는 함수. 로비를 닫을 때 부른다 — 안 부르면 티커에 남아
+     *  파괴된 텍스처를 계속 올린다. */
+    let stopScene: (() => void) | null = null;
 
     layer.addChild(fullRect(0x241a10));
     if (tex.bg) layer.addChild(coverBox(tex.bg));
@@ -179,17 +159,27 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     ];
     for (const [id, fb, value] of counters) layer.addChild(counter(box(id, fb), value));
 
-    // ── 구출한 동물 친구 ─────────────────────────
-    // 스테이지를 깨서 구출한 동물만 좌우에 선다 — 로비가 진행도를 보여주는 자리다.
-    // 자리가 없는(슬롯이 지워진) 동물은 그리지 않는다: 좌표를 코드가 지어내면
-    // 배경 아트 위 아무 데나 서게 된다.
-    // 「숨기기」는 여기서 거르지 않는다 — editable()이 노드를 등록한 뒤 visible을 끈다.
-    // 여기서 continue하면 슬롯이 에디터 목록에서 통째로 사라져 숨김을 되돌릴 길이 없다.
-    for (const a of ANIMALS) {
-      if (!profile.rescued.includes(a.id)) continue;
-      const b = slot(AREA, friendId(a.id));
-      if (!b) continue;
-      layer.addChild(friend(b, tex.friends[a.id] ?? null, a.glyph));
+    // ── 구출한 동물이 사는 배경 영상 ───────────────
+    // 배경까지 통째로 그려진 전체화면 루핑 영상이라 코드는 동물을 따로 그리지 않는다.
+    // 마릿수마다 한 편이고, 없는 자리는 이하 중 가장 큰 것으로 내려간다.
+    //
+    // **스틸을 먼저 깔고 영상은 준비되면 얹는다.** 영상은 용량이 커서 늦게 오고,
+    // 텍스처 로딩이 브라우저에 따라 아예 멈추기도 한다(ui/videoScreen.ts 참조).
+    // 기다렸다 그리면 그 사이 로비가 비고, 멈추면 영영 빈다.
+    const sceneKey = sceneFor(profile.rescued.length, (k) => scenePaths[k] !== undefined);
+    if (sceneKey) {
+      const slotBox = slot(AREA, sceneSlotId(sceneKey));
+      if (!slotBox?.hidden) {
+        void loadTexture(scenePaths[sceneKey]).then((t) => {
+          // 로비가 이미 닫혔으면 그릴 자리가 없다 — 파괴된 층을 만지지 않는다
+          if (!t || layer.destroyed) return;
+          // 영상이면 여기서 돌기 시작한다. 스틸이면 아무 일도 없다
+          stopScene = playVideoTexture(t, app.ticker);
+          const spr = coverBox(t);
+          // 스틸 바로 위, 나머지 UI 아래. 인덱스로 넣어야 버튼이 영상에 가리지 않는다
+          layer.addChildAt(spr, Math.min(2, layer.children.length));
+        });
+      }
     }
 
     // ── PLAY ────────────────────────────────────
@@ -226,6 +216,7 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     function finish(): void {
       if (done) return;
       done = true;
+      stopScene?.(); // 티커에 남으면 파괴된 텍스처를 계속 올린다
       clearEditable(AREA); // 파괴된 노드를 에디터가 계속 잡고 있으면 안 된다
       layer.destroy({ children: true });
       resolve();
