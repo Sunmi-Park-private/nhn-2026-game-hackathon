@@ -140,7 +140,20 @@ async function main(): Promise<void> {
     const stage = stages[profile.stageIndex];
     if (!stage) break; // 스테이지가 하나도 없다 — 로비에 머무를 수 없으니 여기서 끝낸다
 
-    const outcome = await runStageScreen(app, stage, profile.stageIndex, hexTextures, ui);
+    // 레이스로 번 부스터는 이 판에 전부 실린다. 진입 즉시 비워서 다음 판에 또 실리지
+    // 않게 한다 — 남은 것을 돌려주기 시작하면 결과 화면과 저장 양쪽에서 재고를 관리해야 한다.
+    const earned = profile.boosters;
+    const stock = {
+      bomb: 3 + earned.bomb,
+      rainbow: 2 + earned.rainbow,
+      horseshoe: 1 + earned.horseshoe,
+    };
+    if (earned.bomb + earned.rainbow + earned.horseshoe > 0) {
+      profile = { ...profile, boosters: { bomb: 0, rainbow: 0, horseshoe: 0 } };
+      save();
+    }
+
+    const outcome = await runStageScreen(app, stage, profile.stageIndex, hexTextures, ui, stock);
     if (outcome.result === "cleared") {
       const last = profile.stageIndex >= stages.length - 1;
       profile = addClear(profile, outcome.rescued, outcome.horseshoes);

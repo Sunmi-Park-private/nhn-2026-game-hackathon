@@ -6,11 +6,17 @@ import { findFloating } from "./gravity";
 import { simulateShot, type BoardGeom } from "./shot";
 import { pickNext } from "./nextTile";
 import { cageProgress, isUnlocked } from "./cageFaces";
-import type { Axial, Cage, RunState, StageDef } from "./types";
+import type { Axial, Boosters, Cage, RunState, StageDef } from "./types";
 
 /** 스테이지 정의로 새 런을 만든다.
- *  `rng`는 발사체 색 추첨에만 쓴다 — 테스트가 고정값을 넣을 수 있도록 주입받는다. */
-export function createRun(stage: StageDef, rng: () => number = Math.random): RunState {
+ *  `rng`는 발사체 색 추첨에만 쓴다 — 테스트가 고정값을 넣을 수 있도록 주입받는다.
+ *  `stock`은 이 판에 실을 부스터다. 기본값이 지금까지의 하드코딩 값이라
+ *  안 넘기는 호출부는 그대로 동작한다. */
+export function createRun(
+  stage: StageDef,
+  rng: () => number = Math.random,
+  stock: Boosters = { bomb: 3, rainbow: 2, horseshoe: 1 },
+): RunState {
   const cells = buildCells(stage);
   return {
     stage,
@@ -18,7 +24,8 @@ export function createRun(stage: StageDef, rng: () => number = Math.random): Run
     shotsLeft: stage.shots,
     rescued: [],
     horseshoes: 0,
-    boosters: { bomb: 3, rainbow: 2, horseshoe: 1 },
+    // 복사한다 — 판이 부스터를 쓸 때 호출부(프로필)의 객체를 깎으면 안 된다
+    boosters: { ...stock },
     // 첫 두 발도 판에서 뽑는다 — 판에 없는 색을 장전한 채 시작하지 않는다
     loaded: pickNext(cells, rng),
     next: pickNext(cells, rng),
