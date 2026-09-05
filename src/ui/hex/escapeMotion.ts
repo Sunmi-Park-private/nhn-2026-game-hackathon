@@ -10,6 +10,9 @@
 
 // ── 창살 ────────────────────────────────────────────────────
 /** 흔들리는 시간(ms). 이 뒤에 떨어지기 시작한다. */
+import { BASE_W } from "../stage";
+import { CELL_W } from "./geom";
+
 export const CAGE_SHAKE_MS = 420;
 /** 흔들림 최대 진폭(px). */
 export const CAGE_SHAKE_AMP = 5.5;
@@ -80,6 +83,19 @@ export const WALK_SPEED = 265;
 /** 걸을 때 위아래로 흔들리는 폭(px)과 진동수(Hz). 발소리 대신이다. */
 export const WALK_BOB_PX = 3.2;
 export const WALK_BOB_HZ = 4.4;
+
+/**
+ * 걸어 나가는 끝 지점. **판의 오른쪽 벽이 아니라 콘텐츠 컬럼의 경계**를 쓴다.
+ *
+ * 예전에는 우리 오른쪽 벽(≈386.6)에 몸통 하나(≈267.7)를 더해 654까지 걸었는데,
+ * 컬럼은 450에서 끝나고 그 바깥은 모든 화면 밑에 깔린 좌우 고정배경이다.
+ * 커진 동물(배율 11.6)이 그 위를 가로질러 걸어갔다.
+ *
+ * 몸 중심이 이 값일 때 몸의 **왼쪽 끝**이 컬럼 오른쪽 경계에 닿는다 — 딱 다 빠진 순간이다.
+ */
+export function escapeExitX(): number {
+  return BASE_W + (CELL_W * LAND_SCALE) / 2;
+}
 
 export type EscapePhase = "wait" | "fall" | "walk" | "dead";
 

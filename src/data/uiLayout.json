@@ -78,13 +78,13 @@
           "w": 40,
           "h": 40,
           "asset": "ui.gear",
-          "scale": 1.2
+          "scale": 1.45
         },
         {
           "id": "stage1",
           "label": "스테이지 1",
-          "x": 128,
-          "y": 632,
+          "x": 130,
+          "y": 630,
           "w": 194,
           "h": 54,
           "asset": "lobby.stage1",
@@ -93,8 +93,8 @@
         {
           "id": "stage2",
           "label": "스테이지 2",
-          "x": 128,
-          "y": 632,
+          "x": 130,
+          "y": 630,
           "w": 194,
           "h": 54,
           "asset": "lobby.stage2",
@@ -103,8 +103,8 @@
         {
           "id": "stage3",
           "label": "스테이지 3",
-          "x": 128,
-          "y": 632,
+          "x": 130,
+          "y": 630,
           "w": 194,
           "h": 54,
           "asset": "lobby.stage3",
@@ -113,8 +113,8 @@
         {
           "id": "stage4",
           "label": "스테이지 4",
-          "x": 128,
-          "y": 632,
+          "x": 130,
+          "y": 630,
           "w": 194,
           "h": 54,
           "asset": "lobby.stage4",
@@ -123,8 +123,8 @@
         {
           "id": "stage5",
           "label": "스테이지 5",
-          "x": 128,
-          "y": 632,
+          "x": 130,
+          "y": 630,
           "w": 194,
           "h": 54,
           "asset": "lobby.stage5",
@@ -133,8 +133,8 @@
         {
           "id": "stage6",
           "label": "스테이지 6",
-          "x": 128,
-          "y": 632,
+          "x": 130,
+          "y": 630,
           "w": 194,
           "h": 54,
           "asset": "lobby.stage6",
@@ -430,7 +430,7 @@
           "w": 275,
           "h": 63,
           "asset": "event.cta",
-          "scale": 2.7
+          "scale": 3
         }
       ]
     },
@@ -701,7 +701,8 @@
           "y": 290,
           "w": 300,
           "h": 220,
-          "asset": "ui.gameOverPanel"
+          "asset": "ui.gameOverPanel",
+          "scale": 1.3
         },
         {
           "id": "title",
@@ -709,7 +710,8 @@
           "x": 105,
           "y": 312,
           "w": 240,
-          "h": 44
+          "h": 44,
+          "hidden": true
         },
         {
           "id": "message",
@@ -717,7 +719,8 @@
           "x": 97,
           "y": 366,
           "w": 256,
-          "h": 56
+          "h": 56,
+          "hidden": true
         },
         {
           "id": "lobby",
@@ -726,7 +729,8 @@
           "y": 436,
           "w": 120,
           "h": 48,
-          "asset": "ui.btnGameOverLobby"
+          "asset": "ui.btnGameOverLobby",
+          "scale": 1.5
         },
         {
           "id": "retry",
@@ -735,7 +739,8 @@
           "y": 436,
           "w": 120,
           "h": 48,
-          "asset": "ui.btnGameOverRetry"
+          "asset": "ui.btnGameOverRetry",
+          "scale": 1.5
         }
       ]
     },
@@ -759,7 +764,8 @@
           "y": 22,
           "w": 58,
           "h": 42,
-          "asset": "race.ui.back"
+          "asset": "race.ui.back",
+          "scale": 1.35
         },
         {
           "id": "gear",

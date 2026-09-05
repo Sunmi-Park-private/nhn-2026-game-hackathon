@@ -418,8 +418,8 @@
     },
     "booster": {
       "bomb": "assets/hex/booster-bomb.webp",
-      "rainbow": "assets/hex/booster-rainbow.webp",
-      "horseshoe": "assets/hex/booster-horseshoe.webp"
+      "horseshoe": "assets/hex/booster-horseshoe.webp",
+      "rainbow": "assets/hex/booster-rainbow.webp"
     }
   },
   "ui": {
@@ -440,7 +440,7 @@
     "btnGameOverRetry": "assets/ui/btn-gameover-retry.webp"
   },
   "lobby": {
-    "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다. stage1~6은 로비의 스테이지 버튼 여섯 칸이다. stage1은 「STAGE 1」이 새겨진 play 아트를 그대로 쓰고, 2~6은 아직 그 장이 없어 자리표시(라벨 상자)로 뜬다 — 에디터에서 칸마다 올린다. friends는 로비 배경 영상 6종 — 구출 마릿수마다 한 편이다. horse가 0마리(말 혼자), 나머지는 data/animals.ts 순서를 재활용할 뿐이다 — 키의 동물과 그 장면의 동물은 무관하다(scene-3 = 3마리 구출 상태). bg는 1920×1080 가로 아트로 모든 화면 맨 뒤에 고정된다(main.ts backdrop).",
+    "_note": "로비 슬롯. bg 한 장이 시안 전체를 그리고, 나머지는 개별 교체용이다. friends는 로비 배경 영상 6종 — 구출 마릿수마다 한 편이다. horse가 0마리(말 혼자), 나머지는 data/animals.ts 순서를 재활용할 뿐이다 — 키의 동물과 그 장면의 동물은 무관하다(scene-3 = 3마리 구출 상태). bg는 1920×1080 가로 아트로 모든 화면 맨 뒤에 고정된다(main.ts backdrop). stage1~6은 로비의 스테이지 버튼 여섯 칸으로, 한 자리에 겹쳐 서고 지금 판의 칸만 보인다. stage1은 「STAGE 1」이 새겨진 play 아트를 쓰고 2~6은 아직 그 장이 없다.",
     "bg": "assets/lobby/bg.webp",
     "topStats": "assets/lobby/top-stats.webp",
     "play": "assets/lobby/btn-play.webp",
