@@ -13,8 +13,7 @@ import { cellToScreen, HEX_SIZE } from "./geom";
 /** 금 한 줄의 길이. 칸을 넘지 않게 반지름에서 뽑는다.
  *  1.05로 시작했다가 실제 크기(타일 ≈24px)에서 흠집처럼만 보여 키웠다. */
 const LEN = HEX_SIZE * 1.45;
-const INK = 0x2b1a08;
-const GLINT = 0xfff0c8;
+const INK = 0x000000;
 
 export interface CageCracks {
   root: Container;
@@ -65,10 +64,9 @@ export function createCageCracks(): CageCracks {
         ];
         for (const [angle, len] of lines) {
           const path = crackPath(p.x, p.y, angle, len);
-          // 어두운 선 위에 밝은 선을 겹쳐 「파인 자국」으로 보이게 한다.
-          // 밝은 선만 그으면 타일 색에 따라 사라지고, 어두운 선만 그으면 때처럼 보인다.
-          g.poly(path, false).stroke({ width: 3.4, color: INK, alpha: 0.85 });
-          g.poly(path, false).stroke({ width: 1.5, color: GLINT, alpha: 0.85 });
+          // 검은 선 하나로 긋는다. 밝은 선을 겹쳐 「파인 자국」처럼 만들어 봤는데
+          // 타일 위에서 꿈틀거리는 것처럼 보였다 — 금은 그냥 갈라진 선이다.
+          g.poly(path, false).stroke({ width: 2.8, color: INK, alpha: 0.9 });
         }
       }
     },
