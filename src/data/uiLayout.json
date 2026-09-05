@@ -206,7 +206,8 @@
           "h": 35,
           "asset": "world.back"
         }
-      ]
+      ],
+      "disabled": true
     },
     {
       "id": "collection",

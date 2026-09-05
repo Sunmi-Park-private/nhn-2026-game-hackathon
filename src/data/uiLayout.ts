@@ -49,6 +49,9 @@ export interface UiArea {
   id: string;
   label: string;
   slots: UiSlot[];
+  /** 에디터에서 고를 수 없게 잠근다 — 게임에서 들어갈 길이 없어진 화면.
+   *  지우지 않는 이유는 좌표다. 되살릴 때 다시 만들지 않아도 된다. */
+  disabled?: boolean;
 }
 
 function num(v: unknown, fallback: number): number {
@@ -66,6 +69,7 @@ export function parseAreas(raw: unknown): UiArea[] {
     return {
       id: String(o.id ?? ""),
       label: String(o.label ?? o.id ?? ""),
+      disabled: o.disabled === true ? true : undefined,
       slots: slots.map((s) => {
         const t = s as Record<string, unknown>;
         return {
@@ -119,6 +123,7 @@ function normalizeAreas(areas: readonly UiArea[]): string {
   return JSON.stringify(areas.map((a) => [
     a.id,
     a.label,
+    a.disabled === true,
     (a.slots ?? []).map((s) => [
       s.id, s.label, s.x, s.y, s.w, s.h,
       s.asset ?? null, s.assetOff ?? null, s.states ?? null,
