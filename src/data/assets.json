@@ -419,9 +419,9 @@
       "ingamePanel": "assets/hex/bg-ingame-panel.webp"
     },
     "booster": {
-      "bomb": "assets/hex/booster-bomb.png",
-      "rainbow": "assets/hex/booster-rainbow.png",
-      "horseshoe": "assets/hex/booster-horseshoe.png"
+      "bomb": "assets/hex/booster-bomb.webp",
+      "rainbow": "assets/hex/booster-rainbow.webp",
+      "horseshoe": "assets/hex/booster-horseshoe.webp"
     }
   },
   "ui": {
