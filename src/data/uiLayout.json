@@ -63,16 +63,16 @@
           "id": "play",
           "label": "PLAY",
           "x": 140,
-          "y": 630,
-          "w": 174,
+          "y": 646,
+          "w": 194,
           "h": 54,
           "asset": "lobby.play",
-          "scale": 1.75
+          "scale": 1.5
         },
         {
           "id": "navHome",
           "label": "HOME",
-          "x": 18,
+          "x": 20,
           "y": 738,
           "w": 96,
           "h": 50,
@@ -86,7 +86,8 @@
           "y": 738,
           "w": 96,
           "h": 50,
-          "asset": "lobby.navWorld"
+          "asset": "lobby.navWorld",
+          "scale": 2
         },
         {
           "id": "navAnimals",
@@ -96,6 +97,7 @@
           "w": 96,
           "h": 50,
           "asset": "lobby.navAnimals",
+          "scale": 2,
           "fontSize": 12
         },
         {
@@ -105,7 +107,8 @@
           "y": 738,
           "w": 96,
           "h": 50,
-          "asset": "lobby.navEvents"
+          "asset": "lobby.navEvents",
+          "scale": 2
         },
         {
           "id": "friendRabbit",
@@ -204,19 +207,21 @@
           "id": "panel",
           "label": "도감 패널",
           "x": 50,
-          "y": 130,
+          "y": 149,
           "w": 350,
           "h": 528,
-          "asset": "collection.panel"
+          "asset": "collection.panel",
+          "scale": 1.15
         },
         {
           "id": "close",
           "label": "닫기 X",
-          "x": 349,
-          "y": 159,
+          "x": 350,
+          "y": 170,
           "w": 45,
           "h": 45,
-          "asset": "collection.close"
+          "asset": "collection.close",
+          "scale": 1.2
         },
         {
           "id": "cellRabbit",
@@ -306,7 +311,7 @@
           "id": "count",
           "label": "수집 카운터",
           "x": 185,
-          "y": 605,
+          "y": 616,
           "w": 80,
           "h": 26,
           "fontSize": 17
@@ -333,7 +338,8 @@
           "y": 124,
           "w": 46,
           "h": 45,
-          "asset": "event.close"
+          "asset": "event.close",
+          "scale": 2
         },
         {
           "id": "cta",
@@ -424,14 +430,6 @@
           "x": 388,
           "y": 490,
           "w": 44,
-          "h": 44
-        },
-        {
-          "id": "powerGauge",
-          "label": "파워 게이지",
-          "x": 24,
-          "y": 690,
-          "w": 96,
           "h": 44
         }
       ]
