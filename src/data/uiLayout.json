@@ -607,6 +607,55 @@
       ]
     },
     {
+      "id": "gameover",
+      "label": "게임오버",
+      "slots": [
+        {
+          "id": "panel",
+          "label": "패널",
+          "x": 75,
+          "y": 290,
+          "w": 300,
+          "h": 220,
+          "asset": "ui.gameOverPanel"
+        },
+        {
+          "id": "title",
+          "label": "제목",
+          "x": 105,
+          "y": 312,
+          "w": 240,
+          "h": 44
+        },
+        {
+          "id": "message",
+          "label": "안내문",
+          "x": 97,
+          "y": 366,
+          "w": 256,
+          "h": 56
+        },
+        {
+          "id": "lobby",
+          "label": "로비 버튼",
+          "x": 99,
+          "y": 436,
+          "w": 120,
+          "h": 48,
+          "asset": "ui.btnGameOverLobby"
+        },
+        {
+          "id": "retry",
+          "label": "다시 도전 버튼",
+          "x": 231,
+          "y": 436,
+          "w": 120,
+          "h": 48,
+          "asset": "ui.btnGameOverRetry"
+        }
+      ]
+    },
+    {
       "id": "raceSelect",
       "label": "레이스 · 선택",
       "slots": [

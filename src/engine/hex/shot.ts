@@ -1,6 +1,6 @@
 // engine/hex/shot.ts — 발사체 궤적, 좌우 벽 반사, 스냅 셀 결정.
 // 각도 규약: 0 = 똑바로 위, 양수 = 오른쪽 기울기 (라디안).
-import { key, toPixel, fromPixel, inBounds } from "./coords";
+import { key, toPixel, fromPixel, inBounds, neighbors } from "./coords";
 import type { Axial, Cell } from "./types";
 
 const SQRT3 = Math.sqrt(3);
@@ -95,6 +95,8 @@ export function simulateShot(
 
   const path: Array<{ x: number; y: number }> = [{ x, y }];
   let lastEmpty: Axial | null = null;
+  /** 멈추게 한 점유 칸. 천장을 넘거나 헛발이면 null */
+  let hit: Axial | null = null;
   let missed = false;
 
   // 시작 칸이 이미 비어 있다면 후보로 삼는다
@@ -133,11 +135,51 @@ export function simulateShot(
     // 출발하므로 여기서 멈추면 첫 스텝에 끝나버린다 — 계속 전진시킨다.
     if (!inBounds(a, geom.cols, geom.rows)) continue;
 
-    if (cells.has(key(a))) break; // 타일이든 케이지든 여기서 멈춘다
+    if (cells.has(key(a))) { hit = a; break; } // 타일이든 케이지든 여기서 멈춘다
 
     lastEmpty = a;
   }
 
   // 헛발은 지나온 빈 칸이 있어도 붙지 않는다 — 떨어진 타일이 공중에 남을 수 없다
-  return { snap: missed ? null : lastEmpty, path, missed };
+  if (missed) return { snap: null, path, missed };
+  return { snap: attachedSnap(cells, geom, hit, lastEmpty, { x, y }), path, missed };
+}
+
+/**
+ * 충돌 칸에 **실제로 붙는** 스냅 칸.
+ *
+ * 마지막으로 지나온 빈 칸이 충돌 칸의 이웃이면 그대로 쓴다. 이웃이 아닐 때가 있다 —
+ * 벽 근처 홀수 행에는 `inBounds`가 거르는 반 칸이 있고, 발사체가 그 칸을 지나는 동안은
+ * 빈 칸으로 세지 않기 때문에 그 직전 칸이 남는다. 거기 붙이면 점유 칸과 떨어져 있어
+ * 낙하 판정이 곧바로 걷어 간다 — QA에서 「쏜 타일이 없어진다」로 보였다.
+ *
+ * 그럴 때는 충돌 칸의 빈 이웃 중 **착탄점에 가장 가까운 칸**에 붙인다. 이웃이 하나도
+ * 비어 있지 않으면 마지막 빈 칸으로 돌아간다 — 안 붙는 것보다 낫다.
+ *
+ * 지나온 빈 칸이 아예 없으면(발사 지점부터 막혀 있다) 예전처럼 스냅하지 않는다 —
+ * 그 판은 이미 실패 행에 닿은 판이고, 여기서 억지로 붙이면 판이 밖으로 자란다.
+ */
+function attachedSnap(
+  cells: Map<string, Cell>,
+  geom: BoardGeom,
+  hit: Axial | null,
+  lastEmpty: Axial | null,
+  impact: { x: number; y: number },
+): Axial | null {
+  if (!hit || !lastEmpty) return lastEmpty;
+  const around = neighbors(hit);
+  if (around.some((n) => n.q === lastEmpty.q && n.r === lastEmpty.r)) return lastEmpty;
+
+  let best: Axial | null = null;
+  let bestD = Infinity;
+  for (const n of around) {
+    if (!inBounds(n, geom.cols, geom.rows) || cells.has(key(n))) continue;
+    const p = toPixel(n, geom.size);
+    const d = (p.x - impact.x) ** 2 + (p.y - impact.y) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = n;
+    }
+  }
+  return best ?? lastEmpty;
 }

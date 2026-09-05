@@ -55,7 +55,8 @@ export function parseStage(raw: unknown): StageDef {
   const armorChance = o.armorChance === undefined ? 0 : asNumber(o.armorChance, "armorChance");
 
   if (cols <= 0 || rows <= 0) fail("cols/rows는 1 이상이어야 한다");
-  if (pushSeconds <= 0) fail("pushSeconds는 1 이상이어야 한다");
+  // 0은 「줄이 내려오지 않는다」— 첫 판처럼 시간 압박 없이 규칙만 익히는 판에 쓴다.
+  if (pushSeconds < 0) fail("pushSeconds는 0 이상이어야 한다 (0 = 줄이 내려오지 않음)");
   if (armorChance < 0 || armorChance > 1) fail(`armorChance는 0~1이어야 한다 (${armorChance})`);
 
   const occupied = new Map<string, string>();

@@ -12,6 +12,7 @@ import { runLobby } from "./ui/lobbyScreen";
 import { parseProfile, serializeProfile, addClear, PROFILE_KEY, type Profile } from "./engine/profile";
 import { mountLayoutEditor } from "./ui/layoutEditor";
 import { mountCheatPanel } from "./ui/cheatPanel";
+import { isDevMode } from "./ui/devMode";
 import { playVideo } from "./ui/videoScreen";
 import { initAudioUnlock } from "./ui/audio";
 import { setStageExtra, setStageExtraX, coverBg, fitCover } from "./ui/stage";
@@ -19,6 +20,9 @@ import { uiAreas } from "./data/uiLayout";
 import { loadProgress, onLoadProgress } from "./ui/loadProgress";
 import { stages } from "./data/stages";
 import { runStageScreen } from "./ui/hex/stageScreen";
+import { openGameOver } from "./ui/gameOverScreen";
+import { GAMEOVER_AREA } from "./ui/gameOverLayout";
+import { slot } from "./data/uiLayout";
 
 // 배경 영상은 항상 무한 루프·무음 — BGM은 오디오 시스템이 담당
 VideoSource.defaultOptions = {
@@ -51,7 +55,14 @@ async function main(): Promise<void> {
     const aspect = Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, vw / vh));
     const logicalW = Math.round(800 * aspect);
     const s = Math.min(vw / logicalW, vh / 800);
-    app.renderer.resize(logicalW, 800);
+    // 렌더 배율은 「논리 px 하나가 실제 몇 device px인가」(dpr × s)를 따라간다.
+    // 고정 2로 두면 1920×1080 레티나(dpr 2 × s 1.35 = 2.7)에서 캔버스 전체가 1.35배
+    // 늘려져 살짝 뭉갠다 — 구출 동물이 커지면서 눈에 띄었다(본선 QA).
+    // 폰은 init의 상한 2를 넘기지 않는다(예전에 dpr 3 그대로 썼다가 버벅였다) —
+    // 상한을 올리는 것은 넓은 화면(데스크톱)뿐이고, 그것도 세로 2160px(2.7)까지다.
+    const dpr = window.devicePixelRatio || 1;
+    const cap = vw >= 1024 ? 2.7 : 2;
+    app.renderer.resize(logicalW, 800, Math.min(cap, Math.max(1, dpr * s)));
     setStageExtraX(logicalW - 450);
     setStageExtra(0);
     app.stage.x = (logicalW - 450) / 2; // 콘텐츠 450 박스를 가로 중앙 고정
@@ -191,9 +202,29 @@ async function main(): Promise<void> {
     await playVideo(videoAssetPaths.intro);
   }
 
+  /** 게임오버 창에서 「다시 도전」을 골랐다 — 로비를 거치지 않고 같은 판을 다시 연다. */
+  let retry = false;
+
+  // 치트 — `?stage=N`이면 첫 바퀴의 로비를 건너뛰고 N판으로 바로 간다(규약 5조: dev 모드만).
+  // 한 번 쓰고 주소에서 지운다 — 남겨 두면 그 뒤 모든 새로고침이 로비를 건너뛴다.
+  if (isDevMode()) {
+    const params = new URLSearchParams(location.search);
+    const n = Number(params.get("stage"));
+    if (Number.isInteger(n) && n >= 1 && n <= stages.length) {
+      profile = { ...profile, stageIndex: n - 1 };
+      save();
+      retry = true;
+      params.delete("stage");
+      const q = params.toString();
+      history.replaceState(null, "", `${location.pathname}${q ? `?${q}` : ""}${location.hash}`);
+    }
+  }
   for (;;) {
-    mark("lobby");
-    await runLobby(app, profile, lobbyTextures, (next) => { profile = next; save(); });
+    if (!retry) {
+      mark("lobby");
+      await runLobby(app, profile, lobbyTextures, (next) => { profile = next; save(); });
+    }
+    retry = false;
 
     mark("game");
     // 마지막 스테이지를 넘으면 처음으로 되돌린다
@@ -226,6 +257,19 @@ async function main(): Promise<void> {
       }
     }
     // failed·lobby는 프로필을 건드리지 않는다 — 다음 바퀴에서 같은 스테이지가 다시 나온다
+    if (outcome.result === "failed") {
+      // 곧바로 로비로 튕기면 「졌다」가 화면에 없다(본선 QA). 한 번 세우고 다시 할지 묻는다.
+      mark("gameover");
+      // 슬롯은 원본을 넘긴다 — 복사본이면 에디터에서 끌어도 저장이 안 된다
+      retry = await openGameOver(app.stage, {
+        slot: (id) => slot(GAMEOVER_AREA, id),
+        textures: {
+          panel: uiSlots.gameOverPanel,
+          lobby: uiSlots.btnGameOverLobby,
+          retry: uiSlots.btnGameOverRetry,
+        },
+      });
+    }
   }
 }
 

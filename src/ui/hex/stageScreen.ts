@@ -239,6 +239,9 @@ export async function runStageScreen(
     // **발사 연출 중에는 시계가 멈춘다.** 내 발이 날아가는 도중에 줄이 내려와
     // 지는 것은 불공정하고, 착탄과 푸시가 같은 프레임에 겹치면 스냅 좌표가
     // 방금 밀린 판과 어긋난다.
+    // pushSeconds 0 = 이 판은 줄이 내려오지 않는다(첫 판 — 시간 압박 없이 규칙만 익힌다).
+    // 시계·카운트다운·자글거림이 전부 꺼진다. 발사로 판이 바닥에 닿는 실패는 그대로 산다.
+    const pushEnabled = state.stage.pushSeconds > 0;
     const pushMs = Math.max(1, state.stage.pushSeconds) * 1000;
     let sinceLastPush = 0;
     let lastTick = performance.now();
@@ -246,9 +249,13 @@ export async function runStageScreen(
     /** 슬라이드 시작 시각. -1이면 슬라이드 중이 아니다. */
     let slideStart = -1;
 
+    /** 설정창이 열려 있다. **시계도 멈춘다** — 뷰만 세우고 시계를 돌리면 설정창 뒤에서
+     *  줄이 계속 내려와 창을 닫자마자 진다(본선 QA 「설정 눌러도 안 멈춤」). */
+    let paused = false;
+
     /** 판 전체(타일·창살)에 걸리는 오프셋. 바닥 눈금과 발사대는 따라가지 않는다. */
     function applyBoardOffset(now: number): void {
-      const x = busy ? 0 : shakeX(pushMs - sinceLastPush, now);
+      const x = busy || paused || !pushEnabled ? 0 : shakeX(pushMs - sinceLastPush, now);
       let y = 0;
       if (slideStart >= 0) {
         const elapsed = now - slideStart;
@@ -267,10 +274,10 @@ export async function runStageScreen(
       const dt = now - lastTick;
       lastTick = now;
       if (finished) return;
-      if (!busy) sinceLastPush += dt;
-      hud.setCountdown((pushMs - sinceLastPush) / 1000);
+      if (pushEnabled && !busy && !paused) sinceLastPush += dt;
+      hud.setCountdown(pushEnabled ? (pushMs - sinceLastPush) / 1000 : null);
 
-      if (!busy && sinceLastPush >= pushMs) {
+      if (pushEnabled && !busy && !paused && sinceLastPush >= pushMs) {
         sinceLastPush -= pushMs;
         pushRow(state);
         redraw();
@@ -288,7 +295,7 @@ export async function runStageScreen(
       pushFrame = requestAnimationFrame(tick);
     }
     let pushFrame = requestAnimationFrame(tick);
-    hud.setCountdown(state.stage.pushSeconds);
+    hud.setCountdown(pushEnabled ? state.stage.pushSeconds : null);
 
     function finish(result: StageResult): void {
       if (finished) return;
@@ -429,7 +436,9 @@ export async function runStageScreen(
         launcher.setAim(null, state.cells);
         launcher.pause();
         pauseBgm();
+        paused = true;
         void openSettings(layer, ui, { confirmHome: true }).then((r) => {
+          paused = false;
           // BGM은 어느 쪽으로 나가든 되살린다. pauseBgm이 세우는 userPaused는
           // 뷰가 아니라 audio 모듈의 전역이고 이걸 푸는 곳이 resumeBgm뿐이라,
           // 로비로 나가는 길에서 건너뛰면 그 뒤로 판이든 로비든 영영 무음이 된다.

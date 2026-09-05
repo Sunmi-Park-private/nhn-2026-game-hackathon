@@ -10,6 +10,7 @@
 import { isDevMode } from "./devMode";
 import { ANIMALS } from "../data/animals";
 import { sceneCandidates, SCENE_KEYS } from "../data/lobbyScene";
+import { stages } from "../data/stages";
 import { parseProfile, serializeProfile, PROFILE_KEY, type Profile } from "../engine/profile";
 
 const CSS = {
@@ -79,7 +80,35 @@ export function mountCheatPanel(): void {
 
   const state = el("div", CSS.state);
   body.append(state);
+
+  // ── 스테이지 바로 진입 ──
+  // 로비를 거치지 않고 그 판을 연다. 프로필의 stageIndex를 맞춘 뒤 `stage=N`을 붙여
+  // 새로 뜨면, main이 그 값을 읽어 첫 바퀴의 로비를 건너뛴다(dev 모드에서만 읽는다).
+  body.append(el("div", CSS.state, "스테이지 바로 진입 — 로비를 건너뛰고 그 판을 연다."));
+  const stageRows = el("div", CSS.row);
+  body.append(stageRows);
   panel.append(body);
+
+  const glyphOf = (animalId: string | undefined): string =>
+    ANIMALS.find((a) => a.id === animalId)?.glyph ?? "";
+
+  function renderStages(): void {
+    const p = read();
+    stageRows.replaceChildren();
+    stages.forEach((s, i) => {
+      const b = el("button", "");
+      const faces = [...new Set(s.cages.map((c) => c.animalId))].map(glyphOf).join("");
+      paintRadio(b, i === p.stageIndex, `${i + 1}판 · ${faces} · 목표 ${s.objective}`);
+      b.onclick = (): void => {
+        try { localStorage.setItem(PROFILE_KEY, serializeProfile({ ...p, stageIndex: i })); } catch { /* 무시 */ }
+        const url = new URL(location.href);
+        url.searchParams.set("editor", "1");
+        url.searchParams.set("stage", String(i + 1));
+        location.href = url.toString();
+      };
+      stageRows.append(b);
+    });
+  }
 
   function render(): void {
     const p = read();
@@ -117,5 +146,6 @@ export function mountCheatPanel(): void {
   };
 
   render();
+  renderStages();
   document.body.appendChild(panel);
 }

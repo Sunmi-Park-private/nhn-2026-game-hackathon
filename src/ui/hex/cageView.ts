@@ -62,8 +62,9 @@ const FLOOR_Y = PEN.lb.y;
 /** 안전장치. 어떤 구출 연출도 이보다 길게 끌지 않는다(ms). */
 const ESCAPE_TIMEOUT_MS = 6000;
 
-/** 금 색. 잠금이 버티고 있다는 표시라 창살과 같은 계열로 둔다. */
-const CRACK_COLOR = 0xf2f6fb;
+/** 금 색. 처음엔 창살과 같은 흰 계열이었는데 밝은 타일 위에서 금이 아니라 하이라이트로
+ *  읽혔다(본선 QA). 깨지는 것은 어둡게 갈라져야 금이다 — 거의 검정으로 긋는다. */
+const CRACK_COLOR = 0x140c06;
 
 /** 금이 뻗어 나가는 방향. 면이 하나 열릴 때마다 앞에서부터 한 줄씩 늘어난다.
  *  고정 배열이라 다시 그려도 금이 춤추지 않는다 — 매번 난수로 뽑으면
@@ -285,7 +286,7 @@ export function createCageView(textures: CageTextures): CageView {
   const crackLayer = new Container();
   root.addChild(crackLayer, bodyLayer, fallLayer);
 
-  interface Entry { body: CageBody; baseY: number; phase: number; crack: Graphics; crackLevel: number }
+  interface Entry { body: CageBody; baseY: number; phase: number; crack: Graphics; crackKey: string }
 
   /** 케이지 하나를 화면에서 걷어 낸다. 창살 시퀀스의 rAF를 먼저 세운다 —
    *  노드만 부수면 다음 프레임까지 파괴된 스프라이트를 만진다. */
@@ -298,14 +299,20 @@ export function createCageView(textures: CageTextures): CageView {
   const animating = new Set<string>();
   let idleRaf = 0;
 
-  /** 상단 면의 금을 진행도에 맞춘다. 값이 그대로면 다시 그리지 않는다. */
+  /** 상단 면의 금을 진행도에 맞춘다. 값이 그대로면 다시 그리지 않는다.
+   *
+   *  금은 **지금 타일이 있는 상단 면 칸에만** 긋는다. 면 좌표에만 그으면 그 타일이
+   *  터져 사라진 뒤에도 금이 허공에 남았다(본선 QA). 그래서 캐시 키에 진행도뿐 아니라
+   *  어느 칸에 타일이 남아 있는지도 넣는다 — 타일이 빠지면 곧바로 다시 긋는다. */
   function syncCracks(state: RunState, cage: Cage, entry: Entry): void {
     const p = cageProgress(state.cells, cage);
     // 6면 구조가 없는 케이지는 상단 면도 없다 — 금을 그릴 자리가 없다
     const level = p.fallback ? 0 : p.opened;
-    if (level === entry.crackLevel || entry.crack.destroyed) return;
-    entry.crackLevel = level;
-    drawCracks(entry.crack, p.topFace.map(cellToScreen), level);
+    const tiled = p.topFace.filter((a) => state.cells.get(`${a.q},${a.r}`)?.kind === "tile");
+    const key = `${level}|${tiled.map((a) => `${a.q},${a.r}`).join(";")}`;
+    if (key === entry.crackKey || entry.crack.destroyed) return;
+    entry.crackKey = key;
+    drawCracks(entry.crack, tiled.map(cellToScreen), level);
   }
 
   /** 흔들 케이지가 하나라도 있나. 아트가 다 올라오면 0이 된다 —
@@ -454,6 +461,19 @@ export function createCageView(textures: CageTextures): CageView {
           continue;
         }
         if (existing) {
+          // 줄이 내려오면 창살도 같이 내려간다(pushRow가 state.cages를 옮긴다). 자리를
+          // 만들 때 한 번만 잡으면 몸체는 옛 자리에 남고 실제 케이지는 아래로 내려가
+          // 둘레 타일이 허공에 뜬 것처럼 보였다 — 본선 QA 「창살 위치가 고정」.
+          // 연출 중인 케이지는 건드리지 않는다: playEscape가 자리를 직접 굴린다.
+          if (!animating.has(cage.id)) {
+            const p = cageCenter(cage);
+            if (existing.baseY !== p.y || existing.body.box.x !== p.x) {
+              existing.body.box.x = p.x;
+              existing.body.box.y = p.y;
+              existing.baseY = p.y;
+              existing.crackKey = ""; // 금은 칸 좌표로 그린다 — 자리가 바뀌면 다시 긋는다
+            }
+          }
           syncCracks(state, cage, existing);
           continue;
         }
@@ -468,7 +488,7 @@ export function createCageView(textures: CageTextures): CageView {
         const crack = new Graphics();
         crackLayer.addChild(crack);
         // 케이지마다 위상을 어긋내 여러 개가 한 몸처럼 흔들리지 않게 한다
-        bodies.set(cage.id, { body, baseY: p.y, phase: bodies.size * 1.7, crack, crackLevel: -1 });
+        bodies.set(cage.id, { body, baseY: p.y, phase: bodies.size * 1.7, crack, crackKey: "" });
       }
       // 새로 만든 케이지의 금도 한 번 맞춘다
       for (const cage of state.cages) {

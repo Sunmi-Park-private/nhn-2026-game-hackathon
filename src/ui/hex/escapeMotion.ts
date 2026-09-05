@@ -61,8 +61,18 @@ export const ANIMAL_STAGGER_MS = 130;
 export const FALL_MS = 620;
 /** 출발 배율. 1이면 **격자 한 칸**이다 — 창살 안에 있던 크기 그대로 나온다. */
 export const START_SCALE = 1;
-/** 착지 배율. 카메라 쪽으로 다가온 만큼 커진다. */
-export const LAND_SCALE = 2.9;
+/** 착지 배율. 카메라 쪽으로 다가온 만큼 커진다.
+ *  2.9였는데 본선 QA에서 「지금의 4배」 요청 — 격자 한 칸(≈23px)의 11.6배, 약 270px다. */
+export const LAND_SCALE = 11.6;
+/** 출발 배율에서 착지 배율까지 **확 커지는** 시간(ms).
+ *
+ *  처음엔 낙하 거리에 비례해 선형으로 키웠다(원근). 그런데 바닥 근처에서야 커져
+ *  「나왔다」가 늦게 읽혔다(본선 QA). 창살을 벗어나는 순간 튀어나오듯 커지고,
+ *  그 크기 그대로 떨어지게 한다 — 원근은 잃지만 해방감이 먼저다. */
+export const POP_MS = 200;
+/** 커지기 전에 **기본 크기로 보이는** 시간(ms). 이게 없으면 첫 프레임부터 이미 커져 있어
+ *  「처음부터 컸다」로 읽혔다(본선 QA). 한 칸 크기로 잠깐 나타난 뒤 튀어 오른다. */
+export const POP_HOLD_MS = 90;
 /** 착지 뒤 오른쪽으로 걷는 속도(px/s). 「빠르게 빠져나간다」다. */
 export const WALK_SPEED = 265;
 /** 걸을 때 위아래로 흔들리는 폭(px)과 진동수(Hz). 발소리 대신이다. */
@@ -122,8 +132,8 @@ export function spawnEscape(i: number, count: number, arena: EscapeArena): Escap
 /**
  * 동물 하나를 dtSec초만큼 전진시킨다. `body`를 제자리에서 고친다.
  *
- * 낙하는 y가 시간의 **제곱**으로 간다(중력). 배율은 같은 t로 선형 보간한다 —
- * 배율까지 제곱으로 하면 마지막 순간에만 갑자기 커져 「튀어나온다」로 보인다.
+ * 낙하는 y가 시간의 **제곱**으로 간다(중력). 배율은 낙하와 무관하게 POP_MS 안에
+ * easeOut으로 착지 배율까지 튀어 오르고 그 뒤로는 그대로다(위 POP_MS 참조).
  */
 export function stepEscape(body: EscapeBody, dtSec: number, arena: EscapeArena): void {
   if (body.phase === "dead") return;
@@ -136,10 +146,13 @@ export function stepEscape(body: EscapeBody, dtSec: number, arena: EscapeArena):
 
   if (body.phase === "fall") {
     const t = clamp01((body.age - body.delay) / FALL_MS);
-    body.alpha = Math.min(1, t * 5);
+    // 나오는 순간 바로 보인다 — 페이드인이 있으면 기본 크기 구간이 반투명이라 안 읽힌다
+    body.alpha = 1;
     body.x = arena.anchor.x + body.spread * t;
     body.y = arena.anchor.y + (arena.floorY - arena.anchor.y) * t * t;
-    body.scale = START_SCALE + (LAND_SCALE - START_SCALE) * t;
+    const p = clamp01((body.age - body.delay - POP_HOLD_MS) / POP_MS);
+    const pop = 1 - (1 - p) * (1 - p); // easeOut — 처음에 확 크고 끝에서 멈춘다
+    body.scale = START_SCALE + (LAND_SCALE - START_SCALE) * pop;
     if (t >= 1) {
       body.phase = "walk";
       body.y = arena.floorY;
