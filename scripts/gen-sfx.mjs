@@ -95,10 +95,13 @@ function writeWav(file, buf) {
   return { peak, seconds: buf.length / SR, bytes: 44 + data.length };
 }
 
-const N = { g4: 392, c5: 523.3, e5: 659.3 };
+const N = { e5: 659.3 };
 
 // ── 디자이너가 고른 것 ────────────────────────────────────
 // 이름은 보드의 후보 이름 그대로다. 바꾸지 말 것 — 무엇을 듣고 골랐는지가 끊긴다.
+//
+// **클리어(sfx-clear.wav)는 여기 없다.** 디자이너가 직접 올리기로 했다 —
+// /ui.html 오디오 탭에서 넣는다. 여기에 다시 만들어 넣으면 올린 것을 덮는다.
 const PICKS = [
   {
     file: "sfx-pop.wav", slot: "터짐", candidate: "연쇄 3연발", dur: 0.18,
@@ -117,12 +120,14 @@ const PICKS = [
       tone(b, 0, { type: "sine", f0: N.e5 * m, dur: 0.65 - i * 0.12, peak: 0.34 / (i + 1) })),
   },
   {
-    file: "sfx-clear.wav", slot: "클리어", candidate: "팡파르", dur: 0.8,
-    render: (b) => {
-      [[N.g4, 0], [N.c5, 0.1], [N.e5, 0.2]].forEach(([f, d]) =>
-        tone(b, d, { type: "square", f0: f, dur: 0.26, peak: 0.2 }));
-      tone(b, 0.2, { type: "triangle", f0: N.c5, dur: 0.6, peak: 0.28 });
-    },
+    file: "sfx-fail.wav", slot: "실패", candidate: "김빠짐", dur: 0.42,
+    // 동물을 구하는 게임이라 벌주는 소리로 만들지 않는다 — 가볍고 만화적인 미끄러짐
+    render: (b) => tone(b, 0, { type: "sine", f0: 520, f1: 130, dur: 0.42, peak: 0.34 }),
+  },
+  {
+    file: "sfx-tap.wav", slot: "버튼", candidate: "부드러운 틱", dur: 0.04,
+    // 로비·설정·도감·확인창이 전부 이 하나를 쓴다. 가장 눈에 안 띄어야 하는 소리다
+    render: (b) => tone(b, 0, { type: "sine", f0: 780, f1: 600, dur: 0.04, peak: 0.22 }),
   },
 ];
 
