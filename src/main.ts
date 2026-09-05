@@ -3,10 +3,11 @@
 // 부트 체인에서 프롤로그·로딩·타이틀을 뺐다. 셋 다 이 게임의 화면이 아니라
 // 접속자가 1분 가까이 다른 화면을 본 뒤에야 게임에 도착했다.
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
-import { Application, VideoSource } from "pixi.js";
+import { Application, VideoSource, type Texture } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
-import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, worldAssetPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
-import { loadSlots } from "./ui/skin";
+import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
+import { raceAssetPaths } from "./data/raceAssets";
+import { loadSlots, loadTexture } from "./ui/skin";
 import { runLobby } from "./ui/lobbyScreen";
 import { parseProfile, serializeProfile, addClear, PROFILE_KEY, type Profile } from "./engine/profile";
 import { mountLayoutEditor } from "./ui/layoutEditor";
@@ -25,6 +26,17 @@ VideoSource.defaultOptions = {
   muted: true,
   playsinline: true,
 };
+
+/** 동물 id → 프레임 텍스처. 한 장짜리도 목록으로 온다 — 파일이 없는 동물은 키가 빠진다. */
+async function loadRunnerFrames(paths: Record<string, string[]>): Promise<Record<string, Texture[]>> {
+  const ids = Object.keys(paths);
+  const loaded = await Promise.all(
+    ids.map(async (id) => (await Promise.all((paths[id] ?? []).map(loadTexture))).filter((t): t is Texture => t !== null)),
+  );
+  const out: Record<string, Texture[]> = {};
+  ids.forEach((id, i) => { const f = loaded[i]!; if (f.length > 0) out[id] = f; });
+  return out;
+}
 
 async function main(): Promise<void> {
   // 화면 = 전체 16:9 · 중앙 9:16 컬럼(450×800)이 실제 콘텐츠. 논리 높이는 800 고정,
@@ -70,12 +82,15 @@ async function main(): Promise<void> {
 
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
-  const [hexTextures, uiSlots, lobbySlots, worldSlots, eventSlots, collectionSlots, collectionCards, collectionLocked]
+  const [hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, eventSlots, collectionSlots, collectionCards, collectionLocked]
     = await Promise.all([
     loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
     loadSlots(uiAssetPaths),
     loadSlots(lobbyAssetPaths),
-    loadSlots(worldAssetPaths),
+    loadSlots(raceAssetPaths.bg),
+    loadSlots(raceAssetPaths.ui),
+    loadSlots(raceAssetPaths.booster),
+    loadRunnerFrames(raceAssetPaths.runners),
     loadSlots(eventAssetPaths),
     loadSlots({ panel: collectionAssetPaths.panel, close: collectionAssetPaths.close }),
     loadSlots(collectionAssetPaths.cards),
@@ -102,12 +117,13 @@ async function main(): Promise<void> {
     icons: {
       topStats: lobbySlots.topStats ?? null,
       navHome: lobbySlots.navHome ?? null,
-      navWorld: lobbySlots.navWorld ?? null,
+      navRace: lobbySlots.navRace ?? null,
       navAnimals: lobbySlots.navAnimals ?? null,
       navEvents: lobbySlots.navEvents ?? null,
     },
+    // 로비 배경은 구출 마릿수마다 도는 영상이다(상류). 월드는 진입점을 끊어 빠졌다.
     scenes: lobbySceneVideoPaths,
-    world: { bg: worldSlots.bg, back: worldSlots.back },
+    race: { bg: raceBg, ui: raceUi, booster: raceBooster, runners: raceRunners, gear: uiSlots.gear, settings: ui },
     event: { bg: eventSlots.bg, close: eventSlots.close, cta: eventSlots.cta },
     collection: {
       panel: collectionSlots.panel,
@@ -132,7 +148,7 @@ async function main(): Promise<void> {
 
   for (;;) {
     mark("lobby");
-    await runLobby(app, profile, lobbyTextures);
+    await runLobby(app, profile, lobbyTextures, (next) => { profile = next; save(); });
 
     mark("game");
     // 마지막 스테이지를 넘으면 처음으로 되돌린다

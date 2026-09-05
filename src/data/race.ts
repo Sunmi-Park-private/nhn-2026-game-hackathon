@@ -31,6 +31,10 @@ export const RACE = {
   PARALLAX: { sky: 0.15, mid: 0.45, track: 1 },
   /** 카운트다운 길이 (s) */
   COUNTDOWN: 1.8,
+  /** 내가 들어온 뒤 남은 선수를 굴리는 배속.
+   *  시뮬레이션이 시간의 함수라 빨리 감아도 기록은 실시간과 같다 —
+   *  바뀌는 것은 기다리는 사람의 시간뿐이다. */
+  TAIL_SPEED: 6,
   /** 랜덤 뽑기 가중 — 구출한 동물 : 못 구한 동물 */
   PICK_WEIGHT: { rescued: 3, locked: 1 },
 } as const;

@@ -115,7 +115,7 @@ export type UiSlotId = (typeof UI_SLOT_IDS)[number];
 
 export const LOBBY_SLOT_IDS = [
   "bg", "topStats", "play",
-  "navHome", "navWorld", "navAnimals", "navEvents",
+  "navHome", "navRace", "navAnimals", "navEvents",
 ] as const;
 export type LobbySlotId = (typeof LOBBY_SLOT_IDS)[number];
 
@@ -189,8 +189,9 @@ export const collectionAssetPaths: CollectionAssetPaths = {
 // BGM 2종과 효과음 6종. 파일이 없는 슬롯은 그냥 소리가 안 난다 — 게임은 정상 동작한다.
 
 export const AUDIO_SLOT_IDS = [
-  "bgmLobby", "bgmStage",
+  "bgmLobby", "bgmStage", "bgmRace",
   "sfxShot", "sfxPop", "sfxRescue", "sfxClear", "sfxFail", "sfxTap",
+  "sfxWhistle", "sfxStep", "sfxRouletteTick", "sfxFinish", "sfxRecord",
 ] as const;
 export type AudioSlotId = (typeof AUDIO_SLOT_IDS)[number];
 

@@ -11,7 +11,7 @@ import { BASE_W, stageTop, stageHeight, coverBox, fullRect } from "./stage";
 import { fitSprite, loadTexture, playVideoTexture, VIDEO_LOAD_TIMEOUT_MS } from "./skin";
 import { openSettings, type SettingsTextures } from "./settingsMenu";
 import { openCollection, type CollectionTextures } from "./collection";
-import { openWorld } from "./worldScreen";
+import { openRace, type RaceTextures } from "./race/raceScreen";
 import { openEvent, type EventTextures } from "./eventScreen";
 import { slot, type UiSlot } from "../data/uiLayout";
 import { sceneCandidates } from "../data/lobbyScene";
@@ -32,8 +32,8 @@ export interface LobbyTextures {
   scenes: Partial<Record<string, string>>;
   /** 도감 — 패널과 동물마다 해제·잠김 카드 */
   collection: CollectionTextures;
-  /** 월드 지도 화면 */
-  world: { bg?: Texture; back?: Texture };
+  /** 동물 운동회 화면 */
+  race: RaceTextures;
   /** 이벤트 화면 */
   event: EventTextures;
   ui: SettingsTextures;
@@ -125,7 +125,13 @@ function counter(b: UiSlot, value: number): Container {
 const sceneSlotId = (key: string): string => `friend${key[0]!.toUpperCase()}${key.slice(1)}`;
 
 /** 로비를 띄우고 PLAY를 누를 때까지 기다린다. */
-export function runLobby(app: Application, profile: Profile, tex: LobbyTextures): Promise<void> {
+export function runLobby(
+  app: Application,
+  profile: Profile,
+  tex: LobbyTextures,
+  /** 레이스가 프로필을 바꾸면 알린다 — 저장은 호출자가 한다 */
+  onProfile: (p: Profile) => void = () => {},
+): Promise<void> {
   return new Promise<void>((resolve) => {
     const layer = new Container();
     app.stage.addChild(layer);
@@ -199,10 +205,12 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     const home = box("navHome", { x: 18, y: 738, w: 96, h: 50 });
     layer.addChild(hotspot(home, tex.icons.navHome, () => { /* 이미 홈이다 */ }));
 
-    const world = box("navWorld", { x: 122, y: 738, w: 96, h: 50 });
-    layer.addChild(hotspot(world, tex.icons.navWorld, () => {
-      void openWorld(layer, { ...tex.world, gear: tex.gear, ui: tex.ui }).then((r) => {
-        if (r === "lobby") { /* 이미 로비다 — 월드만 닫힌다 */ }
+    // 월드 지도가 있던 자리다. worldScreen.ts는 남아 있지만 진입점이 없어
+    // 번들에서 빠진다 — 부트 체인에서 ui/boot.ts를 남긴 것과 같은 처리다.
+    const race = box("navRace", { x: 122, y: 738, w: 96, h: 50 });
+    layer.addChild(hotspot(race, tex.icons.navRace, () => {
+      void openRace(app, layer, tex.race, profile, onProfile).then((r) => {
+        if (r.exit === "lobby") { /* 이미 로비다 — 레이스만 닫힌다 */ }
       });
     }));
 

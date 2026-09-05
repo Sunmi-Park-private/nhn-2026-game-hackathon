@@ -80,13 +80,13 @@
           "scale": 2
         },
         {
-          "id": "navWorld",
-          "label": "WORLD",
+          "id": "navRace",
+          "label": "RACE",
           "x": 122,
           "y": 738,
           "w": 96,
           "h": 50,
-          "asset": "lobby.navWorld",
+          "asset": "lobby.navRace",
           "scale": 2
         },
         {
@@ -596,6 +596,187 @@
           "asset": "ui.btnConfirmOk"
         }
       ]
+    },
+    {
+      "id": "race",
+      "label": "레이스",
+      "slots": [
+        {
+          "id": "back",
+          "label": "돌아가기",
+          "x": 14,
+          "y": 12,
+          "w": 56,
+          "h": 40,
+          "asset": "race.ui.back"
+        },
+        {
+          "id": "gear",
+          "label": "설정",
+          "x": 400,
+          "y": 10,
+          "w": 40,
+          "h": 40,
+          "asset": "ui.gear"
+        },
+        {
+          "id": "titleBanner",
+          "label": "운동회 현수막",
+          "x": 105,
+          "y": 64,
+          "w": 240,
+          "h": 52,
+          "asset": "race.ui.titleBanner"
+        },
+        {
+          "id": "myRunnerTag",
+          "label": "내 선수 이름",
+          "x": 125,
+          "y": 126,
+          "w": 200,
+          "h": 40
+        },
+        {
+          "id": "trackArea",
+          "label": "트랙 영역(6레인)",
+          "x": 12,
+          "y": 344,
+          "w": 426,
+          "h": 336
+        },
+        {
+          "id": "rosterHint",
+          "label": "안내 문구",
+          "x": 100,
+          "y": 288,
+          "w": 250,
+          "h": 26
+        },
+        {
+          "id": "pick",
+          "label": "동물 뽑기",
+          "x": 123,
+          "y": 700,
+          "w": 204,
+          "h": 72,
+          "asset": "race.ui.pick"
+        },
+        {
+          "id": "countdown",
+          "label": "카운트다운 숫자",
+          "x": 165,
+          "y": 352,
+          "w": 120,
+          "h": 150
+        },
+        {
+          "id": "hudRank",
+          "label": "현재 순위",
+          "x": 82,
+          "y": 20,
+          "w": 110,
+          "h": 38
+        },
+        {
+          "id": "hudTime",
+          "label": "경과 시간",
+          "x": 250,
+          "y": 20,
+          "w": 140,
+          "h": 38
+        },
+        {
+          "id": "distBar",
+          "label": "주행 게이지",
+          "x": 14,
+          "y": 70,
+          "w": 422,
+          "h": 14,
+          "asset": "race.ui.distBar"
+        },
+        {
+          "id": "run",
+          "label": "RUN (연타)",
+          "x": 105,
+          "y": 694,
+          "w": 240,
+          "h": 84,
+          "asset": "race.ui.run",
+          "assetOff": "race.ui.runPressed",
+          "states": [
+            "기본",
+            "눌림"
+          ]
+        },
+        {
+          "id": "resultPanel",
+          "label": "결과 패널",
+          "x": 40,
+          "y": 138,
+          "w": 370,
+          "h": 522,
+          "asset": "race.ui.resultPanel"
+        },
+        {
+          "id": "resultTitle",
+          "label": "결과 제목",
+          "x": 100,
+          "y": 170,
+          "w": 250,
+          "h": 46
+        },
+        {
+          "id": "resultList",
+          "label": "순위 6행",
+          "x": 68,
+          "y": 232,
+          "w": 314,
+          "h": 264
+        },
+        {
+          "id": "bestTag",
+          "label": "최고기록 갱신 배지",
+          "x": 143,
+          "y": 506,
+          "w": 164,
+          "h": 34,
+          "asset": "race.ui.bestTag"
+        },
+        {
+          "id": "rewardIcon",
+          "label": "보상 부스터 아이콘",
+          "x": 152,
+          "y": 548,
+          "w": 58,
+          "h": 58
+        },
+        {
+          "id": "rewardLabel",
+          "label": "보상 이름",
+          "x": 220,
+          "y": 562,
+          "w": 150,
+          "h": 30
+        },
+        {
+          "id": "retry",
+          "label": "다시 달리기",
+          "x": 62,
+          "y": 608,
+          "w": 148,
+          "h": 52,
+          "asset": "race.ui.retry"
+        },
+        {
+          "id": "close",
+          "label": "로비로",
+          "x": 240,
+          "y": 608,
+          "w": 148,
+          "h": 52,
+          "asset": "race.ui.close"
+        }
+      ]
     }
   ],
   "uploads": [
@@ -762,6 +943,82 @@
       "label": "인게임 배경 패널",
       "asset": "hex.bg.ingamePanel",
       "group": "배경"
+    },
+    {
+      "group": "레이스 배경",
+      "label": "하늘 (가로 반복)",
+      "asset": "race.bg.sky"
+    },
+    {
+      "group": "레이스 배경",
+      "label": "중경 관중석 (가로 반복)",
+      "asset": "race.bg.mid"
+    },
+    {
+      "group": "레이스 배경",
+      "label": "트랙 바닥 (가로 반복)",
+      "asset": "race.bg.track"
+    },
+    {
+      "group": "레이스 배경",
+      "label": "출발 게이트",
+      "asset": "race.bg.startGate"
+    },
+    {
+      "group": "레이스 배경",
+      "label": "결승선 배너",
+      "asset": "race.bg.finish"
+    },
+    {
+      "group": "레이스 러너",
+      "label": "달리기 · 토끼",
+      "asset": "race.runners.rabbit",
+      "seq": true
+    },
+    {
+      "group": "레이스 러너",
+      "label": "달리기 · 원숭이",
+      "asset": "race.runners.monkey",
+      "seq": true
+    },
+    {
+      "group": "레이스 러너",
+      "label": "달리기 · 사슴",
+      "asset": "race.runners.deer",
+      "seq": true
+    },
+    {
+      "group": "레이스 러너",
+      "label": "달리기 · 양",
+      "asset": "race.runners.sheep",
+      "seq": true
+    },
+    {
+      "group": "레이스 러너",
+      "label": "달리기 · 얼룩말",
+      "asset": "race.runners.zebra",
+      "seq": true
+    },
+    {
+      "group": "레이스 러너",
+      "label": "달리기 · 코끼리",
+      "asset": "race.runners.elephant",
+      "seq": true
+    },
+    {
+      "group": "부스터 아이콘",
+      "label": "부스터 · 폭탄",
+      "asset": "hex.booster.bomb"
+    },
+    {
+      "group": "부스터 아이콘",
+      "label": "부스터 · 레인보우",
+      "asset": "hex.booster.rainbow"
+    },
+    {
+      "group": "부스터 아이콘",
+      "label": "부스터 · 말굽",
+      "asset": "hex.booster.horseshoe"
     }
   ],
   "videos": [
@@ -806,6 +1063,30 @@
     {
       "label": "버튼",
       "asset": "audio.sfxTap"
+    },
+    {
+      "label": "레이스 BGM",
+      "asset": "audio.bgmRace"
+    },
+    {
+      "label": "출발 휘슬",
+      "asset": "audio.sfxWhistle"
+    },
+    {
+      "label": "걸음",
+      "asset": "audio.sfxStep"
+    },
+    {
+      "label": "룰렛 틱",
+      "asset": "audio.sfxRouletteTick"
+    },
+    {
+      "label": "결승 통과",
+      "asset": "audio.sfxFinish"
+    },
+    {
+      "label": "기록 갱신",
+      "asset": "audio.sfxRecord"
     }
   ]
 }
