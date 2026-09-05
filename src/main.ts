@@ -5,7 +5,7 @@
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
 import { Application, Container, VideoSource, type Sprite, type Texture } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
-import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, lobbyBaseVideoPath, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
+import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
 import { raceAssetPaths } from "./data/raceAssets";
 import { loadSlots, loadTexture } from "./ui/skin";
 import { runLobby } from "./ui/lobbyScreen";
@@ -16,7 +16,6 @@ import { playVideo } from "./ui/videoScreen";
 import { initAudioUnlock } from "./ui/audio";
 import { setStageExtra, setStageExtraX, coverBg, fitCover } from "./ui/stage";
 import { uiAreas } from "./data/uiLayout";
-import { playVideoTexture, VIDEO_LOAD_TIMEOUT_MS } from "./ui/skin";
 import { loadProgress, onLoadProgress } from "./ui/loadProgress";
 import { stages } from "./data/stages";
 import { runStageScreen } from "./ui/hex/stageScreen";
@@ -60,9 +59,10 @@ async function main(): Promise<void> {
     app.canvas.style.height = `${800 * s}px`;
     if (backdropSprite) fitCover(backdropSprite); // 화면이 돌아가도 캔버스 전체를 계속 덮는다
   };
-  // 기본 배경 영상 — **모든 화면 밑에** 상시로 돈다(로비·인게임·레이스·이벤트·도감).
-  // 화면들은 콘텐츠 박스(450 컬럼)만 불투명하게 칠하므로(stage.ts contentRect)
-  // 좌우 블리드에는 늘 이 영상이 보이고, 화면의 배경 아트가 없을 때도 이것이 남는다.
+  // 로비 배경(전체) 스틸 — **모든 화면 밑에** 고정된다(로비·인게임·레이스·이벤트·도감).
+  // 1920×1080 가로 아트라 16:9 캔버스를 통째로 덮는다. 화면들은 콘텐츠 박스(450 컬럼)만
+  // 불투명하게 칠하므로(stage.ts contentRect) 좌우 블리드에는 늘 이것이 보이고,
+  // 화면의 배경 아트가 없을 때도 이것이 남는다. 영상이 아니라 스틸이다 — 요청이 그랬다.
   let backdropSprite: Sprite | null = null;
   const app = new Application();
   await app.init({
@@ -105,11 +105,8 @@ async function main(): Promise<void> {
 
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
-  // 에디터에서 슬롯을 끄면 기본 배경 영상만 빠진다 — 화면들은 그대로다
-  const backdropOff = uiAreas.find((a) => a.id === "lobby")?.slots.find((s) => s.id === "bgVideo")?.hidden === true;
-  const [backdropTex, hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, eventSlots, collectionSlots, collectionCards, collectionLocked]
+  const [hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, eventSlots, collectionSlots, collectionCards, collectionLocked]
     = await Promise.all([
-    backdropOff ? Promise.resolve(null) : loadTexture(lobbyBaseVideoPath, VIDEO_LOAD_TIMEOUT_MS),
     loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
     loadSlots(uiAssetPaths),
     loadSlots(lobbyAssetPaths),
@@ -129,10 +126,11 @@ async function main(): Promise<void> {
   ]);
   offProgress();
   loading.remove();
-  if (backdropTex) {
-    backdropSprite = coverBg(backdropTex);
+  // 로비의 bg 슬롯을 에디터에서 끄면 여기서도 빠진다 — 같은 아트를 두 곳에서 따로 끌 이유가 없다
+  const bgOff = uiAreas.find((a) => a.id === "lobby")?.slots.find((s) => s.id === "bg")?.hidden === true;
+  if (lobbySlots.bg && !bgOff) {
+    backdropSprite = coverBg(lobbySlots.bg);
     backdrop.addChild(backdropSprite);
-    playVideoTexture(backdropTex, app.ticker); // 앱 수명 내내 돈다 — 멈출 일이 없다
   }
   // 에셋을 다 받은 뒤에 얹는다 — 먼저 얹으면 빈 캔버스 위에 격자만 뜬다
   mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다

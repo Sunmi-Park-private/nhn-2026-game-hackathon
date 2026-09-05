@@ -7,21 +7,12 @@
       "slots": [
         {
           "id": "bg",
-          "label": "로비 배경(전체)",
+          "label": "로비 배경(전체) · 모든 화면 맨 뒤에 고정",
           "x": 0,
           "y": 0,
           "w": 450,
           "h": 800,
           "asset": "lobby.bg"
-        },
-        {
-          "id": "bgVideo",
-          "label": "기본 배경 영상 · 모든 화면 맨 뒤(끄면 빠짐)",
-          "x": 0,
-          "y": 0,
-          "w": 450,
-          "h": 800,
-          "asset": "lobby.bgVideo"
         },
         {
           "id": "topStats",

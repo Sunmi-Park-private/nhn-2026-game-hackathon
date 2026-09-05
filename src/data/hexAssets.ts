@@ -125,10 +125,6 @@ export type LobbySlotId = (typeof LOBBY_SLOT_IDS)[number];
  *  키의 동물과 그 장면의 동물은 무관하다 — data/lobbyScene.ts 참조. */
 export const lobbySceneVideoPaths: Record<string, string> = record(manifestJson, "lobby", "friends");
 
-/** 로비 기본 배경 영상 — **항상 맨 뒤**에 돈다. 장면 영상(friends)은 이 위에 얹힌다.
- *  경로로 내보내는 이유는 lobbySceneVideoPaths와 같다. 없으면 undefined — 스틸(bg)만 남는다. */
-export const lobbyBaseVideoPath: string | undefined = pick(manifestJson, "lobby", ["bgVideo"] as const).bgVideo;
-
 /** 월드 지도 화면 — 배경 한 장과 돌아가기 버튼. 톱니는 로비 것을 그대로 쓴다. */
 export const WORLD_SLOT_IDS = ["bg", "back"] as const;
 export type WorldSlotId = (typeof WORLD_SLOT_IDS)[number];

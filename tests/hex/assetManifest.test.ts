@@ -3,7 +3,7 @@
 // 아트가 아직 한 장도 없어 화면으로는 이 어긋남이 안 보인다. 동물 id가 하나만
 // 틀려도 그 동물만 조용히 폴백으로 남으므로, 여기서 잡는다.
 import { describe, it, expect } from "vitest";
-import { hexAssetPaths, lobbySceneVideoPaths, lobbyBaseVideoPath, frameIndex } from "../../src/data/hexAssets";
+import { hexAssetPaths, lobbySceneVideoPaths, frameIndex } from "../../src/data/hexAssets";
 import { uiAreas, uiUploads } from "../../src/data/uiLayout";
 import { ANIMALS } from "../../src/data/animals";
 import { SCENE_KEYS } from "../../src/data/lobbyScene";
@@ -89,16 +89,11 @@ describe("로비 배경 영상", () => {
   });
 });
 
-describe("로비 기본 배경 영상 — 항상 맨 뒤", () => {
-  it("webm 경로가 있다 — 텍스처로 도는 영상은 mp4면 첫 프레임에 멎는다", () => {
-    expect(lobbyBaseVideoPath).toBe("assets/lobby/bg.webm");
-  });
-
-  it("에디터 슬롯이 있고 화면 전체를 덮는다 — 디자이너가 갈아끼울 수 있어야 한다", () => {
+describe("로비 배경(전체) — 모든 화면 맨 뒤에 고정", () => {
+  it("main.ts backdrop이 읽는 슬롯이 로비 영역에 있다", () => {
     const lobby = uiAreas.find((a) => a.id === "lobby")!;
-    const s = lobby.slots.find((x) => x.id === "bgVideo");
-    expect(s?.asset).toBe("lobby.bgVideo");
-    expect([s!.x, s!.y, s!.w, s!.h]).toEqual([0, 0, 450, 800]);
+    const s = lobby.slots.find((x) => x.id === "bg");
+    expect(s?.asset).toBe("lobby.bg");
   });
 });
 
