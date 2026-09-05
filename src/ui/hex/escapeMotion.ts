@@ -61,8 +61,9 @@ export const ANIMAL_STAGGER_MS = 130;
 export const FALL_MS = 620;
 /** 출발 배율. 1이면 **격자 한 칸**이다 — 창살 안에 있던 크기 그대로 나온다. */
 export const START_SCALE = 1;
-/** 착지 배율. 카메라 쪽으로 다가온 만큼 커진다. */
-export const LAND_SCALE = 2.9;
+/** 착지 배율. 카메라 쪽으로 다가온 만큼 커진다.
+ *  2.9였는데 본선 QA에서 「지금의 4배」 요청 — 격자 한 칸(≈23px)의 11.6배, 약 270px다. */
+export const LAND_SCALE = 11.6;
 /** 출발 배율에서 착지 배율까지 **확 커지는** 시간(ms).
  *
  *  처음엔 낙하 거리에 비례해 선형으로 키웠다(원근). 그런데 바닥 근처에서야 커져
