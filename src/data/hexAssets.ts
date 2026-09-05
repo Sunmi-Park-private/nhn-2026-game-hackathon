@@ -57,8 +57,10 @@ function strByAnimal(raw: unknown): Record<string, string> {
 }
 
 /** 프레임 인덱스. 범위를 벗어나거나 정수가 아니면 한가운데로 접는다 —
- *  디자이너 오투입이 런타임 예외가 되면 안 된다(규약 3조). */
-function frameIndex(v: unknown, len: number): number {
+ *  디자이너 오투입이 런타임 예외가 되면 안 된다(규약 3조).
+ *  테스트를 위해 export한다 — 파싱된 결과(hexAssetPaths)만으로는 현재
+ *  매니페스트 값이 항상 유효해서 잘못된 분기에 닿을 수 없다. */
+export function frameIndex(v: unknown, len: number): number {
   if (len === 0) return 0;
   if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v >= len) {
     return Math.floor(len / 2);
