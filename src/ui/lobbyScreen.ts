@@ -183,10 +183,12 @@ export function runLobby(app: Application, profile: Profile, tex: LobbyTextures)
     // 스테이지를 깨서 구출한 동물만 좌우에 선다 — 로비가 진행도를 보여주는 자리다.
     // 자리가 없는(슬롯이 지워진) 동물은 그리지 않는다: 좌표를 코드가 지어내면
     // 배경 아트 위 아무 데나 서게 된다.
+    // 「숨기기」는 여기서 거르지 않는다 — editable()이 노드를 등록한 뒤 visible을 끈다.
+    // 여기서 continue하면 슬롯이 에디터 목록에서 통째로 사라져 숨김을 되돌릴 길이 없다.
     for (const a of ANIMALS) {
       if (!profile.rescued.includes(a.id)) continue;
       const b = slot(AREA, friendId(a.id));
-      if (!b || b.hidden) continue;
+      if (!b) continue;
       layer.addChild(friend(b, tex.friends[a.id] ?? null, a.glyph));
     }
 

@@ -206,20 +206,19 @@ function makeCageBody(cage: Cage, tex: CageTextures): CageBody {
   // 그리는 순서가 곧 「갇혀 있다」를 만든다 — 동물을 먼저 깔고 창살을 그 위에 덮는다.
   // 아트 경로에서 순서가 뒤집혀 동물이 창살 앞에 서 있었다.
   // 창살은 **동물마다 따로 판단한다** — 한 종만 도착해도 그 종은 아트로 그려야 한다
+  // 재생기를 **먼저** 만든다 — 그늘·동물을 깔고 나서 실패하면 아래 폴백이
+  // 같은 box에 두 번째 그늘과 두 번째 동물을 겹쳐 그린다.
   const lockedFrames = tex.locked[cage.animalId] ?? [];
-  if (lockedFrames.length > 0) {
+  // 덩어리 전체를 덮는 큰 flat-top 육각 — 가로:세로 = 2 : √3
+  const lockedSeq = lockedFrames.length > 0 ? makeSequence(lockedFrames, w, h) : null;
+  if (lockedSeq) {
     // 아트가 있으면: 그늘 → 동물 → 창살 시퀀스(안쪽이 비어 있어 동물이 비쳐 보인다)
     box.addChild(new Graphics().poly(flatHexPoints(size - 1)).fill(CAGE_DARK));
     box.addChild(makeAnimalView(cage, tex, w * 0.5, h * 0.5));
-
-    // 덩어리 전체를 덮는 큰 flat-top 육각 — 가로:세로 = 2 : √3
-    const lockedSeq = makeSequence(lockedFrames, w, h);
-    if (lockedSeq) {
-      // 갇혀 있는 동안 계속 돈다 — 한 장짜리는 makeSequence가 스틸로 다룬다
-      playLocked(lockedSeq);
-      box.addChild(lockedSeq.root);
-      return { box, bars: null, lock: null, lockedSeq, size };
-    }
+    // 갇혀 있는 동안 계속 돈다 — 한 장짜리는 makeSequence가 스틸로 다룬다
+    playLocked(lockedSeq);
+    box.addChild(lockedSeq.root);
+    return { box, bars: null, lock: null, lockedSeq, size };
   }
 
   // 아트가 없으면: 그늘 → 동물 → 코드가 그린 창살·자물쇠
@@ -286,14 +285,21 @@ export function createCageView(textures: CageTextures): CageView {
     drawCracks(entry.crack, p.topFace.map(cellToScreen), level);
   }
 
+  /** 흔들 케이지가 하나라도 있나. 아트가 다 올라오면 0이 된다 —
+   *  그때도 rAF를 돌리면 매 프레임 아무것도 안 하는 루프가 영원히 산다. */
+  function needsIdle(): boolean {
+    for (const e of bodies.values()) if (!e.body.lockedSeq && !e.body.box.destroyed) return true;
+    return false;
+  }
+
   /** 잠김 idle — **아트가 없는 케이지만** 흔든다. 창살 시퀀스가 있으면 살아 있는
    *  느낌은 아트가 만들므로, 코드가 겹쳐 흔들면 두 움직임이 싸운다.
    *  연출 중인 케이지는 건드리지 않는다. */
   function startIdle(): void {
-    if (idleRaf !== 0) return;
+    if (idleRaf !== 0 || !needsIdle()) return;
     const tick = (): void => {
       idleRaf = 0;
-      if (root.destroyed || bodies.size === 0) return;
+      if (root.destroyed || !needsIdle()) return;
       const t = performance.now() / 1000;
       for (const [id, e] of bodies) {
         if (animating.has(id) || e.body.box.destroyed || e.body.lockedSeq) continue;
@@ -438,7 +444,7 @@ export function createCageView(textures: CageTextures): CageView {
         const e = bodies.get(cage.id);
         if (e) syncCracks(state, cage, e);
       }
-      if (bodies.size > 0) startIdle();
+      startIdle(); // 흔들 대상이 없으면 스스로 돌아선다
     },
 
     async playRescue(cage: Cage): Promise<void> {
@@ -467,11 +473,11 @@ export function createCageView(textures: CageTextures): CageView {
       for (const e of bodies.values()) e.body.lockedSeq?.stop();
     },
 
-    /** 재개. 흔들림은 되살릴 케이지가 있을 때만 돌리고, 창살은 그 가드와 무관하게
-     *  케이지마다 되건다 — 아트가 다 올라오면 흔들림 대상이 0이라 가드에 걸린다.
+    /** 재개. 흔들림은 흔들 케이지가 남아 있을 때만 돌고(startIdle이 스스로 판단한다),
+     *  창살은 그와 무관하게 케이지마다 되건다 — 아트가 다 올라오면 흔들림 대상이 0이다.
      *  연출 중인 케이지는 건드리지 않는다: 해제 페이드가 지우고 있는 중이다. */
     resume(): void {
-      if (bodies.size > 0) startIdle();
+      startIdle();
       for (const [id, e] of bodies) {
         if (animating.has(id) || !e.body.lockedSeq || e.body.lockedSeq.root.destroyed) continue;
         playLocked(e.body.lockedSeq);
