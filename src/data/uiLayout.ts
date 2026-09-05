@@ -55,7 +55,9 @@ function num(v: unknown, fallback: number): number {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
 }
 
-function parseAreas(raw: unknown): UiArea[] {
+/** 배치 JSON을 타입으로 받는다. 디스크에서 막 읽은 값도 반드시 여기를 지난다 —
+ *  디자이너가 손으로 고친 파일이 슬롯 하나를 빠뜨려도 화면이 아니라 여기서 흡수한다. */
+export function parseAreas(raw: unknown): UiArea[] {
   const areas = (raw as { areas?: unknown }).areas;
   if (!Array.isArray(areas)) return [];
   return areas.map((a) => {
@@ -109,6 +111,27 @@ export const uiVideos: UiUpload[] = parseUploads((layoutJson as { videos?: unkno
 
 /** 오디오 슬롯 — BGM·효과음. 위치 개념이 없어 업로드 목록으로만 산다. */
 export const uiAudios: UiUpload[] = parseUploads((layoutJson as { audios?: unknown }).audios);
+
+/** 배치 비교용 정규화 — 슬롯의 뜻 있는 값만 정해진 순서로 뽑는다.
+ *  디스크에서 막 읽은 JSON과 파서를 거친 값은 키 순서도 잉여 필드도 다를 수 있어
+ *  그대로 문자열로 견주면 안 바뀐 것도 바뀐 것으로 나온다. */
+function normalizeAreas(areas: readonly UiArea[]): string {
+  return JSON.stringify(areas.map((a) => [
+    a.id,
+    a.label,
+    (a.slots ?? []).map((s) => [
+      s.id, s.label, s.x, s.y, s.w, s.h,
+      s.asset ?? null, s.assetOff ?? null, s.states ?? null,
+      s.scale ?? null, s.fontSize ?? null, s.color ?? null, s.hidden === true,
+    ]),
+  ]));
+}
+
+/** 두 배치가 같은가. 에디터 둘이 같은 파일을 보고 있어 「내가 읽어 온 뒤로
+ *  디스크가 바뀌었나」를 물어야 한다 — 안 물으면 저장이 남의 편집을 덮어쓴다. */
+export function sameAreas(a: readonly UiArea[], b: readonly UiArea[]): boolean {
+  return normalizeAreas(a) === normalizeAreas(b);
+}
 
 /** 영역 안의 슬롯. 없으면 null — 호출부가 기본값으로 간다. */
 export function slot(areaId: string, slotId: string): UiSlot | null {

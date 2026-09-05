@@ -82,7 +82,24 @@ function collectBody(req: NodeJS.ReadableStream, limit: number): Promise<Buffer>
   })
 }
 
-/** UI 배치 저장 — /ui.html 에디터가 부른다. */
+/** 배치 파일의 리비전 = 마지막으로 쓰인 시각. 에디터가 둘이라 「내가 읽어 온 뒤로
+ *  누가 썼나」를 **서버가** 판정해야 한다 — 클라이언트가 GET으로 견주고 POST하면
+ *  그 사이에 들어온 쓰기를 통째로 덮어쓴다(자동 저장은 600ms 간격으로 온다). */
+/** 이 서버가 파일을 쓴 횟수. mtime만으로는 부족하다 — mtime 해상도가 1초인
+ *  파일시스템(HFS+·일부 네트워크/컨테이너 마운트)에서는 같은 초에 일어난 두 번의
+ *  쓰기가 같은 값을 내고, 배치 편집은 길이가 그대로인 경우가 흔하다("x": 140 → 150).
+ *  그러면 검사가 조용히 통과해 이 장치가 막으려는 덮어쓰기가 그대로 일어난다.
+ *  서버가 다시 뜨면 0으로 돌아가지만 그때는 mtime 쪽이 파일이 그대로임을 말해 준다. */
+let layoutWrites = 0
+
+function layoutRev(): string {
+  try {
+    const st = fs.statSync(LAYOUT_FILE)
+    return `${st.mtimeMs}-${st.size}-${layoutWrites}`
+  } catch { return '0' }
+}
+
+/** UI 배치 저장 — /ui.html 에디터와 게임 화면 에디터가 함께 부른다. */
 function uiLayoutSavePlugin(): Plugin {
   return {
     name: 'ui-layout-save',
@@ -111,15 +128,42 @@ function uiLayoutSavePlugin(): Plugin {
       })
       server.middlewares.use('/__uilayout', (req, res) => {
         // watch 제외 파일이라 번들 모듈이 옛 내용일 수 있다 — 에디터가 디스크와 맞춘다
-        if (req.method === 'GET') { serveJson(res, LAYOUT_FILE); return }
+        if (req.method === 'GET') {
+          res.setHeader('x-layout-rev', layoutRev())
+          serveJson(res, LAYOUT_FILE)
+          return
+        }
         if (req.method !== 'POST') { res.statusCode = 405; res.end('GET/POST only'); return }
+        // 누가 썼는지 실어 보낸다 — 받는 쪽이 자기 메아리를 무시할 수 있어야
+        // 저장 직후 자기가 방금 쓴 값을 다시 읽어 들이는 왕복이 생기지 않는다
+        const q = new URL(req.url ?? '', 'http://x').searchParams
+        const by = q.get('by') ?? ''
+        const rev = q.get('rev')
         void collectBody(req, 4 * 1024 * 1024).then((buf) => {
           const parsed: unknown = JSON.parse(buf.toString('utf8'))
           if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as { areas?: unknown }).areas)) {
             throw new Error('areas 배열이 필요합니다')
           }
+          // 읽어 간 뒤로 파일이 바뀌었으면 **쓰지 않는다.** areas를 통째로 덮는
+          // 저장이라 그냥 쓰면 다른 에디터의 편집이 자국 없이 사라진다.
+          // 판정을 쓰기 직전 서버에서 하는 것이 요점이다 — 클라이언트가 미리
+          // 견주면 그 사이에 들어온 쓰기를 놓친다.
+          // rev=force는 「덮어쓰기」를 사람이 눌렀다는 뜻이다.
+          const now = layoutRev()
+          if (rev === null) throw new Error('rev 파라미터가 필요합니다')
+          if (rev !== 'force' && rev !== now) {
+            res.statusCode = 409
+            res.setHeader('x-layout-rev', now)
+            res.end('디스크가 더 새롭습니다')
+            return
+          }
           fs.writeFileSync(LAYOUT_FILE, JSON.stringify(parsed, null, 2) + '\n')
+          layoutWrites += 1
+          res.setHeader('x-layout-rev', layoutRev())
           touch(server, LAYOUT_FILE)
+          // 배치가 바뀐 것을 **모든 탭에** 알린다. 이 알림이 없으면 /ui.html은
+          // 부팅 때 읽은 값을 영영 들고 있다가 저장할 때 남의 편집을 덮어쓴다.
+          server.ws.send({ type: 'custom', event: 'layout-updated', data: { by } })
           res.statusCode = 200
           res.end('ok')
         }).catch((err: unknown) => { res.statusCode = 400; res.end(String(err)) })
