@@ -1,20 +1,28 @@
 // ui/hex/hudView.ts — 상단 스테이지·목표 카운터, 우측 NEXT·부스터.
 import { Container, Graphics, Text, type Texture } from "pixi.js";
 
-import { slot } from "../../data/uiLayout";
+import { slot, type UiSlot } from "../../data/uiLayout";
 import { fitSprite } from "../skin";
 import { editable, clearEditable } from "../layoutEditor";
-import { TIER_COLORS, drawTileFallback } from "./tileArt";
+import { makeTileView } from "./tileArt";
+import { HEX_SIZE } from "./geom";
 import type { RunState } from "../../engine/hex/types";
 
 /** HUD가 쓰는 아트. 없으면 코드가 그린 판으로 대신한다. */
 export interface HudTextures {
   stageBar?: Texture;
+  /** 색 순서대로 놓인 타일 아트. NEXT 칩이 판의 타일과 같은 그림이라야 읽힌다. */
+  tiles?: Array<Texture | null>;
 }
+
+/** NEXT 칩의 목표 가로폭. 슬롯(폭 56) 안에서 답답하지 않은 크기다. */
+const NEXT_CHIP_W = 34;
 
 export interface HudView {
   root: Container;
   sync(state: RunState): void;
+  /** 다음 줄이 내려올 때까지 남은 초. UI가 타이머를 소유하므로 밖에서 넣어 준다. */
+  setCountdown(seconds: number): void;
   destroy(): void;
 }
 
@@ -23,14 +31,19 @@ function panel(w: number, h: number): Graphics {
 }
 
 /** 인게임 슬롯 하나. 에디터가 고친 값이 없으면 기본 배치로 간다. */
-function box(id: string, fx: number, fy: number, fw: number, fh: number): { id: string; label: string; x: number; y: number; w: number; h: number } {
-  const s = slot("ingame", id);
-  return s ? { ...s } : { id, label: id, x: fx, y: fy, w: fw, h: fh };
+/**
+ * 슬롯을 **복사하지 않고** 그대로 돌려준다.
+ *
+ * 복사본을 넘기면 에디터가 그 복사본을 고치고, 저장은 원본 목록(uiAreas)을
+ * 올리므로 **아무것도 남지 않는다.** 배율을 아무리 만져도 새로고침하면 되돌아갔다.
+ */
+function box(id: string, fx: number, fy: number, fw: number, fh: number): UiSlot {
+  return slot("ingame", id) ?? { id, label: id, x: fx, y: fy, w: fw, h: fh };
 }
 
 /** HUD 조각 하나를 인게임 에디터에 등록한다. 조각들이 컨테이너 없이 root에 흩어져 있으므로
  *  슬롯마다 얇은 컨테이너로 묶어 준다 — 그래야 통째로 끌어 옮길 수 있다. */
-function groupFor(root: Container, b: { id: string; label: string; x: number; y: number; w: number; h: number }, ...nodes: Container[]): Container {
+function groupFor(root: Container, b: UiSlot, ...nodes: Container[]): Container {
   const g = new Container();
   for (const n of nodes) g.addChild(n);
   root.addChild(g);
@@ -149,12 +162,18 @@ export function createHudView(stageIndex: number, tex: HudTextures = {}): HudVie
 
     sync(state: RunState): void {
       counter.text = `${state.rescued.length}/${state.stage.objective}`;
-      shots.text = `남은 발사 ${state.shotsLeft}`;
 
       if (state.next !== lastNextTier) {
         nextSlot.removeChildren().forEach((c) => c.destroy());
-        const chip = drawTileFallback(TIER_COLORS[state.next] ?? 0x888888);
-        chip.scale.set(0.6);
+        // 칩 크기는 격자가 아니라 **NEXT 판**이 정한다. 판을 우리 안으로 줄이면서
+        // 육각 반지름이 23% 작아졌는데, 그걸 그대로 쓰면 칩만 덩그러니 작아 보인다.
+        //
+        // 배율은 **감싼 컨테이너에** 건다. makeTileView가 스프라이트에 이미
+        // fitContain 배율을 넣어 두므로, 스프라이트에 직접 scale.set을 하면
+        // 그 값을 덮어써서 원본 크기(409px)가 그대로 나온다.
+        const chip = new Container();
+        chip.addChild(makeTileView(state.next, tex.tiles?.[state.next] ?? null));
+        chip.scale.set(NEXT_CHIP_W / (Math.sqrt(3) * HEX_SIZE));
         nextSlot.addChild(chip);
         lastNextTier = state.next;
       }
@@ -162,6 +181,11 @@ export function createHudView(stageIndex: number, tex: HudTextures = {}): HudVie
       for (const [id, text] of boosterTexts) {
         text.text = String(state.boosters[id as "bomb" | "rainbow" | "horseshoe"]);
       }
+    },
+
+    setCountdown(seconds: number): void {
+      // 발사 제한이 사라진 자리에 이게 들어간다 — 압박의 근원이 바뀌었으니 표시도 바뀐다.
+      shots.text = `다음 줄 ${Math.max(0, Math.ceil(seconds))}초`;
     },
 
     destroy(): void {

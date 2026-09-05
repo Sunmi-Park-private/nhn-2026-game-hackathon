@@ -409,7 +409,7 @@ export function createCageView(textures: CageTextures): CageView {
     root,
 
     sync(state: RunState): void {
-      for (const cage of state.stage.cages) {
+      for (const cage of state.cages) {
         const rescued = state.rescued.includes(cage.animalId);
         const existing = bodies.get(cage.id);
 
@@ -440,7 +440,7 @@ export function createCageView(textures: CageTextures): CageView {
         bodies.set(cage.id, { body, baseY: p.y, phase: bodies.size * 1.7, crack, crackLevel: -1 });
       }
       // 새로 만든 케이지의 금도 한 번 맞춘다
-      for (const cage of state.stage.cages) {
+      for (const cage of state.cages) {
         const e = bodies.get(cage.id);
         if (e) syncCracks(state, cage, e);
       }

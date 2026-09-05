@@ -6,7 +6,8 @@ import { findFloating } from "./gravity";
 import { simulateShot, type BoardGeom } from "./shot";
 import { pickNext } from "./nextTile";
 import { cageProgress, isUnlocked } from "./cageFaces";
-import type { Axial, Boosters, Cage, RunState, StageDef } from "./types";
+import { hasReachedFailRow } from "./pushRow";
+import type { Axial, Boosters, Cage, RunState, StageDef, Tier } from "./types";
 
 /** 스테이지 정의로 새 런을 만든다.
  *  `rng`는 발사체 색 추첨에만 쓴다 — 테스트가 고정값을 넣을 수 있도록 주입받는다.
@@ -18,10 +19,17 @@ export function createRun(
   stock: Boosters = { bomb: 3, rainbow: 2, horseshoe: 1 },
 ): RunState {
   const cells = buildCells(stage);
+  // 새 줄에 깔 색은 **초기 타일**에서 뽑아 고정한다. 판에 남은 색에서 뽑으면
+  // 판이 비어 갈수록 색이 줄어 새 줄이 단조로워지고, 마지막엔 한 색만 내려온다.
+  const palette = [...new Set(stage.tiles.map((t) => t.tier))].sort((a, b) => a - b) as Tier[];
   return {
     stage,
     cells,
-    shotsLeft: stage.shots,
+    shotsFired: 0,
+    pushes: 0,
+    // 창살은 줄이 내려올 때 같이 내려간다 — 고정 정의를 복사해 둔다
+    cages: stage.cages.map((c) => ({ ...c, cells: c.cells.map((a) => ({ ...a })) })),
+    palette,
     rescued: [],
     horseshoes: 0,
     // 복사한다 — 판이 부스터를 쓸 때 호출부(프로필)의 객체를 깎으면 안 된다
@@ -42,7 +50,7 @@ export function createRun(
  *  **둘레가 전부 비어야** 열린다. */
 export function pendingRescues(state: RunState): Cage[] {
   const out: Cage[] = [];
-  for (const cage of state.stage.cages) {
+  for (const cage of state.cages) {
     // 이미 셀 맵에서 사라진(=구출된) 케이지는 건너뛴다
     if (!cage.cells.some((c) => isOccupied(state.cells, c))) continue;
 
@@ -88,20 +96,19 @@ export function fireAt(
   rng: () => number = Math.random,
 ): ShotOutcome {
   const empty: ShotOutcome = { snapped: null, steps: [], dropped: [], rescued: [], missed: false };
-  if (state.shotsLeft <= 0) return empty;
 
   const { snap, missed } = simulateShot(state.cells, geom, from, angleRad, power);
   if (!snap) {
-    // 헛발도 대가를 치른다 — 한 발을 깎고 **장전까지 넘긴다**.
-    // 같은 타일이 손에 남아 있으면 「소모했다」가 화면에서 읽히지 않는다.
+    // 헛발도 대가를 치른다 — **장전을 넘긴다**. 같은 타일이 손에 남아 있으면
+    // 「소모했다」가 화면에서 읽히지 않는다. 발사 제한은 사라졌지만 시간은 흐른다.
     if (!missed) return empty; // 스냅도 헛발도 아닌 경우(발사 지점이 막힘) — 판이 안 움직인다
-    state.shotsLeft -= 1;
+    state.shotsFired += 1;
     state.loaded = state.next;
     state.next = pickNext(state.cells, rng);
     return { ...empty, missed: true };
   }
 
-  state.shotsLeft -= 1;
+  state.shotsFired += 1;
   placeTile(state.cells, snap, state.loaded);
 
   const steps = resolvePops(state.cells, snap);
@@ -142,6 +149,7 @@ export function isCleared(state: RunState): boolean {
   return state.rescued.length >= state.stage.objective;
 }
 
+/** 판이 실패 행에 닿았는가. 발사 제한을 걷어낸 뒤로 실패 조건은 이것 하나다. */
 export function isFailed(state: RunState): boolean {
-  return state.shotsLeft <= 0 && !isCleared(state);
+  return !isCleared(state) && hasReachedFailRow(state);
 }

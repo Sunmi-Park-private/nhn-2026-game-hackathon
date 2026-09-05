@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { key } from "../../src/engine/hex/coords";
 import { placeTile } from "../../src/engine/hex/grid";
-import { sameColorComponent, resolvePops, POP_THRESHOLD } from "../../src/engine/hex/pop";
+import { sameColorComponent, resolvePops, POP_THRESHOLD, ARMOR_LAYERS } from "../../src/engine/hex/pop";
 import type { Cell, Tier } from "../../src/engine/hex/types";
 
 /** 좌표-색 쌍으로 셀 맵을 만든다. */
@@ -110,5 +110,80 @@ describe("resolvePops", () => {
 
   it("임계값은 3이다", () => {
     expect(POP_THRESHOLD).toBe(3);
+  });
+});
+
+describe("말발굽 얹은 타일 — 세 번 맞아야 없어진다", () => {
+  /** 같은 색 셋을 한 줄로 놓는다. 가운데 칸에 말발굽을 얹을 수 있다. */
+  function trio(armorAt?: number): Map<string, Cell> {
+    const cells = new Map<string, Cell>();
+    [{ q: 0, r: 0 }, { q: 1, r: 0 }, { q: 2, r: 0 }].forEach((a, i) => {
+      cells.set(key(a), i === armorAt
+        ? { kind: "tile", tier: 0, armor: ARMOR_LAYERS }
+        : { kind: "tile", tier: 0 });
+    });
+    return cells;
+  }
+
+  it("말발굽이 없으면 예전처럼 전부 사라진다", () => {
+    const cells = trio();
+    const [step] = resolvePops(cells, { q: 0, r: 0 });
+    expect(step!.cleared).toHaveLength(3);
+    expect(step!.damaged).toHaveLength(0);
+    expect(cells.size).toBe(0);
+  });
+
+  it("1격 — 말발굽 칸은 버티고 나머지만 사라진다", () => {
+    const cells = trio(1);
+    const [step] = resolvePops(cells, { q: 0, r: 0 });
+    expect(step!.cleared).toHaveLength(2);
+    expect(step!.damaged).toEqual([{ q: 1, r: 0 }]);
+    expect(cells.get(key({ q: 1, r: 0 }))).toEqual({ kind: "tile", tier: 0, armor: 1 });
+  });
+
+  it("2격 — 말발굽이 떨어지고 보통 타일이 된다", () => {
+    const cells = trio(1);
+    resolvePops(cells, { q: 0, r: 0 });
+    // 다시 셋을 만들어 한 번 더 때린다
+    cells.set(key({ q: 0, r: 0 }), { kind: "tile", tier: 0 });
+    cells.set(key({ q: 2, r: 0 }), { kind: "tile", tier: 0 });
+    const [step] = resolvePops(cells, { q: 0, r: 0 });
+    expect(step!.damaged).toEqual([{ q: 1, r: 0 }]);
+    expect(cells.get(key({ q: 1, r: 0 }))).toEqual({ kind: "tile", tier: 0, armor: 0 });
+  });
+
+  it("3격 — 보통 타일이 됐으므로 이번엔 사라진다", () => {
+    const cells = trio(1);
+    for (let i = 0; i < 2; i += 1) {
+      cells.set(key({ q: 0, r: 0 }), { kind: "tile", tier: 0 });
+      cells.set(key({ q: 2, r: 0 }), { kind: "tile", tier: 0 });
+      resolvePops(cells, { q: 0, r: 0 });
+    }
+    cells.set(key({ q: 0, r: 0 }), { kind: "tile", tier: 0 });
+    cells.set(key({ q: 2, r: 0 }), { kind: "tile", tier: 0 });
+    const [step] = resolvePops(cells, { q: 0, r: 0 });
+    expect(step!.damaged).toHaveLength(0);
+    expect(step!.cleared).toHaveLength(3);
+    expect(cells.size).toBe(0);
+  });
+
+  it("말발굽 칸도 같은 색으로 세어 준다 — 셋을 채우는 데 기여한다", () => {
+    // 말발굽 둘 + 보통 하나. 색이 같으니 셋이 성립한다.
+    const cells = new Map<string, Cell>();
+    cells.set(key({ q: 0, r: 0 }), { kind: "tile", tier: 0, armor: ARMOR_LAYERS });
+    cells.set(key({ q: 1, r: 0 }), { kind: "tile", tier: 0, armor: ARMOR_LAYERS });
+    cells.set(key({ q: 2, r: 0 }), { kind: "tile", tier: 0 });
+    const [step] = resolvePops(cells, { q: 2, r: 0 });
+    expect(step).toBeDefined();
+    expect(step!.cleared).toEqual([{ q: 2, r: 0 }]);
+    expect(step!.damaged).toHaveLength(2);
+  });
+
+  it("둘뿐이면 말발굽도 안 벗겨진다 — 임계값은 그대로다", () => {
+    const cells = new Map<string, Cell>();
+    cells.set(key({ q: 0, r: 0 }), { kind: "tile", tier: 0, armor: ARMOR_LAYERS });
+    cells.set(key({ q: 1, r: 0 }), { kind: "tile", tier: 0 });
+    expect(resolvePops(cells, { q: 0, r: 0 })).toEqual([]);
+    expect(cells.get(key({ q: 0, r: 0 }))).toEqual({ kind: "tile", tier: 0, armor: ARMOR_LAYERS });
   });
 });

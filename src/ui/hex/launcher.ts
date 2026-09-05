@@ -4,7 +4,10 @@ import { Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { simulateShot } from "../../engine/hex/shot";
 import type { Cell, Tier } from "../../engine/hex/types";
 import { BOARD, ORIGIN, launchOrigin, launchOriginLocal } from "./geom";
-import { TIER_COLORS, drawTileFallback } from "./tileArt";
+import { makeTileView } from "./tileArt";
+import { handSlot } from "./handSlot";
+import { editable } from "../layoutEditor";
+import type { UiSlot } from "../../data/uiLayout";
 import { fitContain } from "../skin";
 import type { Aim } from "./dragAim";
 
@@ -43,10 +46,22 @@ const TOSS_MS = 320;
 /** 오발로 되돌아가는 시간. 뚝 끊기면 조작 실수가 버그처럼 보인다. */
 const SETTLE_MS = 180;
 
-export function createLauncher(
-  horseFrames: readonly Texture[] = [],
-  horseHold = 0,
-): Launcher {
+export interface LauncherOptions {
+  /** 붉은말 시퀀스. 비면 말을 그리지 않는다 — 폴백 그림을 두면 아트가 왔을 때 겹친다. */
+  horseFrames?: readonly Texture[];
+  /** 「당김」 구간의 마지막 프레임. 뒤는 토스 구간이다. */
+  horseHold?: number;
+  /** 색 순서대로 놓인 타일 아트. 말이 든 타일과 날아가는 발사체가 이걸 쓴다 —
+   *  판에 붙는 순간 같은 그림이라야 「내가 쏜 그것」으로 읽힌다. */
+  tiles?: ReadonlyArray<Texture | null>;
+  /** 레이아웃 에디터가 잡을 말 슬롯. 위치와 배율을 여기서 받는다. */
+  horseBox?: UiSlot;
+}
+
+export function createLauncher(opts: LauncherOptions = {}): Launcher {
+  const horseFrames = opts.horseFrames ?? [];
+  const horseHold = opts.horseHold ?? 0;
+  const tileTex = opts.tiles ?? [];
   const root = new Container();
   const guide = new Graphics();
   root.addChild(guide);
@@ -60,12 +75,19 @@ export function createLauncher(
   // 기울 때 정수리만 움직이고 발이 제자리에 남는다. 컨테이너 오프셋으로
   // 흉내내면 회전이 세로 이동으로 새어 나온다.
   const horse: Sprite | null = horseFrames.length > 0 ? new Sprite(horseFrames[0]) : null;
+  /** 말을 감싸는 그룹. **에디터의 배율은 여기에 건다.**
+   *
+   *  스프라이트에 직접 걸면 프레임이 바뀔 때마다 부르는 fitContain이 scale을
+   *  덮어써서 편집한 배율이 다음 프레임에 사라진다. */
+  const horseGroup = new Container();
+  root.addChild(horseGroup);
   if (horse) {
     horse.anchor.set(0.5, 1);
     fitContain(horse, HORSE_W, HORSE_H);
     horse.x = origin.x;
     horse.y = origin.y + HORSE_H * 0.28 + HORSE_H / 2;
-    root.addChild(horse);
+    horseGroup.addChild(horse);
+    if (opts.horseBox) editable("ingame", opts.horseBox, horseGroup);
   }
 
   /** 시퀀스에서 「당김」 구간의 마지막 프레임. 뒤는 토스 구간이다. */
@@ -89,9 +111,34 @@ export function createLauncher(
   }
 
   const loadedSlot = new Container();
-  loadedSlot.x = origin.x;
-  loadedSlot.y = origin.y;
   root.addChild(loadedSlot);
+
+  /** 회전축의 y — 말 앵커(하단 중앙)가 놓인 높이. 말이 없으면 발사 지점 그대로다.
+   *  그룹 좌표계 기준이다 — 에디터가 그룹을 옮기고 키워도 이 값은 그대로다. */
+  const pivotY = horse ? horse.y : origin.y;
+
+  /**
+   * 몸 기울기를 한 곳에서만 쓴다.
+   *
+   * **타일은 회전시키지 않고 자리만 옮긴다.** 최대 기울기가 25°인데 육각을 같이
+   * 돌리면 판에 붙는 순간 격자에 맞춰 확 돌아가 눈에 띈다 — 손에 들려 있는 동안에도
+   * 세워 두는 편이 「그대로 날아가 붙는 그것」으로 읽힌다.
+   *
+   * 손 위치는 **그룹 좌표계에서 계산하고 root 좌표계로 옮긴다.** 에디터가 말을
+   * 옮기거나 키우면 앞발도 따라 움직이는데, 타일이 그룹 밖(root)에 있어서
+   * 변환을 직접 태워야 한다.
+   *
+   * 발사 지점 자체는 geom.launchOrigin이 정한다 — 말을 옮겨도 궤적은 그대로다.
+   * 디자이너는 **앞발이 발사 지점에 오도록** 말을 맞춘다.
+   */
+  function setTilt(rotation: number): void {
+    if (horse) horse.rotation = rotation;
+    const local = handSlot(origin, pivotY, rotation);
+    const p = horse ? root.toLocal(horseGroup.toGlobal(local)) : local;
+    loadedSlot.x = p.x;
+    loadedSlot.y = p.y;
+  }
+  setTilt(0);
 
   const flight = new Container();
   root.addChild(flight);
@@ -113,7 +160,7 @@ export function createLauncher(
 
   function redrawLoaded(): void {
     loadedSlot.removeChildren().forEach((c) => c.destroy());
-    loadedSlot.addChild(drawTileFallback(TIER_COLORS[loadedTier] ?? 0x888888));
+    loadedSlot.addChild(makeTileView(loadedTier, tileTex[loadedTier] ?? null));
   }
   redrawLoaded();
 
@@ -133,13 +180,13 @@ export function createLauncher(
       if (aim === null) {
         guide.clear();
         scrub(0);
-        if (horse) horse.rotation = 0;
+        setTilt(0);
         return;
       }
       currentAngle = aim.angle;
       currentPower = aim.power;
       scrub(aim.power);
-      if (horse) horse.rotation = aim.angle * TILT_RATIO;
+      setTilt(aim.angle * TILT_RATIO);
 
       const { path } = simulateShot(cells, BOARD, launchOriginLocal(), aim.angle, aim.power);
       guide.clear();
@@ -157,7 +204,7 @@ export function createLauncher(
       if (!horse || horseFrames.length <= hold + 1) {
         // 토스 구간이 없다(스틸이거나 hold가 마지막 프레임) — 즉시 끝낸다
         scrub(0);
-        if (horse) horse.rotation = 0;
+        setTilt(0);
         return;
       }
       const start = performance.now();
@@ -178,7 +225,7 @@ export function createLauncher(
       });
       if (!horse.destroyed) {
         scrub(0);
-        horse.rotation = 0;
+        setTilt(0);
       }
     },
 
@@ -194,7 +241,7 @@ export function createLauncher(
         const t = Math.min(1, (performance.now() - t0) / SETTLE_MS);
         const e = 1 - (1 - t) * (1 - t); // easeOut
         scrub(fromPower * (1 - e));
-        horse.rotation = fromRot * (1 - e);
+        setTilt(fromRot * (1 - e));
         settleFrame = t < 1 ? requestAnimationFrame(tick) : null;
       };
       if (horse) settleFrame = requestAnimationFrame(tick);
@@ -204,7 +251,7 @@ export function createLauncher(
     async playFlight(path: Array<{ x: number; y: number }>, tier: Tier): Promise<void> {
       if (path.length === 0) return;
 
-      const chip = drawTileFallback(TIER_COLORS[tier] ?? 0x888888);
+      const chip = makeTileView(tier, tileTex[tier] ?? null);
       flight.addChild(chip);
 
       // 절반 속도 — 예전 값(상한 420ms, 60 + 길이×1.2)의 두 배다.

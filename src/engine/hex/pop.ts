@@ -12,11 +12,18 @@ import type { Axial, Cell } from "./types";
 /** 터지는 최소 개수. 이 수 이상이 붙어야 사라진다. */
 export const POP_THRESHOLD = 3;
 
+/** 말발굽을 얹은 타일이 시작할 때 두르는 겹수. 세 번 맞아야 없어진다 —
+ *  1격 버팀 · 2격 말발굽이 떨어져 보통 타일 · 3격 제거. */
+export const ARMOR_LAYERS = 2;
+
 /** 연출용 단계. UI가 이 목록을 순서대로 재생한다. */
 export interface PopStep {
   kind: "pop";
   /** 비워진 칸들 */
   cleared: Axial[];
+  /** 말발굽이 한 겹 벗겨진 칸들. 사라지지 않고 버텼다 —
+   *  남은 겹이 있으면 흔들리고, 0이 되면 말발굽이 떨어진다. */
+  damaged: Axial[];
 }
 
 /** start와 같은 색으로 이어진 타일 전부. start가 타일이 아니면 빈 배열. */
@@ -61,9 +68,17 @@ export function resolvePops(cells: Map<string, Cell>, start: Axial): PopStep[] {
   if (comp.length < POP_THRESHOLD) return [];
 
   const cleared: Axial[] = [];
+  const damaged: Axial[] = [];
   for (const c of comp) {
+    const cell = cellAt(cells, c);
+    // 말발굽이 남아 있으면 사라지지 않는다 — 한 겹만 벗기고 그 자리에 버틴다.
+    if (cell && cell.kind === "tile" && (cell.armor ?? 0) > 0) {
+      cells.set(key(c), { kind: "tile", tier: cell.tier, armor: cell.armor! - 1 });
+      damaged.push(c);
+      continue;
+    }
     clearCell(cells, c);
     cleared.push(c);
   }
-  return [{ kind: "pop", cleared }];
+  return [{ kind: "pop", cleared, damaged }];
 }

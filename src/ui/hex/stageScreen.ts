@@ -5,10 +5,14 @@ import { createRun, fireAt, isCleared, isFailed } from "../../engine/hex/stageRu
 import { simulateShot } from "../../engine/hex/shot";
 import type { Boosters, RunState, StageDef } from "../../engine/hex/types";
 import { fullRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
-import { BOARD, launchOrigin, launchOriginLocal } from "./geom";
+import { BOARD, ROW_H, cellToScreen, launchOrigin, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
 import { createCageView } from "./cageView";
 import { createHudView } from "./hudView";
+import { pushRow, hasReachedFailRow, failRow } from "../../engine/hex/pushRow";
+import { createFailLine } from "./failLine";
+import { playArmorHits, type ArmorHit } from "./armorFx";
+import { shakeX, slideY, slideDone } from "./pushMotion";
 import { createLauncher } from "./launcher";
 import { createDragAim } from "./dragAim";
 import { createPowerGauge } from "./powerGauge";
@@ -107,7 +111,7 @@ function buildBackground(bg: StageTextures["bg"]): Container {
     panel.x = panelBox.x;
     panel.y = stageTop() + panelBox.y;
     layer.addChild(panel);
-    editable("ingame", { ...panelBox }, panel);
+    editable("ingame", panelBox, panel); // 복사본을 넘기면 편집이 저장되지 않는다
   }
   // 플레이 영역 테두리 — 배경 아트가 없으면 좌우 여백과 판이 같은 갈색이라 경계가 안 보인다.
   // 발사체가 튕기는 벽이 정확히 이 선이므로, 아트가 들어와도 남겨 두는 편이 읽기 좋다.
@@ -140,9 +144,17 @@ export async function runStageScreen(
     open: textures.cageOpen,
     animals: textures.animals,
   });
-  const hud = createHudView(stageIndex, { stageBar: ui.stageBar });
-  const launcher = createLauncher(textures.horse, textures.horseHold);
+  const hud = createHudView(stageIndex, { stageBar: ui.stageBar, tiles: textures.tiles });
+  const launcher = createLauncher({
+    horseFrames: textures.horse,
+    horseHold: textures.horseHold,
+    tiles: textures.tiles,
+    horseBox: slot("ingame", "horse") ?? undefined,
+  });
   const gauge = createPowerGauge();
+  const failMark = createFailLine(failRow(state));
+  /** 연출 전용 레이어. 판을 다시 그려도 살아남아야 하는 것들이 여기 붙는다. */
+  const fx = new Container();
   // 당길 수 있는 범위 — 조준선은 이미 당긴 뒤에야 나오므로 그 전에 알려줄 것이 필요하다
   const pullArea = createPullArea(launchOrigin());
   // 앵커는 붉은말의 발 밑이다 — 새총의 고정점이 눈에 보이는 자리와 같아야 한다
@@ -155,7 +167,9 @@ export async function runStageScreen(
   // 발사체(launcher)는 케이지보다 위다 — 창살 앞을 지나가는 것이 맞다.
   // 당김 가이드는 **말보다 앞**이다. 뒤에 두면 말 몸통이 가운데를 가려
   // 좌우 변만 남아 사각형으로 읽히지 않는다. 얇은 윤곽선이라 캐릭터를 해치지 않는다.
-  layer.addChild(board.root, cages.root, launcher.root, pullArea.root, hud.root, gauge.root);
+  layer.addChild(
+    failMark.root, board.root, cages.root, fx, launcher.root, pullArea.root, hud.root, gauge.root,
+  );
   app.stage.addChild(layer);
 
   /** 케이지를 뺀 나머지 갱신. 구출 연출 전에는 이것만 부른다 —
@@ -165,6 +179,17 @@ export async function runStageScreen(
     board.sync(state.cells);
     hud.sync(state);
     launcher.setLoaded(state.loaded);
+    failMark.sync(lowestOccupiedRow());
+  }
+
+  /** 점유 칸 중 가장 아래 행. 바닥까지 얼마나 남았는지를 재는 값이다. */
+  function lowestOccupiedRow(): number | null {
+    let low: number | null = null;
+    for (const k of state.cells.keys()) {
+      const r = Number(k.slice(k.indexOf(",") + 1));
+      if (low === null || r > low) low = r;
+    }
+    return low;
   }
 
   function redraw(): void {
@@ -183,6 +208,62 @@ export async function runStageScreen(
   return await new Promise<StageOutcome>((resolve) => {
     let finished = false;
 
+    // ── 줄 내려오기 ──
+    // 타이머는 UI가 소유한다. 엔진은 「한 줄 내려라」만 알고 시계는 모른다.
+    //
+    // **발사 연출 중에는 시계가 멈춘다.** 내 발이 날아가는 도중에 줄이 내려와
+    // 지는 것은 불공정하고, 착탄과 푸시가 같은 프레임에 겹치면 스냅 좌표가
+    // 방금 밀린 판과 어긋난다.
+    const pushMs = Math.max(1, state.stage.pushSeconds) * 1000;
+    let sinceLastPush = 0;
+    let lastTick = performance.now();
+
+    /** 슬라이드 시작 시각. -1이면 슬라이드 중이 아니다. */
+    let slideStart = -1;
+
+    /** 판 전체(타일·창살)에 걸리는 오프셋. 바닥 눈금과 발사대는 따라가지 않는다. */
+    function applyBoardOffset(now: number): void {
+      const x = busy ? 0 : shakeX(pushMs - sinceLastPush, now);
+      let y = 0;
+      if (slideStart >= 0) {
+        const elapsed = now - slideStart;
+        y = slideY(elapsed);
+        if (slideDone(elapsed)) slideStart = -1;
+      }
+      board.root.x = x;
+      board.root.y = y;
+      cages.root.x = x;
+      cages.root.y = y;
+    }
+
+    function tick(): void {
+      const now = performance.now();
+      const dt = now - lastTick;
+      lastTick = now;
+      if (finished) return;
+      if (!busy) sinceLastPush += dt;
+      hud.setCountdown((pushMs - sinceLastPush) / 1000);
+
+      if (!busy && sinceLastPush >= pushMs) {
+        sinceLastPush -= pushMs;
+        pushRow(state);
+        redraw();
+        slideStart = now; // 새 줄이 위에서 내려앉는다(SLIDE_MS 동안)
+        playSfx("audio.sfxTap");
+        if (hasReachedFailRow(state) && !isCleared(state)) {
+          playSfx("audio.sfxFail");
+          finish("failed");
+          return;
+        }
+      }
+
+      applyBoardOffset(now);
+      failMark.tick(now);
+      pushFrame = requestAnimationFrame(tick);
+    }
+    let pushFrame = requestAnimationFrame(tick);
+    hud.setCountdown(state.stage.pushSeconds);
+
     function finish(result: StageResult): void {
       if (finished) return;
       finished = true;
@@ -191,6 +272,9 @@ export async function runStageScreen(
         rescued: [...state.rescued],
         horseshoes: state.horseshoes,
       };
+      cancelAnimationFrame(pushFrame);
+      failMark.destroy();
+      fx.destroy({ children: true });
       input.off("pointerdown", onDown);
       input.off("pointermove", onMove);
       input.off("globalpointermove", onMove);
@@ -250,7 +334,25 @@ export async function runStageScreen(
 
         const outcome = fireAt(state, BOARD, launchOriginLocal(), aim.angle, aim.power);
         if (outcome.steps.length > 0) playSfx("audio.sfxPop");
-        redrawExceptCages(); // 타일·HUD는 즉시 반영 — 케이지는 아직 건드리지 않는다
+
+        // 말발굽이 벗겨진 칸은 **다시 그리기 전에** 흔든다 — 다시 그리면 이미 벗겨진
+        // 그림이라 「버텼다」가 보이지 않는다. 표시 객체를 먼저 붙잡아 둔다.
+        const hits: ArmorHit[] = outcome.steps
+          .flatMap((st) => st.damaged)
+          .map((a) => {
+            const cell = state.cells.get(`${a.q},${a.r}`);
+            const p = cellToScreen(a);
+            return {
+              x: p.x,
+              y: p.y,
+              armorLeft: cell?.kind === "tile" ? (cell.armor ?? 0) : 0,
+              view: board.viewAt(a),
+            };
+          });
+
+        // 흔들림 → 다시 그리기 → 말발굽 낙하 순서다. 다시 그리기가 먼저면
+        // 붙잡아 둔 표시 객체가 파괴돼 흔들 것이 없어진다.
+        await playArmorHits(fx, hits, redrawExceptCages);
 
         for (const cage of outcome.rescued) {
           playSfx("audio.sfxRescue");
@@ -278,7 +380,7 @@ export async function runStageScreen(
     const onUpWrapped = (e: FederatedPointerEvent): void => void onUp(e);
     // 설정 — 로비와 **같은 자리·같은 크기**다. 화면이 바뀌어도 톱니가 움직이지 않아야
     // 손이 기억한 자리를 누를 수 있다. 배치는 uiLayout의 ingame/gear 슬롯이 정한다.
-    const gearBox = slot("ingame", "gear") ?? { x: 396, y: 12, w: 40, h: 40 };
+    const gearBox = slot("ingame", "gear") ?? { id: "gear", label: "설정", x: 396, y: 12, w: 40, h: 40 };
     const gear = makeButton({
       label: "⚙", w: gearBox.w, h: gearBox.h, tex: ui.settingsButton, fill: 0x4a3320,
       onTap: () => {
@@ -311,7 +413,7 @@ export async function runStageScreen(
     gear.x = gearBox.x + gearBox.w / 2;
     gear.y = stageTop() + gearBox.y + gearBox.h / 2;
     layer.addChild(gear);
-    editable("ingame", { id: "gear", label: "설정", ...gearBox }, gear);
+    editable("ingame", gearBox, gear);
 
     input.on("pointerdown", onDown);
     input.on("pointermove", onMove);

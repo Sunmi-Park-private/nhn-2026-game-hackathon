@@ -23,7 +23,7 @@ export interface BoardView {
 /** 셀 내용의 정체성. 이 값이 바뀌면 표시 객체를 새로 만든다. */
 function signature(cell: Cell): string {
   switch (cell.kind) {
-    case "tile": return `t${cell.tier}`;
+    case "tile": return `t${cell.tier}a${cell.armor ?? 0}`;
     case "horseshoe": return "h";
     case "cage": return `c${cell.cageId}`;
   }
@@ -35,7 +35,7 @@ export function createBoardView(textures: TileTextures): BoardView {
 
   function makeView(cell: Cell): Container | null {
     switch (cell.kind) {
-      case "tile": return makeTileView(cell.tier, textures.tiles[cell.tier] ?? null);
+      case "tile": return makeTileView(cell.tier, textures.tiles[cell.tier] ?? null, cell.armor ?? 0);
       case "horseshoe": return makeHorseshoeView(textures.horseshoe);
       case "cage": return null; // 케이지는 cageView가 따로 그린다
     }

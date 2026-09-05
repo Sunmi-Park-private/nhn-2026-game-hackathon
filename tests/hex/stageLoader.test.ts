@@ -9,7 +9,7 @@ const good = {
   cols: 7,
   rows: 12,
   objective: 1, // 케이지가 하나뿐이므로 목표도 하나여야 한다 (Ruling K)
-  shots: 20,
+  pushSeconds: 15,
   cages: [{ id: "c1", animalId: "sheep", cells: [{ q: 2, r: 2 }, { q: 3, r: 2 }] }],
   tiles: [{ at: { q: 0, r: 0 }, tier: 0 }],
   horseshoes: [{ q: 1, r: 1 }],
@@ -69,8 +69,8 @@ describe("parseStage — 거부", () => {
     expect(() => parseStage({ ...good, rows: 0 })).toThrow(/cols\/rows/);
   });
 
-  it("shots가 0 이하면 던진다", () => {
-    expect(() => parseStage({ ...good, shots: 0 })).toThrow(/shots/);
+  it("pushSeconds가 0 이하면 던진다", () => {
+    expect(() => parseStage({ ...good, pushSeconds: 0 })).toThrow(/pushSeconds/);
   });
 
   it("objective가 음수면 던진다", () => {
