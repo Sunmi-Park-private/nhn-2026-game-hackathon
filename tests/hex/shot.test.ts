@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { toPixel } from "../../src/engine/hex/coords";
 import { placeTile } from "../../src/engine/hex/grid";
-import { boardBounds, simulateShot } from "../../src/engine/hex/shot";
+import { boardBounds, launchSpeed, simulateShot } from "../../src/engine/hex/shot";
 import type { BoardGeom } from "../../src/engine/hex/shot";
 import type { Cell, Tier } from "../../src/engine/hex/types";
 
@@ -117,34 +117,40 @@ describe("simulateShot — 포물선", () => {
     expect(res.snap!.r).toBe(0);
   });
 
-  it("파워가 클수록 궤적이 멀리 간다", () => {
-    // 같은 각도로 쏜 두 발의 경로 길이를 잰다. 각도를 눕혀야 사거리 차가 드러난다.
-    const reach = (power: number): number => {
-      const { path } = simulateShot(makeCells([]), GEOM, launchPoint(), 1.0, power);
-      let d = 0;
-      for (let i = 1; i < path.length; i += 1) {
-        d += Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.y - path[i - 1]!.y);
-      }
-      return d;
-    };
-    expect(reach(1)).toBeGreaterThan(reach(0.5));
-    expect(reach(0.5)).toBeGreaterThan(reach(0));
+  it("파워가 클수록 초속이 크다", () => {
+    // 사거리를 경로 **길이**로 재면 안 된다 — 파워가 세면 천장에 일찍 닿아
+    // 경로가 오히려 짧아진다. 힘 자체는 launchSpeed가 단조 증가로 답한다.
+    const v = (power: number): number => launchSpeed(launchPoint(), GEOM, power);
+    expect(v(1)).toBeGreaterThan(v(0.5));
+    expect(v(0.5)).toBeGreaterThan(v(0));
   });
 
-  it("좌우 대칭이다 — 판 한가운데서 반대 각도로 쏘면 경로 길이가 같다", () => {
-    // launchPoint()는 판 한가운데가 아니다(중앙에서 오른쪽으로 약 39px).
-    // 대칭을 재려면 좌우 벽에서 등거리인 지점에서 쏴야 한다.
+  it("눕혀 쏘면 약한 발은 못 닿고 센 발은 닿는다 — 파워가 사거리다", () => {
+    // 사거리의 게임적 의미는 「닿느냐」다. 같은 각도에서 파워만 갈라 본다.
+    const weak = simulateShot(makeCells([]), GEOM, launchPoint(), 1.2, 0);
+    const strong = simulateShot(makeCells([]), GEOM, launchPoint(), 1.2, 1);
+    expect(weak.missed).toBe(true);
+    expect(weak.snap).toBeNull();
+    expect(strong.missed).toBe(false);
+    expect(strong.snap).not.toBeNull();
+  });
+
+  it("좌우 대칭이다 — 판 한가운데서 반대 각도로 쏜 궤적이 서로 거울상이다", () => {
+    // **격자가 아니라 물리를 잰다.** 육각 격자는 좌우 대칭이 아니다(홀수 행이
+    // 반 칸 밀리고 fromPixel이 큐브 반올림을 쓴다) — 그래서 두 궤적은 천장
+    // 근처에서 몇 스텝 다르게 끝난다. 끝나는 지점이 아니라 **날아가는 모양**을
+    // 비교해야 한다. 초반 50스텝은 천장에서 한참 멀다.
     const { minX, maxX } = boardBounds(GEOM);
-    const mid = { x: (minX + maxX) / 2, y: launchPoint().y };
-    const len = (angle: number): number => {
-      const { path } = simulateShot(makeCells([]), GEOM, mid, angle, 0.5);
-      let d = 0;
-      for (let i = 1; i < path.length; i += 1) {
-        d += Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.y - path[i - 1]!.y);
-      }
-      return d;
-    };
-    expect(len(0.7)).toBeCloseTo(len(-0.7), 3);
+    const cx = (minX + maxX) / 2;
+    const mid = { x: cx, y: launchPoint().y };
+    const right = simulateShot(makeCells([]), GEOM, mid, 0.7, 0.5).path;
+    const left = simulateShot(makeCells([]), GEOM, mid, -0.7, 0.5).path;
+    const n = Math.min(50, right.length, left.length);
+    expect(n).toBeGreaterThan(10);
+    for (let i = 0; i < n; i += 1) {
+      expect(right[i]!.x - cx).toBeCloseTo(cx - left[i]!.x, 6);
+      expect(right[i]!.y).toBeCloseTo(left[i]!.y, 6);
+    }
   });
 
   it("궤적이 곧지 않다 — 중력이 실제로 작용한다", () => {
