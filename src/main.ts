@@ -55,7 +55,14 @@ async function main(): Promise<void> {
     const aspect = Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, vw / vh));
     const logicalW = Math.round(800 * aspect);
     const s = Math.min(vw / logicalW, vh / 800);
-    app.renderer.resize(logicalW, 800);
+    // 렌더 배율은 「논리 px 하나가 실제 몇 device px인가」(dpr × s)를 따라간다.
+    // 고정 2로 두면 1920×1080 레티나(dpr 2 × s 1.35 = 2.7)에서 캔버스 전체가 1.35배
+    // 늘려져 살짝 뭉갠다 — 구출 동물이 커지면서 눈에 띄었다(본선 QA).
+    // 폰은 init의 상한 2를 넘기지 않는다(예전에 dpr 3 그대로 썼다가 버벅였다) —
+    // 상한을 올리는 것은 넓은 화면(데스크톱)뿐이고, 그것도 세로 2160px(2.7)까지다.
+    const dpr = window.devicePixelRatio || 1;
+    const cap = vw >= 1024 ? 2.7 : 2;
+    app.renderer.resize(logicalW, 800, Math.min(cap, Math.max(1, dpr * s)));
     setStageExtraX(logicalW - 450);
     setStageExtra(0);
     app.stage.x = (logicalW - 450) / 2; // 콘텐츠 450 박스를 가로 중앙 고정
