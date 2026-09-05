@@ -454,6 +454,19 @@ export function createCageView(textures: CageTextures): CageView {
           continue;
         }
         if (existing) {
+          // 줄이 내려오면 창살도 같이 내려간다(pushRow가 state.cages를 옮긴다). 자리를
+          // 만들 때 한 번만 잡으면 몸체는 옛 자리에 남고 실제 케이지는 아래로 내려가
+          // 둘레 타일이 허공에 뜬 것처럼 보였다 — 본선 QA 「창살 위치가 고정」.
+          // 연출 중인 케이지는 건드리지 않는다: playEscape가 자리를 직접 굴린다.
+          if (!animating.has(cage.id)) {
+            const p = cageCenter(cage);
+            if (existing.baseY !== p.y || existing.body.box.x !== p.x) {
+              existing.body.box.x = p.x;
+              existing.body.box.y = p.y;
+              existing.baseY = p.y;
+              existing.crackLevel = -1; // 금은 칸 좌표로 그린다 — 자리가 바뀌면 다시 긋는다
+            }
+          }
           syncCracks(state, cage, existing);
           continue;
         }
