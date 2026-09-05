@@ -81,14 +81,64 @@
           "scale": 1.2
         },
         {
-          "id": "play",
-          "label": "PLAY",
-          "x": 128,
-          "y": 632,
+          "id": "stage1",
+          "label": "스테이지 1",
+          "x": 24,
+          "y": 470,
           "w": 194,
           "h": 54,
-          "asset": "lobby.play",
-          "scale": 2
+          "asset": "lobby.stage1",
+          "scale": 1
+        },
+        {
+          "id": "stage2",
+          "label": "스테이지 2",
+          "x": 232,
+          "y": 470,
+          "w": 194,
+          "h": 54,
+          "asset": "lobby.stage2",
+          "scale": 1
+        },
+        {
+          "id": "stage3",
+          "label": "스테이지 3",
+          "x": 24,
+          "y": 545,
+          "w": 194,
+          "h": 54,
+          "asset": "lobby.stage3",
+          "scale": 1
+        },
+        {
+          "id": "stage4",
+          "label": "스테이지 4",
+          "x": 232,
+          "y": 545,
+          "w": 194,
+          "h": 54,
+          "asset": "lobby.stage4",
+          "scale": 1
+        },
+        {
+          "id": "stage5",
+          "label": "스테이지 5",
+          "x": 24,
+          "y": 620,
+          "w": 194,
+          "h": 54,
+          "asset": "lobby.stage5",
+          "scale": 1
+        },
+        {
+          "id": "stage6",
+          "label": "스테이지 6",
+          "x": 232,
+          "y": 620,
+          "w": 194,
+          "h": 54,
+          "asset": "lobby.stage6",
+          "scale": 1
         },
         {
           "id": "navHome",

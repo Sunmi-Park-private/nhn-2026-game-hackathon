@@ -33,6 +33,7 @@ const PENDING = new Set([
   "hex.bg.board", "hex.bg.panelLeft", "hex.bg.panelRight",
   "ui.btnConfirmOk", "ui.btnConfirmCancel",
   "ui.gameOverPanel", "ui.btnGameOverLobby", "ui.btnGameOverRetry",
+  "lobby.stage2", "lobby.stage3", "lobby.stage4", "lobby.stage5", "lobby.stage6",
   "video.intro", "video.ending", "video.loading",
   "audio.bgmLobby", "audio.bgmStage", "audio.sfxClear", "audio.bgmRace",
   "audio.sfxWhistle", "audio.sfxStep", "audio.sfxRouletteTick",
