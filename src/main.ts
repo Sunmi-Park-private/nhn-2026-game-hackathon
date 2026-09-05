@@ -5,7 +5,7 @@
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
 import { Application, Container, VideoSource, type Sprite, type Texture } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
-import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
+import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths, storyAssetPaths } from "./data/hexAssets";
 import { raceAssetPaths } from "./data/raceAssets";
 import { loadSlots, loadTexture } from "./ui/skin";
 import { runLobby } from "./ui/lobbyScreen";
@@ -28,6 +28,7 @@ import { slot } from "./data/uiLayout";
 import { storyBeat } from "./data/story";
 import { ANIMALS } from "./data/animals";
 import { openStoryDialog } from "./ui/storyDialog";
+import { STORY_AREA, type StorySlotId } from "./ui/storyLayout";
 
 // 배경 영상은 항상 무한 루프·무음 — BGM은 오디오 시스템이 담당
 VideoSource.defaultOptions = {
@@ -135,7 +136,7 @@ async function main(): Promise<void> {
 
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
-  const [hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, eventSlots, collectionSlots, collectionCards, collectionLocked]
+  const [hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, eventSlots, collectionSlots, collectionCards, collectionLocked, storyHorse, storyAnimals]
     = await Promise.all([
     loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
     loadSlots(uiAssetPaths),
@@ -153,6 +154,8 @@ async function main(): Promise<void> {
     loadSlots({ panel: collectionAssetPaths.panel, close: collectionAssetPaths.close }),
     loadSlots(collectionAssetPaths.cards),
     loadSlots(collectionAssetPaths.locked),
+    loadSlots({ horse: storyAssetPaths.horse }),
+    loadSlots(storyAssetPaths.animals),
   ]);
   offProgress();
   loadingScreen.close();
@@ -164,7 +167,9 @@ async function main(): Promise<void> {
   }
   // 에셋을 다 받은 뒤에 얹는다 — 먼저 얹으면 빈 캔버스 위에 격자만 뜬다
   mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다
-  mountCheatPanel();            // 같은 조건 + devMode. 화면 왼쪽, 배치 패널 반대편이다
+  // 치트 패널이 「대사 보기」를 누르면 이 함수를 부른다 — 판을 깨지 않고 다섯 편을 본다.
+  // 패널은 DOM이라 Pixi를 모른다: 여는 일은 여기서 하고 패널은 번호만 넘긴다.
+  mountCheatPanel({ onPlayStory: (i) => { void playStoryBeat(i); } });
 
   // 설정창이 쓰는 묶음. 스테이지 화면도 같은 것을 그대로 넘겨받는다.
   const ui = {
@@ -243,16 +248,20 @@ async function main(): Promise<void> {
     if (!beat) return;
     mark("story");
     // 초상은 이미 받아 둔 텍스처만 쓴다 — 여기서 새로 받으면 판 사이가 멎는다.
-    // 인게임 동물 시퀀스 첫 장이 1순위, 없으면 열린 창살 스틸, 그것도 없으면 도감 카드다.
-    const animalTex = hexTextures.animals[beat.rescuedId]?.[0]
+    // **대사 전용 아트가 1순위**(에디터 「대사」 탭에서 올린다). 없으면 인게임 동물 시퀀스
+    // 첫 장 → 열린 창살 스틸 → 도감 카드로 내려간다. 그림이 하나도 없어도 화면은 뜬다.
+    const animalTex = storyAnimals[beat.rescuedId]
+      ?? hexTextures.animals[beat.rescuedId]?.[0]
       ?? hexTextures.cageOpen[beat.rescuedId]
       ?? collectionCards[beat.rescuedId];
     await openStoryDialog(app.stage, {
       lines: beat.lines,
-      horseTex: hexTextures.horse[0],
+      horseTex: storyHorse.horse ?? hexTextures.horse[0],
       animalTex,
       horseName: "붉은말",
       animalName: ANIMALS.find((a) => a.id === beat.rescuedId)?.name ?? "친구",
+      // 슬롯은 원본을 넘긴다 — 복사본이면 에디터에서 끌어도 저장이 안 된다
+      slot: (id: StorySlotId) => slot(STORY_AREA, id),
     });
   };
 

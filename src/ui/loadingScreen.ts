@@ -39,6 +39,19 @@ const el = (tag: string, css: string, text?: string): HTMLElement => {
   return e;
 };
 
+/** 제목 판의 세로 padding·가로 padding·줄높이. 판의 높이가 이 셋에서 나온다. */
+const TITLE_PAD_Y = 0.35;
+const TITLE_PAD_X = 0.7;
+const TITLE_LINE_H = 1.3;
+
+/** 제목 판의 높이(패널 글자 크기 기준 em — 제목이 1em이라 같다).
+ *  문구와 게이지를 이만큼 내린다. 숫자를 따로 적지 않는다:
+ *  padding을 만지면 내려가는 양도 같이 따라와야 한다. */
+const PLATE_H = TITLE_LINE_H + TITLE_PAD_Y * 2;
+
+/** 판 높이의 몇 배만큼 내릴 것인가. 더 내리라는 요구가 오면 이 숫자만 올린다. */
+const DROP_STEPS = 2;
+
 export function openLoadingScreen(o: LoadingScreenOpts): LoadingScreen {
   // 인트로 영상(z 1400)보다 아래 — 로딩이 끝나고 인트로가 뜨면 그쪽이 덮는다
   const host = el("div", "position:fixed;z-index:1300;overflow:hidden;pointer-events:none");
@@ -60,23 +73,37 @@ export function openLoadingScreen(o: LoadingScreenOpts): LoadingScreen {
 
   const pct = panelPercent(o.panel);
   // 흰 판을 깔지 않는다 — 글자와 게이지만 영상 위에 얹는다(QA 요구).
-  // 대신 **글자 그림자**를 준다: 영상은 프레임마다 밝기가 바뀌어서, 판이 없으면
-  // 밝은 프레임에서 흰 글자가 통째로 사라진다. 판을 뺀 만큼 읽히게 하는 값이다.
+  //
+  // 글자 그림자도 뺐다. 대신 **제목 뒤에만** 검은 판(40%)을 깐다 — 영상은 프레임마다
+  // 밝기가 바뀌어서 아무 받침도 없으면 밝은 프레임에서 글자가 사라진다.
+  // 팁은 요구대로 받침 없이 글자만 둔다.
   const panel = el("div",
     `position:absolute;left:${pct.left}%;top:${pct.top}%;width:${pct.width}%;height:${pct.height}%;`
     + "box-sizing:border-box;padding:6% 7%;display:flex;flex-direction:column;"
     + "align-items:center;justify-content:center;gap:0.55em;font-family:system-ui,sans-serif;text-align:center;"
-    + "text-shadow:0 0.06em 0.18em rgba(20,12,6,.85), 0 0 0.5em rgba(20,12,6,.6)");
-  const title = el("div", "font-weight:800;color:#fff3dc;font-size:1em;line-height:1.3", LOADING_TEXT.title);
+    // 문구와 게이지를 통째로 **직사각형 높이의 두 배**만큼 내린다(QA 요구 — 한 번
+    // 내린 뒤 「그만큼 더 아래로」). 문구만 내리면 팁이 게이지를 덮으므로 같이 민다.
+    // 흐름이 아니라 transform으로 민다: 흐름에서 밀면 패널이 가운데 정렬이라
+    // 내려간 양이 절반으로 줄고, 게이지가 눌려 사라진다.
+    + `transform:translateY(${PLATE_H * DROP_STEPS}em)`);
+  // 판은 글자를 감싸는 만큼만 — flex column의 align-items:center가 폭을 내용에 맞춘다.
+  // 세로 padding을 주지 않으면 line-height에 딱 붙어 「직사각형」으로 안 읽힌다.
+  const title = el("div",
+    `font-weight:800;color:#fff3dc;font-size:1em;line-height:${TITLE_LINE_H};`
+    + `padding:${TITLE_PAD_Y}em ${TITLE_PAD_X}em;background:rgba(0,0,0,.4)`, LOADING_TEXT.title);
   const tip = el("div", "color:#e6d9bd;font-size:0.72em;line-height:1.3", LOADING_TEXT.tip);
+  const texts = el("div", "display:flex;flex-direction:column;align-items:center;gap:0.55em");
+  texts.append(title, tip);
   // 게이지의 홈은 남긴다 — 없으면 「어디까지 왔나」의 끝이 안 보여 길이를 못 읽는다
-  const track = el("div", "width:82%;height:0.7em;border-radius:0.35em;background:rgba(20,12,6,.55);"
+  // flex-shrink:0 — 패널 높이가 빠듯하면 flex가 이 홈부터 눌러 0px로 만든다.
+  // 게이지가 사라진 채로도 화면은 멀쩡해 보여서 눈으로는 못 잡는다(실측으로 잡았다).
+  const track = el("div", "width:82%;height:0.7em;flex-shrink:0;border-radius:0.35em;background:rgba(20,12,6,.55);"
     + "box-shadow:0 0 0 1px rgba(255,243,220,.35) inset;overflow:hidden;margin-top:0.2em");
   const fill = el("div",
     `height:100%;width:0%;border-radius:0.35em;background:${o.barColor ?? LOADING_BAR_COLOR};`
     + "transition:width .25s ease-out");
   track.appendChild(fill);
-  panel.append(title, tip, track);
+  panel.append(texts, track);
   if (o.hidePanel !== true) host.appendChild(panel);
 
   // 캔버스의 콘텐츠 컬럼(450×800)에 정확히 겹친다. 글자는 컬럼 배율을 따라간다 —
