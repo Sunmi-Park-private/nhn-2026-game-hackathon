@@ -306,17 +306,25 @@ export interface Profile {
 탭 1회는 걸음 하나를 **앞에 찍고**, 몸이 그 걸음을 따라간다.
 
 ```
-onTap(now):
-  dt     = now - lastTapAt                                  // ms
-  spm    = lerp(spm, 60000/dt, SPM_SMOOTH)                  // 분당 걸음 수
-  t      = clamp01((spm - SPM_WALK) / (SPM_SPRINT - SPM_WALK))
-  stride = STRIDE_MIN + (STRIDE_MAX - STRIDE_MIN) * t
-  targetX += stride
+onTap(gap):                       // gap = 초 단위 탭 간격
+  lastGap  = lerp(lastGap, gap, GAP_SMOOTH)
+  sinceTap = 0
+  targetX += stride(spm)
 
 tick(dt):
-  spm -= SPM_DECAY * dt
-  x   += (targetX - x) * (1 - exp(-CATCHUP * dt))
+  sinceTap += dt
+  x += (targetX - x) * (1 - exp(-CATCHUP * dt))
+
+spm    = 60 / max(lastGap, sinceTap)      // 상태가 아니라 파생값
+stride = STRIDE_MIN + (STRIDE_MAX - STRIDE_MIN)
+         * clamp01((spm - SPM_WALK) / (SPM_SPRINT - SPM_WALK))
 ```
+
+**`spm`을 상태로 두지 않는 이유.** 초안은 `spm`을 지수평균으로 쌓고 매 프레임 감쇠시켰다.
+검산하니 그 감쇠가 **연타 중에도 계속 깎아** 평형이 목표보다 훨씬 낮게 잡혔다 —
+초당 3탭에서 4.5가 아니라 3.5 m/s가 나오고, 초당 1탭(걷기)은 60 spm이어야 할 것이 15로
+떨어져 애니메이션이 `idle`이 됐다. 감쇠 상수를 없애고 `spm`을 간격에서 파생시키면 사라진다.
+누르는 중에는 `lastGap`이, 손을 떼면 자라나는 `sinceTap`이 분모를 잡으므로 감쇠가 공짜로 따라온다.
 
 `targetX`는 **절대 뒤로 가지 않는다.** 후진이 없다는 것이 이 모델의 성질이다.
 
@@ -330,11 +338,15 @@ tick(dt):
 | `DISTANCE` | 100 m | 결승선 |
 | `STRIDE_MIN` / `MAX` | 0.8 / 2.2 m | 걷기 보폭 / 질주 보폭 |
 | `SPM_WALK` / `SPRINT` | 60 / 300 | 1초에 1탭 / 0.2초에 1탭 |
-| `SPM_SMOOTH` | 0.35 | 지수이동평균 계수 |
+| `GAP_SMOOTH` | 0.5 | 탭 간격 지수이동평균 계수 |
 | `CATCHUP` | 14 /s | 몸이 걸음을 따라잡는 속도 |
-| `SPM_DECAY` | 90 /s | 손을 뗐을 때 식는 속도 |
+| `GAP_DEAD` | 4 s | 이보다 오래 안 누르면 리듬이 0 |
 
-상수는 전부 `src/data/race.ts`에 있다. 초당 3탭 → 4.5 m/s (100m 22초). 초당 4탭 → 7 m/s (14초).
+상수는 전부 `src/data/race.ts`에 있다. 검산이 정확히 맞는다 —
+초당 1탭 → 60 spm → 보폭 0.8 → **0.8 m/s**(걷기),
+초당 3탭 → 180 spm → 1.5 → **4.5 m/s**(100m 22초),
+초당 4탭 → 240 spm → 1.75 → **7.0 m/s**(14초).
+`tests/race/step.test.ts`의 「스펙의 세 속도」가 이 표를 지킨다 — 상수를 만지면 그 테스트가 먼저 깨진다.
 애니메이션 상태도 `spm` 하나로 갈린다 — `idle` / `walk` / `run` / `sprint`.
 
 순수 함수라 `now`를 인자로 받는다. 탭 간격 배열을 넣으면 결승 시간이 결정적으로 나온다.
