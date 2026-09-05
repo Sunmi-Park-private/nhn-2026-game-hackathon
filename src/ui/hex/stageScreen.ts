@@ -110,7 +110,7 @@ function buildBackground(bg: StageTextures["bg"]): Container {
     panel.x = panelBox.x;
     panel.y = stageTop() + panelBox.y;
     layer.addChild(panel);
-    editable("ingame", { ...panelBox }, panel);
+    editable("ingame", panelBox, panel); // 복사본을 넘기면 편집이 저장되지 않는다
   }
   // 플레이 영역 테두리 — 배경 아트가 없으면 좌우 여백과 판이 같은 갈색이라 경계가 안 보인다.
   // 발사체가 튕기는 벽이 정확히 이 선이므로, 아트가 들어와도 남겨 두는 편이 읽기 좋다.
@@ -144,7 +144,12 @@ export async function runStageScreen(
     animals: textures.animals,
   });
   const hud = createHudView(stageIndex, { stageBar: ui.stageBar, tiles: textures.tiles });
-  const launcher = createLauncher(textures.horse, textures.horseHold, textures.tiles);
+  const launcher = createLauncher({
+    horseFrames: textures.horse,
+    horseHold: textures.horseHold,
+    tiles: textures.tiles,
+    horseBox: slot("ingame", "horse") ?? undefined,
+  });
   const gauge = createPowerGauge();
   const failMark = createFailLine(failRow(state));
   // 당길 수 있는 범위 — 조준선은 이미 당긴 뒤에야 나오므로 그 전에 알려줄 것이 필요하다
@@ -353,7 +358,7 @@ export async function runStageScreen(
     const onUpWrapped = (e: FederatedPointerEvent): void => void onUp(e);
     // 설정 — 로비와 **같은 자리·같은 크기**다. 화면이 바뀌어도 톱니가 움직이지 않아야
     // 손이 기억한 자리를 누를 수 있다. 배치는 uiLayout의 ingame/gear 슬롯이 정한다.
-    const gearBox = slot("ingame", "gear") ?? { x: 396, y: 12, w: 40, h: 40 };
+    const gearBox = slot("ingame", "gear") ?? { id: "gear", label: "설정", x: 396, y: 12, w: 40, h: 40 };
     const gear = makeButton({
       label: "⚙", w: gearBox.w, h: gearBox.h, tex: ui.settingsButton, fill: 0x4a3320,
       onTap: () => {
@@ -386,7 +391,7 @@ export async function runStageScreen(
     gear.x = gearBox.x + gearBox.w / 2;
     gear.y = stageTop() + gearBox.y + gearBox.h / 2;
     layer.addChild(gear);
-    editable("ingame", { id: "gear", label: "설정", ...gearBox }, gear);
+    editable("ingame", gearBox, gear);
 
     input.on("pointerdown", onDown);
     input.on("pointermove", onMove);

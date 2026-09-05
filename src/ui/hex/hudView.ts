@@ -1,7 +1,7 @@
 // ui/hex/hudView.ts — 상단 스테이지·목표 카운터, 우측 NEXT·부스터.
 import { Container, Graphics, Text, type Texture } from "pixi.js";
 
-import { slot } from "../../data/uiLayout";
+import { slot, type UiSlot } from "../../data/uiLayout";
 import { fitSprite } from "../skin";
 import { editable, clearEditable } from "../layoutEditor";
 import { makeTileView } from "./tileArt";
@@ -31,14 +31,19 @@ function panel(w: number, h: number): Graphics {
 }
 
 /** 인게임 슬롯 하나. 에디터가 고친 값이 없으면 기본 배치로 간다. */
-function box(id: string, fx: number, fy: number, fw: number, fh: number): { id: string; label: string; x: number; y: number; w: number; h: number } {
-  const s = slot("ingame", id);
-  return s ? { ...s } : { id, label: id, x: fx, y: fy, w: fw, h: fh };
+/**
+ * 슬롯을 **복사하지 않고** 그대로 돌려준다.
+ *
+ * 복사본을 넘기면 에디터가 그 복사본을 고치고, 저장은 원본 목록(uiAreas)을
+ * 올리므로 **아무것도 남지 않는다.** 배율을 아무리 만져도 새로고침하면 되돌아갔다.
+ */
+function box(id: string, fx: number, fy: number, fw: number, fh: number): UiSlot {
+  return slot("ingame", id) ?? { id, label: id, x: fx, y: fy, w: fw, h: fh };
 }
 
 /** HUD 조각 하나를 인게임 에디터에 등록한다. 조각들이 컨테이너 없이 root에 흩어져 있으므로
  *  슬롯마다 얇은 컨테이너로 묶어 준다 — 그래야 통째로 끌어 옮길 수 있다. */
-function groupFor(root: Container, b: { id: string; label: string; x: number; y: number; w: number; h: number }, ...nodes: Container[]): Container {
+function groupFor(root: Container, b: UiSlot, ...nodes: Container[]): Container {
   const g = new Container();
   for (const n of nodes) g.addChild(n);
   root.addChild(g);
