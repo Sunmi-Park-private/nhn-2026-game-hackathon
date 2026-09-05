@@ -1034,16 +1034,6 @@
       "group": "타일"
     },
     {
-      "label": "타일 황금",
-      "asset": "hex.tiles.5",
-      "group": "타일"
-    },
-    {
-      "label": "말굽 타일",
-      "asset": "hex.horseshoe",
-      "group": "타일"
-    },
-    {
       "label": "창살(잠금) · 토끼",
       "asset": "hex.cageLocked.rabbit",
       "group": "창살(잠금)",

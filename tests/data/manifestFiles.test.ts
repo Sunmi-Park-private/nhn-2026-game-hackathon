@@ -25,8 +25,6 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 /** 아직 반입되지 않은 자리. 여기 적힌 것만 파일이 없어도 된다.
  *  아트가 오면 지운다 — 늘어나야 할 이유가 있다면 그건 회귀다. */
 const PENDING = new Set([
-  "hex.tiles[5]",
-  "hex.horseshoe",
   "hex.cageOpen.rabbit", "hex.cageOpen.monkey", "hex.cageOpen.deer",
   "hex.cageOpen.sheep", "hex.cageOpen.zebra", "hex.cageOpen.elephant",
   "hex.animals.elephant",

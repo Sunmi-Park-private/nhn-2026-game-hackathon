@@ -6,10 +6,8 @@
       "assets/hex/tile-yellow.webp",
       "assets/hex/tile-green.webp",
       "assets/hex/tile-blue.webp",
-      "assets/hex/tile-purple.webp",
-      "assets/hex/tile-gold.png"
+      "assets/hex/tile-purple.webp"
     ],
-    "horseshoe": "assets/hex/tile-horseshoe.png",
     "cageLocked": {
       "rabbit": [
         "assets/hex/cage-locked-rabbit_f000.webp",
