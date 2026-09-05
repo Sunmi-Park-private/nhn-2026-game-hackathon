@@ -26,9 +26,23 @@ describe("로비 RACE 교체", () => {
     expect(manifest.lobby.navRace).toBeTruthy();
   });
 
-  it("좌표를 건드리지 않았다 — 하단 4칸 간격이 아트와 맞춰져 있다", () => {
-    const nav = uiAreas.find((a) => a.id === "lobby")!.slots.find((s) => s.id === "navRace")!;
-    expect([nav.x, nav.y, nav.w, nav.h]).toEqual([122, 738, 96, 50]);
+  // 절대 y를 못박았더니 디자이너가 하단 행을 통째로 9px 올린 것만으로 깨졌다(738→729).
+  // 지키려던 사실은 「navRace가 나머지 셋과 같은 행에 같은 크기로, 두 번째 자리에 있다」이지
+  // 특정 좌표가 아니다. 행이 통째로 움직이는 것은 배치 작업이라 막을 이유가 없다.
+  it("navRace가 하단 4칸의 두 번째 자리에 같은 행·같은 크기로 놓여 있다", () => {
+    const lobby = uiAreas.find((a) => a.id === "lobby")!;
+    const order = ["navHome", "navRace", "navAnimals", "navEvents"];
+    const navs = order.map((id) => lobby.slots.find((s) => s.id === id)!);
+    expect(navs.every(Boolean)).toBe(true);
+    const race = navs[1];
+    // 같은 행 · 같은 크기
+    for (const n of navs) {
+      expect(n.y).toBe(race.y);
+      expect(n.w).toBe(race.w);
+      expect(n.h).toBe(race.h);
+    }
+    // 왼쪽에서 두 번째 — x 순서가 order와 같다
+    expect(navs.map((n) => n.x)).toEqual([...navs.map((n) => n.x)].sort((a, b) => a - b));
   });
 
   it("worldScreen은 파일로 남되 아무도 import하지 않는다 — 번들에서 빠진다", () => {
