@@ -71,10 +71,16 @@ export function createLauncher(
   /** 시퀀스에서 「당김」 구간의 마지막 프레임. 뒤는 토스 구간이다. */
   const hold = Math.min(Math.max(0, horseHold), Math.max(0, horseFrames.length - 1));
 
+  /** 이 파워를 넘기면 **가장 깊이 접힌 자세에서 버틴다**. 활도 어느 지점부터는
+   *  팔 모양이 그대로고 힘만 더 실린다 — 파워를 늦추면 다시 펴진다.
+   *  1.0으로 두면 끝까지 끌어야 자세가 완성돼 그 전 구간이 흐물거려 보인다. */
+  const FOLD_FULL_AT = 0.55;
+
   /** 파워(0~1)를 당김 구간의 프레임으로 옮긴다. */
   function scrub(power: number): void {
     if (!horse || horseFrames.length === 0) return;
-    const i = Math.min(hold, Math.round(power * hold));
+    const t = Math.min(1, power / FOLD_FULL_AT);
+    const i = Math.min(hold, Math.round(t * hold));
     const tex = horseFrames[i];
     if (tex && horse.texture !== tex) {
       horse.texture = tex;

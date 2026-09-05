@@ -68,7 +68,7 @@
       "assets/hex/horse-idle_f029.webp",
       "assets/hex/horse-idle_f030.webp"
     ],
-    "horseHold": 13,
+    "horseHold": 8,
     "bg": {
       "board": "assets/hex/bg-board.png",
       "panelLeft": "assets/hex/bg-panel-left.png",
