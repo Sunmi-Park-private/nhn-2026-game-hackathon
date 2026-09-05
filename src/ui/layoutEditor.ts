@@ -118,7 +118,9 @@ export function clearEditable(area: string): void {
 let shield: Graphics | null = null;
 let outline: Graphics | null = null;
 let selected: string | null = null;
-let interact = false;
+// 조작 모드로 시작한다. 게임 화면을 여는 사람은 대개 **먼저 눌러 보고** 나서
+// 자리를 고친다 — 격자가 깔린 채로 뜨면 그때마다 ` 를 눌러 꺼야 했다.
+let interact = true;
 let panel: HTMLDivElement | null = null;
 let statusEl: HTMLElement | null = null;
 let saveStatus = "";
@@ -679,7 +681,8 @@ export function mountLayoutEditor(stage: Container): void {
   stage.addChild(layer);
 
   shield = new Graphics().rect(-3000, -3000, 8000, 8000).fill({ color: 0x000000, alpha: 0 });
-  shield.eventMode = "static";
+  // 조작 모드에서는 실드가 입력을 가로채지 않는다 — 게임이 정상 동작해야 한다
+  shield.eventMode = interact ? "none" : "static";
   layer.addChild(shield);
 
   outline = new Graphics();
@@ -696,7 +699,7 @@ export function mountLayoutEditor(stage: Container): void {
     + "font:12px/1.5 system-ui,-apple-system,sans-serif;color:#e8dcc8;box-shadow:0 8px 24px #0008";
   document.body.appendChild(panel);
 
-  mountGrid();
+  if (!interact) mountGrid(); // 편집 모드일 때만 격자를 깐다
 
   history = createHistory<UiArea[]>(uiAreas);
 
