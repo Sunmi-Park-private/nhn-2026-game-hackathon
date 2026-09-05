@@ -5,6 +5,7 @@ import { simulateShot } from "../../engine/hex/shot";
 import type { Cell, Tier } from "../../engine/hex/types";
 import { BOARD, ORIGIN, launchOrigin, launchOriginLocal } from "./geom";
 import { makeTileView } from "./tileArt";
+import { handSlot } from "./handSlot";
 import { fitContain } from "../skin";
 import type { Aim } from "./dragAim";
 
@@ -92,9 +93,25 @@ export function createLauncher(
   }
 
   const loadedSlot = new Container();
-  loadedSlot.x = origin.x;
-  loadedSlot.y = origin.y;
   root.addChild(loadedSlot);
+
+  /** 회전축의 y — 말 앵커(하단 중앙)가 놓인 높이. 말이 없으면 발사 지점 그대로다. */
+  const pivotY = horse ? horse.y : origin.y;
+
+  /**
+   * 몸 기울기를 한 곳에서만 쓴다.
+   *
+   * **타일은 회전시키지 않고 자리만 옮긴다.** 최대 기울기가 25°인데 육각을 같이
+   * 돌리면 판에 붙는 순간 격자에 맞춰 확 돌아가 눈에 띈다 — 손에 들려 있는 동안에도
+   * 세워 두는 편이 「그대로 날아가 붙는 그것」으로 읽힌다.
+   */
+  function setTilt(rotation: number): void {
+    if (horse) horse.rotation = rotation;
+    const p = handSlot(origin, pivotY, rotation);
+    loadedSlot.x = p.x;
+    loadedSlot.y = p.y;
+  }
+  setTilt(0);
 
   const flight = new Container();
   root.addChild(flight);
@@ -136,13 +153,13 @@ export function createLauncher(
       if (aim === null) {
         guide.clear();
         scrub(0);
-        if (horse) horse.rotation = 0;
+        setTilt(0);
         return;
       }
       currentAngle = aim.angle;
       currentPower = aim.power;
       scrub(aim.power);
-      if (horse) horse.rotation = aim.angle * TILT_RATIO;
+      setTilt(aim.angle * TILT_RATIO);
 
       const { path } = simulateShot(cells, BOARD, launchOriginLocal(), aim.angle, aim.power);
       guide.clear();
@@ -160,7 +177,7 @@ export function createLauncher(
       if (!horse || horseFrames.length <= hold + 1) {
         // 토스 구간이 없다(스틸이거나 hold가 마지막 프레임) — 즉시 끝낸다
         scrub(0);
-        if (horse) horse.rotation = 0;
+        setTilt(0);
         return;
       }
       const start = performance.now();
@@ -181,7 +198,7 @@ export function createLauncher(
       });
       if (!horse.destroyed) {
         scrub(0);
-        horse.rotation = 0;
+        setTilt(0);
       }
     },
 
@@ -197,7 +214,7 @@ export function createLauncher(
         const t = Math.min(1, (performance.now() - t0) / SETTLE_MS);
         const e = 1 - (1 - t) * (1 - t); // easeOut
         scrub(fromPower * (1 - e));
-        horse.rotation = fromRot * (1 - e);
+        setTilt(fromRot * (1 - e));
         settleFrame = t < 1 ? requestAnimationFrame(tick) : null;
       };
       if (horse) settleFrame = requestAnimationFrame(tick);
