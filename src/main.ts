@@ -5,7 +5,7 @@
 // 화면 코드 자체는 ui/boot.ts에 남아 있고 import만 끊었다 — 번들에서는 빠진다.
 import { Application, VideoSource } from "pixi.js";
 import { loadHexAssets } from "./ui/hex/hexAssets";
-import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbyFriendAssetPaths, worldAssetPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
+import { hexAssetPaths, uiAssetPaths, lobbyAssetPaths, lobbySceneVideoPaths, worldAssetPaths, eventAssetPaths, collectionAssetPaths, videoAssetPaths } from "./data/hexAssets";
 import { loadSlots } from "./ui/skin";
 import { runLobby } from "./ui/lobbyScreen";
 import { parseProfile, serializeProfile, addClear, type Profile } from "./engine/profile";
@@ -68,12 +68,11 @@ async function main(): Promise<void> {
 
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
-  const [hexTextures, uiSlots, lobbySlots, lobbyFriends, worldSlots, eventSlots, collectionSlots, collectionCards, collectionLocked]
+  const [hexTextures, uiSlots, lobbySlots, worldSlots, eventSlots, collectionSlots, collectionCards, collectionLocked]
     = await Promise.all([
     loadHexAssets(hexAssetPaths), // 루프 전 1회 로드 — 매 스테이지 재로드하지 않는다
     loadSlots(uiAssetPaths),
     loadSlots(lobbyAssetPaths),
-    loadSlots(lobbyFriendAssetPaths),
     loadSlots(worldAssetPaths),
     loadSlots(eventAssetPaths),
     loadSlots({ panel: collectionAssetPaths.panel, close: collectionAssetPaths.close }),
@@ -102,7 +101,7 @@ async function main(): Promise<void> {
       navAnimals: lobbySlots.navAnimals ?? null,
       navEvents: lobbySlots.navEvents ?? null,
     },
-    friends: lobbyFriends,
+    scenes: lobbySceneVideoPaths,
     world: { bg: worldSlots.bg, back: worldSlots.back },
     event: { bg: eventSlots.bg, close: eventSlots.close, cta: eventSlots.cta },
     collection: {

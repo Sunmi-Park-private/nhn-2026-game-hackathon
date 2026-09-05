@@ -2,7 +2,7 @@
 //
 // 헥사 타일과 같은 원칙이다: **아트가 하나도 없어도 화면이 성립하고, 일부만 도착해도 정상 동작한다.**
 // 디자이너는 경로에 파일만 드롭한다.
-import { Assets, Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
+import { Assets, Container, Graphics, Sprite, Text, VideoSource, type Ticker, type Texture } from "pixi.js";
 
 /** 에셋 한 장을 기다리는 상한. 넘기면 폴백으로 간다.
  *  파일이 없을 때 서버가 404가 아니라 index.html을 200으로 돌려주면
@@ -17,17 +17,65 @@ function bust(url: string): string {
 }
 const BOOT = Date.now();
 
-export async function loadTexture(url: string | undefined): Promise<Texture | null> {
+/** 영상은 상한을 길게 준다. 이 상한은 「없는 파일 때문에 화면이 멎지 않게」 하려고
+ *  둔 것인데(스틸 한 장 기준 4초), 전체화면 영상은 용량이 커서 4초 안에 못 올 수
+ *  있다. 짧게 두면 파일이 멀쩡한데도 재시도 없이 영상이 사라진다. */
+export const VIDEO_LOAD_TIMEOUT_MS = 60_000;
+
+export async function loadTexture(url: string | undefined, timeoutMs = LOAD_TIMEOUT_MS): Promise<Texture | null> {
   if (!url) return null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), LOAD_TIMEOUT_MS);
+    timer = setTimeout(() => resolve(null), timeoutMs);
   });
   try {
     return await Promise.race([Assets.load<Texture>(bust(url)).catch(() => null), timeout]);
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
+}
+
+/** 영상 텍스처를 **실제로 돌린다.** 멈추는 함수를 돌려준다.
+ *
+ *  두 가지를 손으로 한다. 실측 결과 둘 다 필요했다:
+ *   ① 재생 — VideoSource.defaultOptions의 autoPlay만으로는 안 돌 때가 있어
+ *     요소를 직접 잡아 play()를 건다. 정책이 막으면 첫 제스처에서 한 번 더.
+ *   ② 텍스처 올리기 — 요소는 재생 중인데(paused false, currentTime이 흐른다)
+ *     화면이 첫 프레임에 멎어 있었다. Pixi의 autoUpdate는 **Ticker.shared**를 타는데
+ *     이 앱은 sharedTicker 기본값(false)이라 자기 티커를 쓴다 — 공유 티커가 돌지
+ *     않으니 새 프레임이 GPU로 안 올라간다. **앱 티커를 받아** 매 틱 올린다.
+ *
+ *  스틸 텍스처면 아무 일도 하지 않는다 — 호출부가 종류를 따지지 않아도 된다.
+ *
+ *  ⚠️ **형식은 webm(VP9)이어야 한다.** 같은 그림을 mp4(h.264)로 넣으면 요소는
+ *  재생되는데(paused false, currentTime이 흐른다) 새 프레임이 텍스처로 올라오지
+ *  않아 첫 프레임에 멎는다. 서버를 새로 띄우고 양쪽을 번갈아 재서 확인했다.
+ *  Safari는 webm 지원이 늦어 못 읽을 수 있는데, 그때는 스틸 배경이 그대로 남는다. */
+export function playVideoTexture(tex: Texture, ticker: Ticker): () => void {
+  const src = tex.source;
+  if (!(src instanceof VideoSource)) return () => { /* 스틸 */ };
+  const v = src.resource;
+  if (!v) return () => { /* 요소가 없다 */ };
+
+  v.loop = true;
+  v.muted = true;
+  v.playsInline = true;
+
+  const kick = (): void => { void v.play().catch(() => { /* 정책이 막으면 다음 제스처에서 */ }); };
+  kick();
+  const onGesture = (): void => { kick(); };
+  window.addEventListener("pointerdown", onGesture);
+  window.addEventListener("keydown", onGesture);
+
+  const pump = (): void => { if (!v.paused && v.readyState >= 2) src.update(); };
+  ticker.add(pump);
+
+  return (): void => {
+    ticker.remove(pump);
+    window.removeEventListener("pointerdown", onGesture);
+    window.removeEventListener("keydown", onGesture);
+    v.pause();
+  };
 }
 
 /** 경로 묶음을 텍스처 묶음으로. 키는 그대로 유지된다. */

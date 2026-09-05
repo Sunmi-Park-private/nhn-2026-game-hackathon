@@ -2,7 +2,7 @@
 //
 // 한 페이지에서 **배치**와 **에셋 업로드**를 함께 한다. 탭으로 영역이 갈린다:
 //   로비 · 인게임 · 설정창  — 좌표가 있는 슬롯. 스테이지에서 끌어 옮긴다
-//                            (로비에는 동물 친구 6칸 묶음 업로드가 아래에 더 붙는다)
+//                            (로비에는 배경 영상 6칸 묶음 업로드가 아래에 더 붙는다)
 //   게임 에셋              — 자리가 코드에 고정된 것들(타일·동물·배경). 업로드만
 //   영상 · 오디오          — 화면 전체 영상, BGM·효과음. 업로드만
 //
@@ -195,9 +195,9 @@ side.append(actions, conflict, list, detail, extras);
 
 const area = (): UiArea => state.areas[state.areaIndex]!;
 
-/** 로비에 서는 구출 동물. 이 접두사를 쓰는 슬롯을 한 판에 모아 올린다 —
+/** 로비 배경 영상. 이 접두사를 쓰는 슬롯을 한 판에 모아 올린다 —
  *  6칸을 하나씩 골라 들어가지 않고 타일처럼 한자리에서 끝내려는 것이다. */
-const FRIEND_PREFIX = "lobby.friends.";
+const SCENE_PREFIX = "lobby.friends.";
 
 /** 되돌리기·다시. 배치만 다룬다 — 업로드는 파일이 이미 디스크에 있으므로 되돌리지 않는다. */
 let history: History<UiArea[]> | null = null;
@@ -329,7 +329,7 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
 
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,audio/mpeg,audio/wav,audio/ogg,audio/mp4";
+  input.accept = "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,audio/mpeg,audio/wav,audio/ogg,audio/mp4";
   input.multiple = seq; // 시퀀스 슬롯은 여러 장을 한 번에 받는다
   input.style.display = "none";
   input.onchange = (): void => { void upload([...(input.files ?? [])]); input.value = ""; };
@@ -424,6 +424,10 @@ function card(label: string, dotted: string, onChanged?: () => void, seq = false
 function renderStage(): void {
   stageWrap.replaceChildren();
   for (const s of area().slots) {
+    // 배경 영상 슬롯은 스테이지에 그리지 않는다. 화면 전체(0,0,450,800)를 차지해
+    // **다른 슬롯을 전부 덮고 클릭을 가로챈다** — PLAY도 설정도 고를 수 없게 된다.
+    // 좌표를 쓰지 않는 자리라 끌어 맞출 것도 없다. 업로드는 아래 묶음 판에서 한다.
+    if (s.asset?.startsWith(SCENE_PREFIX) === true) continue;
     const on = s.id === state.selected;
     const el = $("div",
       `position:absolute;left:${s.x * SCALE}px;top:${s.y * SCALE}px;width:${s.w * SCALE}px;height:${s.h * SCALE}px;`
@@ -472,20 +476,23 @@ function renderTabs(): void {
   mk(`오디오 (${state.audios.length})`, state.audioTab, () => { only("audio"); renderAll(); });
 }
 
-/** 영역 탭에만 붙는 묶음 업로드 판. 지금은 로비의 동물 친구 6칸뿐이다.
- *  좌표는 위 스테이지에서 끌어 맞추고, 그림은 여기서 한 번에 올린다. */
+/** 영역 탭에만 붙는 묶음 업로드 판. 지금은 로비의 배경 영상 6칸뿐이다.
+ *  전체화면이라 좌표는 손댈 것이 없고, 영상만 여기서 한 번에 올린다. */
 function renderExtras(): void {
   extras.replaceChildren();
-  const friends: UiUpload[] = area().slots
-    .filter((s) => s.asset?.startsWith(FRIEND_PREFIX) === true)
-    .map((s) => ({ label: s.label.replace(/^로비 친구 · /, ""), asset: s.asset!, group: "동물 친구" }));
-  if (friends.length === 0) return;
+  const scenes: UiUpload[] = area().slots
+    .filter((s) => s.asset?.startsWith(SCENE_PREFIX) === true)
+    .map((s) => ({ label: s.label.replace(/^로비 배경 · /, ""), asset: s.asset!, group: "로비 배경 영상" }));
+  if (scenes.length === 0) return;
 
   const wrap = $("div", "background:#241a10;border:1px solid #4a3320;border-radius:8px;padding:12px");
   wrap.appendChild($("div", "color:#a8987c;font-size:11px;margin-bottom:8px",
-    "스테이지를 깨서 구출한 동물만 로비 좌우에 섭니다. 자리는 위 스테이지에서 끌어 옮기고, "
-    + "그림은 여기서 올립니다. 안 올린 칸은 게임에서 글리프 폴백으로 그려집니다."));
-  wrap.appendChild(uploadGrid(friends, 110, () => renderStage()));
+    "구출한 마릿수마다 한 편입니다 — 화면 전체를 덮는 webm 루프이고, 그 장면에는 그때까지 "
+    + "구한 동물이 누적해 등장합니다. 9:16 · 1080×1920 · 무음 · 첫 프레임과 끝 프레임이 이어져야 "
+    + "끊김 없이 돕니다. 칸 이름의 동물과 그 장면의 동물은 무관합니다 — 「3마리 구출」 칸에는 "
+    + "세 마리가 있는 장면을 올립니다. 안 올린 칸은 그 이하 중 있는 것으로 내려가고, "
+    + "하나도 없으면 스틸 배경이 그대로 남습니다. mp4로 올려도 webm으로 자동 변환됩니다."));
+  wrap.appendChild(uploadGrid(scenes, 130, () => renderStage()));
   extras.appendChild(wrap);
 }
 

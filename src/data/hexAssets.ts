@@ -117,9 +117,11 @@ export const LOBBY_SLOT_IDS = [
 ] as const;
 export type LobbySlotId = (typeof LOBBY_SLOT_IDS)[number];
 
-/** 로비에 나타나는 구출한 동물 — 동물 id → 스틸 한 장.
- *  스테이지를 깨서 구출한 동물만 로비 좌우에 선다. 아트가 없으면 코드 폴백. */
-export const lobbyFriendAssetPaths: Record<string, string> = record(manifestJson, "lobby", "friends");
+/** 로비 배경 영상 — 장면 키 → mp4 경로. 구출 마릿수마다 한 편이다.
+ *  텍스처가 아니라 **경로**로 내보낸다: 용량이 커서 부팅 때 다 받으면 첫 화면이
+ *  늦어지고, 한 번에 쓰는 것은 한 편뿐이라 로비가 그때 받는 편이 싸다.
+ *  키의 동물과 그 장면의 동물은 무관하다 — data/lobbyScene.ts 참조. */
+export const lobbySceneVideoPaths: Record<string, string> = record(manifestJson, "lobby", "friends");
 
 /** 월드 지도 화면 — 배경 한 장과 돌아가기 버튼. 톱니는 로비 것을 그대로 쓴다. */
 export const WORLD_SLOT_IDS = ["bg", "back"] as const;
