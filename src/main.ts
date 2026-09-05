@@ -19,6 +19,7 @@ import { uiAreas } from "./data/uiLayout";
 import { loadProgress, onLoadProgress } from "./ui/loadProgress";
 import { stages } from "./data/stages";
 import { runStageScreen } from "./ui/hex/stageScreen";
+import { openConfirm } from "./ui/confirmDialog";
 
 // 배경 영상은 항상 무한 루프·무음 — BGM은 오디오 시스템이 담당
 VideoSource.defaultOptions = {
@@ -191,9 +192,14 @@ async function main(): Promise<void> {
     await playVideo(videoAssetPaths.intro);
   }
 
+  /** 게임오버 창에서 「다시 도전」을 골랐다 — 로비를 거치지 않고 같은 판을 다시 연다. */
+  let retry = false;
   for (;;) {
-    mark("lobby");
-    await runLobby(app, profile, lobbyTextures, (next) => { profile = next; save(); });
+    if (!retry) {
+      mark("lobby");
+      await runLobby(app, profile, lobbyTextures, (next) => { profile = next; save(); });
+    }
+    retry = false;
 
     mark("game");
     // 마지막 스테이지를 넘으면 처음으로 되돌린다
@@ -226,6 +232,17 @@ async function main(): Promise<void> {
       }
     }
     // failed·lobby는 프로필을 건드리지 않는다 — 다음 바퀴에서 같은 스테이지가 다시 나온다
+    if (outcome.result === "failed") {
+      // 곧바로 로비로 튕기면 「졌다」가 화면에 없다(본선 QA). 한 번 세우고 다시 할지 묻는다.
+      // 확인창을 그대로 쓴다 — 자리·아트가 설정창의 확인창과 같아 디자이너가 따로 맞출 것이 없다.
+      mark("gameover");
+      retry = await openConfirm(app.stage, {
+        message: "게임 오버\n동물들이 아직 우리에 갇혀 있어요.\n다시 도전할까요?",
+        okLabel: "다시 도전",
+        cancelLabel: "로비로",
+        textures: { panel: ui.confirmPanel },
+      });
+    }
   }
 }
 
