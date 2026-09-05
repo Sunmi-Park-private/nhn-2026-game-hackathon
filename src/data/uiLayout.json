@@ -169,6 +169,7 @@
     {
       "id": "world",
       "label": "월드",
+      "disabled": true,
       "slots": [
         {
           "id": "bg",
@@ -197,8 +198,7 @@
           "h": 35,
           "asset": "world.back"
         }
-      ],
-      "disabled": true
+      ]
     },
     {
       "id": "collection",

@@ -60,7 +60,8 @@ async function main(): Promise<void> {
   await app.init({
     width: 450,
     height: 800,
-    background: "#f8f5fd",
+    // 에셋을 받는 동안 보이는 색이다. 흰색이면 게임 톤과 어긋나 「깜빡」으로 보인다
+    background: "#241a10",
     antialias: true,
     // 렌더 배율 — 예전엔 항상 2 이상(기기 dpr이 3이면 3)이었는데, 폰에서 프레임버퍼가
     // 1290×2868까지 커져(안티에일리어싱까지) 심하게 버벅였다. 2면 충분히 선명하다.
@@ -74,8 +75,6 @@ async function main(): Promise<void> {
   fit();
   window.addEventListener("resize", fit);
   initAudioUnlock(); // 첫 제스처에서 재생 언락 (자동재생 정책)
-  mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다
-  mountCheatPanel();              // 같은 조건 + devMode. 화면 왼쪽, 배치 패널 반대편이다
 
   // E2E 테스트용 씬 마커 — 현재 단계 노출 (게임 로직에선 미사용)
   const mark = (s: string): void => { (window as unknown as { __scene?: string }).__scene = s; };
@@ -102,6 +101,10 @@ async function main(): Promise<void> {
     loadSlots(collectionAssetPaths.cards),
     loadSlots(collectionAssetPaths.locked),
   ]);
+  // 에셋을 다 받은 뒤에 얹는다 — 먼저 얹으면 빈 캔버스 위에 격자만 뜬다
+  mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다
+  mountCheatPanel();            // 같은 조건 + devMode. 화면 왼쪽, 배치 패널 반대편이다
+
   // 설정창이 쓰는 묶음. 스테이지 화면도 같은 것을 그대로 넘겨받는다.
   const ui = {
     panel: uiSlots.settingsPanel,
