@@ -27,7 +27,7 @@
 npm install
 npm run dev      # localhost:5173
 npm run build    # tsc --noEmit + vite build
-npm test         # vitest — 178개
+npm test         # vitest
 ```
 
 - `README.md`는 Node 25에서 esbuild가 안 된다고 하지만 **v25.9.0에서 빌드·테스트가 통과한다.**
