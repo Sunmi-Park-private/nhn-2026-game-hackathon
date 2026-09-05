@@ -6,7 +6,7 @@ import { createRun } from "../../src/engine/hex/stageRun";
 import {
   hasBooster, consume, useHorseshoe, applyBomb, rainbowComponent,
 } from "../../src/engine/hex/boosters";
-import type { Cell, StageDef, Tier } from "../../src/engine/hex/types";
+import { MAX_TIER, type Cell, type StageDef, type Tier } from "../../src/engine/hex/types";
 
 function stage(): StageDef {
   return { id: "t", cols: 7, rows: 12, objective: 1, pushSeconds: 15, armorChance: 0, cages: [], tiles: [], horseshoes: [] };
@@ -57,10 +57,11 @@ describe("useHorseshoe", () => {
 
   it("이미 최고 티어면 쓸 수 없다", () => {
     const run = createRun(stage());
-    run.loaded = 5;
+    // 「최고」를 숫자로 적지 않는다 — MAX_TIER를 내리면 이 줄이 뜻을 잃는다
+    run.loaded = MAX_TIER;
     const before = run.boosters.horseshoe;
     expect(useHorseshoe(run)).toBe(false);
-    expect(run.loaded).toBe(5);
+    expect(run.loaded).toBe(MAX_TIER);
     // 실패한 승급은 부스터를 태우지 않는다 — 티어 검사가 소모보다 먼저여야 한다
     expect(run.boosters.horseshoe).toBe(before);
   });

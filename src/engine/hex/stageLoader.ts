@@ -40,7 +40,7 @@ function asAxial(v: unknown, what: string): Axial {
 
 function asTier(v: unknown, what: string): Tier {
   const n = asInt(v, `${what}.tier`);
-  if (n < 0 || n > 5) fail(`${what}.tier가 0~5 범위를 벗어났다 (${n})`);
+  if (n < 0 || n > 4) fail(`${what}.tier가 0~4 범위를 벗어났다 (${n})`);
   return n as Tier;
 }
 

@@ -97,7 +97,13 @@ function buildBackground(bg: StageTextures["bg"]): Container {
     if (bg.panelLeft) layer.addChild(sidePanel(bg.panelLeft, left, panelW, layer));
     if (bg.panelRight) layer.addChild(sidePanel(bg.panelRight, BASE_W, panelW, layer));
   }
-  if (bg.board) layer.addChild(coverBox(bg.board));
+  if (bg.board) {
+    const board = coverBox(bg.board);
+    layer.addChild(board);
+    // 판 배경도 에디터가 잡는다 — 예전에는 노드를 슬롯에 안 넘겨 목록에 뜨지 않았다(QA)
+    const boardBox = slot("ingame", "bgBoard");
+    if (boardBox) editable("ingame", boardBox, board);
+  }
   // 인게임 배경 패널 — 판 배경 위, 게임 오브젝트 아래. 이 컨테이너가 layer에 제일 먼저
   // 붙으므로 타일·케이지·발사대·HUD는 전부 이보다 앞에 그려진다.
   //
@@ -361,6 +367,9 @@ export async function runStageScreen(
       pullArea.setActive(false);
       // 데드존 안에서 뗐다 — 쏘지 않고 자세만 되돌린다
       if (!aim) { launcher.settleBack(); return; }
+      // 첫 반사가 판 하단 1/3이면 쏘지 않는다(ui/hex/aimRule.ts). 조준선이 이미
+      // 붉게 떠 있었으므로 여기서는 조용히 되돌리기만 한다 — 소리도 내지 않는다.
+      if (launcher.isBlocked()) { launcher.settleBack(); return; }
 
       busy = true;
       try {

@@ -117,6 +117,7 @@ export type UiSlotId = (typeof UI_SLOT_IDS)[number];
 
 export const LOBBY_SLOT_IDS = [
   "bg", "topStats", "play",
+  "stage1", "stage2", "stage3", "stage4", "stage5", "stage6",
   "navHome", "navRace", "navAnimals", "navEvents",
 ] as const;
 export type LobbySlotId = (typeof LOBBY_SLOT_IDS)[number];

@@ -182,7 +182,12 @@ async function main(): Promise<void> {
   };
   const lobbyTextures = {
     bg: lobbySlots.bg,
-    play: lobbySlots.play,
+    // 스테이지 1~6. 전용 아트가 오기 전까지 여섯 칸 모두 매니페스트가 PLAY 아트를 가리킨다 —
+    // 칸마다 슬롯이 따로라 에디터에서 하나씩 갈아끼울 수 있다.
+    stages: [
+      lobbySlots.stage1, lobbySlots.stage2, lobbySlots.stage3,
+      lobbySlots.stage4, lobbySlots.stage5, lobbySlots.stage6,
+    ].map((t) => t ?? null),
     gear: uiSlots.gear,
     icons: {
       topStats: lobbySlots.topStats ?? null,
@@ -254,7 +259,12 @@ async function main(): Promise<void> {
   for (;;) {
     if (!retry) {
       mark("lobby");
-      await runLobby(app, profile, lobbyTextures, (next) => { profile = next; save(); });
+      // 로비가 고른 판으로 간다 — 예전에는 PLAY 하나뿐이라 profile.stageIndex를 그대로 썼다.
+      const picked = await runLobby(app, profile, lobbyTextures, (next) => { profile = next; save(); });
+      if (picked !== profile.stageIndex) {
+        profile = { ...profile, stageIndex: picked };
+        save();
+      }
     }
     retry = false;
 

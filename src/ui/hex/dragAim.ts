@@ -37,9 +37,10 @@ const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > 
  * 둔해지는 것은 조준의 정밀한 구간뿐이다.
  *
  * 0.5(중앙 절반)로 한 번 늦췄는데 본선 QA에서 「아직 너무 빠르고 민감하다」가 나와
- * 0.75로 올렸다 — 중앙 기울기가 선형의 **1/4**, 직전 값의 절반이다.
+ * 0.75로 올렸다. 그래도 「말이 좌우로 움직이는 게 너무 섬세하다」가 다시 나와 0.85다 —
+ * 중앙 기울기가 선형의 **0.15배**다. 끝(u=±1)은 여전히 1이라 최대 각도는 그대로 닿는다.
  */
-export const AIM_EXPO = 0.75;
+export const AIM_EXPO = 0.85;
 
 /** 정규화된 조준 입력(-1~1)에 expo를 먹인다. */
 export function applyExpo(u: number): number {

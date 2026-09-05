@@ -1,6 +1,6 @@
 // tests/hex/dragAim.test.ts — 새총 조준: 당긴 반대로 날아간다
 import { describe, it, expect } from "vitest";
-import { createDragAim, MAX_ANGLE, DEAD_ZONE, MAX_PULL, applyExpo } from "../../src/ui/hex/dragAim";
+import { createDragAim, MAX_ANGLE, DEAD_ZONE, MAX_PULL, applyExpo, AIM_EXPO } from "../../src/ui/hex/dragAim";
 
 const ANCHOR = { x: 225, y: 700 };
 
@@ -108,10 +108,20 @@ describe("createDragAim", () => {
 describe("조준 민감도 — expo 커브", () => {
   // 선형이면 손끝이 조금만 움직여도 조준선과 말이 확 돈다. 각도에 0.5를 곱하면
   // 둔해지긴 하지만 최대 각도까지 못 가 넓은 뱅크 샷이 죽는다. expo는 둘을 같이 만족한다.
-  it("중앙 기울기가 선형의 1/4이다 — 같은 각을 내려면 네 배로 끌어야 한다", () => {
-    // 본선 QA: 절반(0.5)으로도 「너무 빠르고 민감하다」 → 한 번 더 절반으로.
+  // 예전에는 여기서 기울기 0.25를 **숫자로** 기대했다. 튜닝 값(AIM_EXPO)을 만질
+  // 때마다 이 줄이 빨개져, 고치는 사람이 튜닝을 되돌리거나 숫자만 바꿔 적었다.
+  // 재야 할 것은 특정 값이 아니라 커브의 성질이다.
+  it("중앙 기울기가 1-AIM_EXPO다 — 그만큼 정밀 구간이 둔해진다", () => {
     const h = 1e-6;
-    expect((applyExpo(h) - applyExpo(-h)) / (2 * h)).toBeCloseTo(0.25, 4);
+    const slope = (applyExpo(h) - applyExpo(-h)) / (2 * h);
+    expect(slope).toBeCloseTo(1 - AIM_EXPO, 4);
+  });
+
+  it("중앙이 선형보다 확실히 둔하다 — 손끝이 조금 움직였을 때 각이 덜 돈다", () => {
+    const h = 1e-6;
+    const slope = (applyExpo(h) - applyExpo(-h)) / (2 * h);
+    expect(slope).toBeLessThan(0.5);
+    expect(slope).toBeGreaterThan(0); // 아예 안 도는 것은 조준이 아니다
   });
 
   it("최대 각도는 그대로 닿는다", () => {
