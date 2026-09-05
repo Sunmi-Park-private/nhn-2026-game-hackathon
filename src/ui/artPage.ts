@@ -12,6 +12,7 @@ import { slot, type UiSlot } from "../data/uiLayout";
 import { buzz } from "./settings";
 import { playSfx } from "./audio";
 import { editable, clearEditable } from "./layoutEditor";
+import { applySlotHitArea } from "./slotHitRect";
 
 export interface Box { x: number; y: number; w: number; h: number }
 
@@ -53,6 +54,9 @@ function hotspot(area: string, b: UiSlot, btn: ArtButton): Container {
   c.addChild(new Graphics().rect(0, 0, b.w, b.h).fill({ color: 0xffffff, alpha: 0 }));
 
   editable(area, b, c);
+  // 터치 영역을 슬롯 상자에 못박는다 — 슬롯 배율(이벤트 cta는 3)이 히트 사각형까지
+  // 키워서, 나중에 붙은 cta가 닫기 버튼을 통째로 덮고 탭을 가로챘다.
+  applySlotHitArea(c, b);
   c.eventMode = "static";
   c.cursor = "pointer";
   c.on("pointertap", () => { buzz(); playSfx("audio.sfxTap"); btn.onTap(); });
