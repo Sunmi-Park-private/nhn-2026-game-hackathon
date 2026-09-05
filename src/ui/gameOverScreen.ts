@@ -8,7 +8,7 @@
 // 자리는 uiLayout.json의 gameover 영역이 들고 있고 **호출자가 넣어 준다**(규약 2조 —
 // 이 파일은 ../data를 모른다). 슬롯이 없으면 gameOverLayout.ts의 폴백으로 간다.
 import { Container, Graphics, Text, type Texture } from "pixi.js";
-import { stageLeft, stageTop, stageWidth, stageHeight } from "./stage";
+import { contentRect, stageLeft, stageTop, stageWidth, stageHeight } from "./stage";
 import { fitSprite } from "./skin";
 import { hotspot, plate } from "./panelBits";
 import { editable, clearEditable } from "./layoutEditor";
@@ -57,7 +57,18 @@ export function openGameOver(parent: Container, opts: GameOverOptions = {}): Pro
     const root = new Container();
     parent.addChild(root);
 
-    // 막 — 캔버스 전체. 뒤 화면은 이미 파괴됐지만 좌우 패널 영역까지 어둡게 덮어야 한 장면으로 읽힌다.
+    // 콘텐츠 컬럼을 **불투명하게** 덮는다.
+    //
+    // stageScreen.finish()가 layer를 통째로 파괴하면서 그 안에서 컬럼을 칠하던
+    // contentRect도 함께 사라진다. 그러면 남는 것은 main.ts가 모든 화면 밑에 깔아 둔
+    // 로비 배경뿐인데, 그 한가운데는 헛간 문 너머 **파란 하늘**이다. 게임오버는 반투명
+    // 막만 덮으므로 그 파랑이 그대로 올라왔다(QA: 게임오버에서 배경이 파래진다).
+    //
+    // 인게임과 같은 색으로 컬럼을 채워 화면이 이어지게 한다. 좌우 블리드는 덮지 않는다 —
+    // 거기는 어느 화면에서든 기본 배경이 보이는 자리다(stage.ts contentRect 참조).
+    root.addChild(contentRect(0x241a10));
+
+    // 막 — 캔버스 전체. 좌우 패널 영역까지 어둡게 덮어야 한 장면으로 읽힌다.
     const veil = new Graphics()
       .rect(stageLeft(), stageTop(), stageWidth(), stageHeight())
       .fill({ color: 0x120c06, alpha: 0.72 });
