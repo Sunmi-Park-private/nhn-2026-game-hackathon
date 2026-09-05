@@ -52,7 +52,13 @@ export interface StageTextures {
   horse: Texture[];
   /** 그 시퀀스에서 팔이 최대로 접힌 프레임(0-based) */
   horseHold: number;
-  bg: { board: Texture | null; panelLeft: Texture | null; panelRight: Texture | null };
+  bg: {
+    board: Texture | null;
+    panelLeft: Texture | null;
+    panelRight: Texture | null;
+    /** 인게임 화면에 얹는 패널. 자리는 ingame/bgPanel 슬롯이 정한다 */
+    ingamePanel: Texture | null;
+  };
 }
 
 /** 좌우 패널 배치. 콘텐츠 박스 바깥 영역을 아트로 채운다.
@@ -86,6 +92,22 @@ function buildBackground(bg: StageTextures["bg"]): Container {
     if (bg.panelRight) layer.addChild(sidePanel(bg.panelRight, BASE_W, panelW, layer));
   }
   if (bg.board) layer.addChild(coverBox(bg.board));
+  // 인게임 배경 패널 — 판 배경 위, 게임 오브젝트 아래. 이 컨테이너가 layer에 제일 먼저
+  // 붙으므로 타일·케이지·발사대·HUD는 전부 이보다 앞에 그려진다.
+  //
+  // 코드가 자리를 정하지 않는다 — 에디터에서 끌어 옮긴 사각형이 곧 그려지는 자리다.
+  // 그래서 비율을 맞추지 않고 슬롯 크기에 그대로 늘린다: 에디터에서 본 모양과
+  // 화면에 나온 모양이 다르면 배치를 손으로 맞출 수가 없다.
+  const panelBox = slot("ingame", "bgPanel");
+  if (bg.ingamePanel && panelBox && panelBox.hidden !== true) {
+    const panel = new Sprite(bg.ingamePanel);
+    panel.width = panelBox.w;
+    panel.height = panelBox.h;
+    panel.x = panelBox.x;
+    panel.y = stageTop() + panelBox.y;
+    layer.addChild(panel);
+    editable("ingame", { ...panelBox }, panel);
+  }
   // 플레이 영역 테두리 — 배경 아트가 없으면 좌우 여백과 판이 같은 갈색이라 경계가 안 보인다.
   // 발사체가 튕기는 벽이 정확히 이 선이므로, 아트가 들어와도 남겨 두는 편이 읽기 좋다.
   layer.addChild(

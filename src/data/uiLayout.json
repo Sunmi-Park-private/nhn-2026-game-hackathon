@@ -357,6 +357,15 @@
       "label": "인게임",
       "slots": [
         {
+          "id": "bgPanel",
+          "label": "배경 패널",
+          "x": 0,
+          "y": 0,
+          "w": 450,
+          "h": 800,
+          "asset": "hex.bg.ingamePanel"
+        },
+        {
           "id": "stageBar",
           "label": "스테이지 바",
           "x": 115,
@@ -689,6 +698,11 @@
     {
       "label": "우 패널",
       "asset": "hex.bg.panelRight",
+      "group": "배경"
+    },
+    {
+      "label": "인게임 배경 패널",
+      "asset": "hex.bg.ingamePanel",
       "group": "배경"
     }
   ],

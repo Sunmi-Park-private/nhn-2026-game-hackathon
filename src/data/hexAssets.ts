@@ -21,7 +21,13 @@ export interface HexAssetPaths {
    *  앞은 당김(드래그로 스크럽), 뒤는 토스(놓으면 재생)로 갈린다.
    *  디자이너가 에디터에서 찍는다. 안 찍었으면 한가운데를 쓴다. */
   horseHold: number;
-  bg: { board?: string; panelLeft?: string; panelRight?: string };
+  bg: {
+    board?: string;
+    panelLeft?: string;
+    panelRight?: string;
+    /** 인게임 화면에 얹는 패널 한 장. 판 배경과 별개로, 자리는 ingame/bgPanel 슬롯이 정한다 */
+    ingamePanel?: string;
+  };
 }
 
 function str(v: unknown): string | undefined {
@@ -86,7 +92,12 @@ function parse(raw: unknown): HexAssetPaths {
     horse,
     horseHold: frameIndex(hex.horseHold, horse.length),
     animals,
-    bg: { board: str(bgRaw.board), panelLeft: str(bgRaw.panelLeft), panelRight: str(bgRaw.panelRight) },
+    bg: {
+      board: str(bgRaw.board),
+      panelLeft: str(bgRaw.panelLeft),
+      panelRight: str(bgRaw.panelRight),
+      ingamePanel: str(bgRaw.ingamePanel),
+    },
   };
 }
 
