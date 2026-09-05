@@ -14,12 +14,19 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build:single": "tsc --noEmit && VITE_CHEATS=1 vite build --config vite.single.config.ts && node scripts/singlefile.mjs"
+    "build:single": "tsc --noEmit && VITE_CHEATS=1 vite build --config vite.single.config.ts && node scripts/singlefile.mjs",
+    "android": "zsh scripts/android.sh debug",
+    "android:install": "zsh scripts/android.sh install",
+    "android:release": "zsh scripts/android.sh release",
+    "android:open": "zsh scripts/android.sh open"
   },
   "dependencies": {
     "pixi.js": "^8.0.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
     "@types/node": "^26.1.1",
     "playwright-core": "^1.61.1",
     "qrcode-generator": "^2.0.4",
