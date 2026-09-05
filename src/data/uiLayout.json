@@ -530,7 +530,8 @@
       "label": "붉은말(발사대)",
       "asset": "hex.horse",
       "group": "발사대",
-      "seq": true
+      "seq": true,
+      "hold": "hex.horseHold"
     },
     {
       "label": "타일 빨강",

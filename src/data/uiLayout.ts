@@ -40,6 +40,9 @@ export interface UiUpload {
   /** 묶음 이름 — 에디터가 같은 값끼리 모아 구분선과 머리글을 그린다.
    *  목록 순서가 곧 표시 순서다. 없으면 앞 항목의 묶음에 이어 붙는다. */
   group?: string;
+  /** 시퀀스 안의 한 프레임을 가리키는 숫자를 저장할 매니페스트 점 경로.
+   *  이 값이 있는 슬롯에만 에디터가 프레임 스크러버를 붙인다. */
+  hold?: string;
 }
 
 export interface UiArea {
@@ -95,6 +98,7 @@ function parseUploads(raw: unknown): UiUpload[] {
       asset: String(u.asset),
       seq: u.seq === true,
       group: typeof u.group === "string" ? u.group : undefined,
+      hold: typeof u.hold === "string" ? u.hold : undefined,
     }));
 }
 

@@ -36,6 +36,7 @@
     },
     "_note": "문자열=스틸 한 장, 배열=이미지 시퀀스. 에디터가 시퀀스를 올리면 배열로 바뀐다. cageLocked는 동물마다 시퀀스, cageOpen은 동물마다 스틸이다.",
     "horse": "assets/hex/horse-idle.png",
+    "horseHold": 0,
     "bg": {
       "board": "assets/hex/bg-board.png",
       "panelLeft": "assets/hex/bg-panel-left.png",

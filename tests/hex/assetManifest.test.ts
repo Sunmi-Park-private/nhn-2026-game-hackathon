@@ -58,3 +58,24 @@ describe("로비 동물 친구", () => {
     }
   });
 });
+
+describe("붉은말 최대 장전 프레임", () => {
+  it("매니페스트에서 숫자로 읽힌다", () => {
+    expect(Number.isInteger(hexAssetPaths.horseHold)).toBe(true);
+    expect(hexAssetPaths.horseHold).toBeGreaterThanOrEqual(0);
+  });
+
+  it("프레임 범위를 벗어나지 않는다", () => {
+    const len = hexAssetPaths.horse.length;
+    if (len === 0) {
+      expect(hexAssetPaths.horseHold).toBe(0);
+      return;
+    }
+    expect(hexAssetPaths.horseHold).toBeLessThan(len);
+  });
+
+  it("에디터의 붉은말 항목이 저장 경로를 들고 있다", () => {
+    const horse = uiUploads.find((u) => u.asset === "hex.horse");
+    expect(horse?.hold).toBe("hex.horseHold");
+  });
+});

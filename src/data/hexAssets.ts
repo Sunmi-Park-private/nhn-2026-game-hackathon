@@ -17,6 +17,10 @@ export interface HexAssetPaths {
   animals: Record<string, string[]>;
   /** 화면 하단 붉은말(발사대) — 시퀀스 */
   horse: string[];
+  /** 그 시퀀스에서 **팔이 최대로 접힌 프레임**(0-based).
+   *  앞은 당김(드래그로 스크럽), 뒤는 토스(놓으면 재생)로 갈린다.
+   *  디자이너가 에디터에서 찍는다. 안 찍었으면 한가운데를 쓴다. */
+  horseHold: number;
   bg: { board?: string; panelLeft?: string; panelRight?: string };
 }
 
@@ -52,6 +56,16 @@ function strByAnimal(raw: unknown): Record<string, string> {
   return out;
 }
 
+/** 프레임 인덱스. 범위를 벗어나거나 정수가 아니면 한가운데로 접는다 —
+ *  디자이너 오투입이 런타임 예외가 되면 안 된다(규약 3조). */
+function frameIndex(v: unknown, len: number): number {
+  if (len === 0) return 0;
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v >= len) {
+    return Math.floor(len / 2);
+  }
+  return v;
+}
+
 function parse(raw: unknown): HexAssetPaths {
   const hex = (raw as { hex?: Record<string, unknown> }).hex ?? {};
   const tilesRaw = Array.isArray(hex.tiles) ? hex.tiles : [];
@@ -61,12 +75,14 @@ function parse(raw: unknown): HexAssetPaths {
   const animals = framesByAnimal(hex.animals);
 
   const bgRaw = (hex.bg ?? {}) as Record<string, unknown>;
+  const horse = frames(hex.horse);
   return {
     tiles,
     horseshoe: str(hex.horseshoe),
     cageLocked: framesByAnimal(hex.cageLocked),
     cageOpen: strByAnimal(hex.cageOpen),
-    horse: frames(hex.horse),
+    horse,
+    horseHold: frameIndex(hex.horseHold, horse.length),
     animals,
     bg: { board: str(bgRaw.board), panelLeft: str(bgRaw.panelLeft), panelRight: str(bgRaw.panelRight) },
   };
