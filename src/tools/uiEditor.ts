@@ -610,14 +610,35 @@ function attachDrag(el: HTMLElement, grip: HTMLElement, s: UiSlot): void {
 }
 
 // ── 저장 ────────────────────────────────────
+/** 디스크의 배치에 이 탭이 옮긴 좌표만 얹는다.
+ *
+ *  이 탭은 뜰 때 읽은 배치를 기억하고 있을 뿐이라, 그 뒤에 **코드가 새로 추가한
+ *  슬롯을 모른다**. 저장할 때 기억을 통째로 써 버리면 그 슬롯이 조용히 사라진다 —
+ *  실제로 powerGauge와 bgPanel이 이렇게 여러 번 지워졌고, 그중 한 번은 커밋에
+ *  실려 나갔다.
+ *
+ *  그래서 **디스크를 기준으로 삼고** 아는 슬롯의 좌표만 갈아 끼운다.
+ *  에디터에는 슬롯을 지우는 기능이 없으므로, 모르는 슬롯은 남기는 것이 언제나 옳다. */
+function mergeAreas(disk: UiArea[], mine: UiArea[]): UiArea[] {
+  if (disk.length === 0) return mine; // dev 서버 밖 — 비교할 디스크가 없다
+  const byId = new Map(mine.map((a) => [a.id, new Map(a.slots.map((s) => [s.id, s]))]));
+  return disk.map((area) => {
+    const edited = byId.get(area.id);
+    if (!edited) return area;
+    return { ...area, slots: area.slots.map((s) => edited.get(s.id) ?? s) };
+  });
+}
+
 saveBtn.onclick = async (): Promise<void> => {
   status.textContent = "저장 중…";
   status.style.color = "#a8987c";
   try {
+    const disk = await currentLayout();
+    const diskAreas = Array.isArray(disk.areas) ? (disk.areas as UiArea[]) : [];
     const res = await fetch("/__uilayout", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...(await currentLayout()), areas: state.areas }),
+      body: JSON.stringify({ ...disk, areas: mergeAreas(diskAreas, state.areas) }),
     });
     if (!res.ok) throw new Error(await res.text());
     state.dirty = false;
