@@ -526,7 +526,7 @@ const AREA_UPLOAD_GROUPS: Record<string, { groups: string[]; note: string }> = {
 const AREA_VIDEO_UPLOADS: Record<string, { assets: string[]; note: string }> = {
   intro: {
     assets: ["video.intro"],
-    note: "게임을 열면 **가장 먼저** 재생됩니다 — 로딩 화면보다 앞이고, 에셋은 이 영상이 도는 동안 뒤에서 받습니다. "
+    note: "게임을 열면 **가장 먼저** 재생됩니다 — 로딩 화면보다 앞입니다. 에셋은 이 영상이 끝난 뒤 로딩 화면에서 받습니다(영상 중에 받으면 버벅입니다). "
       + "9:16 · mp4 그대로 씁니다(DOM 재생). 자동재생 정책 때문에 무음으로 시작하고 화면의 🔇 버튼으로 소리를 켭니다. "
       + "건너뛰기 버튼은 코드가 우측 상단에 그립니다. 파일이 없으면 바로 로딩 화면으로 갑니다.",
   },
