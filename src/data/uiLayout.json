@@ -745,6 +745,61 @@
       ]
     },
     {
+      "id": "story",
+      "label": "대사",
+      "slots": [
+        {
+          "id": "panel",
+          "label": "대사창",
+          "x": 24,
+          "y": 566,
+          "w": 402,
+          "h": 190
+        },
+        {
+          "id": "name",
+          "label": "이름표",
+          "x": 44,
+          "y": 546,
+          "w": 150,
+          "h": 34
+        },
+        {
+          "id": "text",
+          "label": "대사 본문",
+          "x": 48,
+          "y": 600,
+          "w": 354,
+          "h": 120
+        },
+        {
+          "id": "horse",
+          "label": "붉은말 초상",
+          "x": 6,
+          "y": 300,
+          "w": 220,
+          "h": 280,
+          "asset": "story.horse"
+        },
+        {
+          "id": "animal",
+          "label": "동물 초상",
+          "x": 224,
+          "y": 300,
+          "w": 220,
+          "h": 280
+        },
+        {
+          "id": "hint",
+          "label": "탭 안내",
+          "x": 306,
+          "y": 722,
+          "w": 100,
+          "h": 24
+        }
+      ]
+    },
+    {
       "id": "raceSelect",
       "label": "레이스 · 선택",
       "slots": [
@@ -1316,6 +1371,41 @@
       "group": "부스터 아이콘",
       "label": "부스터 · 말굽",
       "asset": "hex.booster.horseshoe"
+    },
+    {
+      "label": "붉은말",
+      "asset": "story.horse",
+      "group": "대사 · 초상"
+    },
+    {
+      "label": "토끼",
+      "asset": "story.animals.rabbit",
+      "group": "대사 · 초상"
+    },
+    {
+      "label": "원숭이",
+      "asset": "story.animals.monkey",
+      "group": "대사 · 초상"
+    },
+    {
+      "label": "사슴",
+      "asset": "story.animals.deer",
+      "group": "대사 · 초상"
+    },
+    {
+      "label": "양",
+      "asset": "story.animals.sheep",
+      "group": "대사 · 초상"
+    },
+    {
+      "label": "얼룩말",
+      "asset": "story.animals.zebra",
+      "group": "대사 · 초상"
+    },
+    {
+      "label": "코끼리",
+      "asset": "story.animals.elephant",
+      "group": "대사 · 초상"
     }
   ],
   "videos": [

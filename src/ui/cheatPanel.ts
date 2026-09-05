@@ -11,6 +11,7 @@ import { isDevMode } from "./devMode";
 import { ANIMALS } from "../data/animals";
 import { sceneCandidates, SCENE_KEYS } from "../data/lobbyScene";
 import { stages } from "../data/stages";
+import { STORY_BEATS } from "../data/story";
 import { parseProfile, serializeProfile, PROFILE_KEY, type Profile } from "../engine/profile";
 
 const CSS = {
@@ -50,7 +51,13 @@ function paintRadio(b: HTMLElement, on: boolean, label: string): void {
  * 변수로 들고 있어서, 저장만 해서는 돌고 있는 로비가 모른다. `?editor=1`은 인트로를
  * 건너뛰므로 새로고침이 곧 로비다 — 눌렀을 때 화면이 바로 바뀌는 것이 중요하다.
  */
-export function mountCheatPanel(): void {
+export interface CheatOptions {
+  /** 「대사 보기」를 누르면 그 판(0-based)의 대사를 띄운다. 없으면 그 묶음이 안 뜬다 —
+   *  패널은 Pixi를 모른다: 화면을 여는 일은 넘겨받은 이 함수가 한다. */
+  onPlayStory?: (clearedIndex: number) => void;
+}
+
+export function mountCheatPanel(opts: CheatOptions = {}): void {
   if (!isDevMode()) return;
   if (!new URLSearchParams(location.search).has("editor")) return;
 
@@ -87,6 +94,26 @@ export function mountCheatPanel(): void {
   body.append(el("div", CSS.state, "스테이지 바로 진입 — 로비를 건너뛰고 그 판을 연다."));
   const stageRows = el("div", CSS.row);
   body.append(stageRows);
+
+  // ── 대사 보기 ──
+  // 판을 깨야만 보이는 대사를 그 자리에서 띄운다. 프로필을 건드리지 않는다 —
+  // 새로고침도 하지 않으므로 지금 화면 위에 그대로 겹쳐 뜬다.
+  if (opts.onPlayStory && STORY_BEATS.length > 0) {
+    body.append(el("div", CSS.state,
+      "대사 보기 — 그 판을 깬 직후에 뜨는 대사를 지금 띄운다. 진행도는 바뀌지 않는다."));
+    const storyRows = el("div", CSS.row);
+    STORY_BEATS.forEach((b, i) => {
+      const rescued = ANIMALS.find((a) => a.id === b.rescuedId);
+      const next = ANIMALS.find((a) => a.id === b.nextId);
+      const btn = el("button", "");
+      paintRadio(btn, false, `${i + 1}판 뒤 · ${rescued?.glyph ?? ""}${rescued?.name ?? b.rescuedId}`
+        + ` → ${next?.glyph ?? ""}${next?.name ?? b.nextId}`);
+      btn.onclick = (): void => { opts.onPlayStory?.(i); };
+      storyRows.append(btn);
+    });
+    body.append(storyRows);
+  }
+
   panel.append(body);
 
   const glyphOf = (animalId: string | undefined): string =>

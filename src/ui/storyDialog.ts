@@ -1,16 +1,19 @@
 // ui/storyDialog.ts — 스테이지 사이에 끼는 대사창. 판을 깬 직후 한 번 뜬다.
 //
-// 대사도 초상도 **주입받는다**(규약 2조) — 이 파일은 ../data를 모른다. 붉은말과 동물이
-// 누구인지도 모르고, 「왼쪽에 말하는 쪽 하나, 오른쪽에 하나」만 안다.
+// 대사도 초상도 좌표도 **주입받는다**(규약 2조) — 이 파일은 ../data를 모른다. 붉은말과
+// 동물이 누구인지도 모르고, 「왼쪽에 말하는 쪽 하나, 오른쪽에 하나」만 안다.
 //
-// 상태는 전부 아래 `st` 하나에 담는다(규약 4조). 화면이 내려갈 때 rAF와 리스너를
+// 그림은 storyView.ts가 만든다. 여기 남은 것은 **흐름**뿐이다 — 어느 줄인지, 타자가
+// 어디까지 찍었는지, 언제 닫는지.
+//
+// 상태는 전부 아래 `st` 하나에 담는다(규약 4조). 화면이 내려갈 때 rAF와 에디터 등록을
 // 명시적으로 끊는다 — 부모가 붙어 있는지로 살아 있는지를 추측하지 않는다.
-import { Container, Graphics, Text, type Texture } from "pixi.js";
-import { fullRect, contentRect } from "./stage";
-import { fitSprite } from "./skin";
+import { Container, type Texture } from "pixi.js";
 import { plate, hotspot } from "./panelBits";
 import { playSfx } from "./audio";
-import { STORY_LAYOUT, DIM_ALPHA, SPEAKING_SCALE, type Box } from "./storyLayout";
+import { clearEditable } from "./layoutEditor";
+import { STORY_AREA, STORY_SKIP, DIM_ALPHA, SPEAKING_SCALE, type StorySlotId } from "./storyLayout";
+import { buildStoryView, type StorySlot } from "./storyView";
 
 /** 한 줄. who는 좌우 초상 중 어느 쪽이 말하는지다. */
 export interface DialogLine {
@@ -20,27 +23,20 @@ export interface DialogLine {
 
 export interface StoryDialogOptions {
   lines: readonly DialogLine[];
-  /** 왼쪽 초상 — 붉은말. 없으면 이름표만 나온다 */
+  /** 왼쪽 초상 — 붉은말. 없으면 자리만 빈다 */
   horseTex?: Texture;
   /** 오른쪽 초상 — 방금 구한 동물 */
   animalTex?: Texture;
   /** 이름표에 쓸 글자 */
   horseName: string;
   animalName: string;
+  /** uiLayout의 story 영역 슬롯. 없으면 storyLayout.ts의 폴백으로 간다 */
+  slot?: (id: StorySlotId) => StorySlot | null;
   /** 한 글자당 밀리초. 0이면 타자 효과 없이 한 번에 나온다 */
   charMs?: number;
 }
 
 const CHAR_MS = 28;
-
-/** 초상 하나. 아트가 없으면 자리만 잡고 빈 컨테이너를 돌려준다. */
-function portrait(b: Box, tex: Texture | undefined): Container {
-  const c = new Container();
-  c.x = b.x + b.w / 2;
-  c.y = b.y + b.h / 2;
-  if (tex) c.addChild(fitSprite(tex, b.w, b.h));
-  return c;
-}
 
 /**
  * 대사를 끝까지 보여 주고 닫힌다. 화면 아무 데나 누르면 다음 줄로 가고,
@@ -52,55 +48,13 @@ export function openStoryDialog(parent: Container, opts: StoryDialogOptions): Pr
   if (opts.lines.length === 0) return Promise.resolve();
 
   return new Promise<void>((resolve) => {
-    const L = STORY_LAYOUT;
     const charMs = opts.charMs ?? CHAR_MS;
-
-    const root = new Container();
-    parent.addChild(root);
-
-    // 막 — 좌우 블리드는 반투명으로 어둡게 덮어 barn 아트가 비치게 두고,
-    // **콘텐츠 컬럼은 불투명하게 칠한다.** 반투명으로 뒀더니 파란 띠가 비쳤다 —
-    // main.ts가 모든 화면 밑에 깔아 둔 로비 배경 아트(assets/lobby/bg.webp)의
-    // 가운데 450 컬럼이 순수 파랑(#0617fa)이다. 어차피 모든 화면이 제 배경으로
-    // 덮는 자리라 디자이너가 채워 둔 것이고, 다른 화면들도 전부 contentRect로 덮는다.
-    const veil = fullRect(0x0d0906, 0.62);
-    veil.eventMode = "static";
-    root.addChild(veil);
-    root.addChild(contentRect(0x1c1209));
-
-    const horse = portrait(L.horse, opts.horseTex);
-    const animal = portrait(L.animal, opts.animalTex);
-    root.addChild(horse, animal);
-
-    // ── 대사창 ────────────────────────────────
-    const g = new Graphics();
-    g.roundRect(L.panel.x, L.panel.y, L.panel.w, L.panel.h, 16).fill({ color: 0x2a1b0e, alpha: 0.94 });
-    g.roundRect(L.panel.x + 5, L.panel.y + 5, L.panel.w - 10, L.panel.h - 10, 12)
-      .stroke({ width: 3, color: 0x8a5a2b });
-    root.addChild(g);
-
-    const name = new Text({ text: "", style: { fontSize: 19, fill: 0xffd35c, fontWeight: "bold" } });
-    name.x = L.name.x;
-    name.y = L.name.y;
-    root.addChild(name);
-
-    const body = new Text({
-      text: "",
-      style: { fontSize: 19, fill: 0xfff3dc, lineHeight: 30, wordWrap: true, wordWrapWidth: L.text.w },
+    const view = buildStoryView(parent, {
+      slot: opts.slot,
+      horseTex: opts.horseTex,
+      animalTex: opts.animalTex,
     });
-    body.x = L.text.x;
-    body.y = L.text.y;
-    root.addChild(body);
-
-    const hint = new Text({
-      text: "탭하여 계속 ▶",
-      style: { fontSize: 13, fill: 0xc9a271 },
-    });
-    hint.anchor.set(1, 0.5);
-    hint.x = L.hint.x + L.hint.w;
-    hint.y = L.hint.y + L.hint.h / 2;
-    hint.visible = false;
-    root.addChild(hint);
+    const { root, veil, name, body, hint } = view;
 
     // ── 상태는 여기 하나 ──────────────────────
     const st = { i: 0, shown: 0, raf: 0, done: false, startedAt: 0 };
@@ -114,6 +68,7 @@ export function openStoryDialog(parent: Container, opts: StoryDialogOptions): Pr
       if (st.done) return;
       st.done = true;
       stopRaf();
+      clearEditable(STORY_AREA); // 파괴된 노드를 에디터가 붙잡고 있으면 다음 드래그에서 죽는다
       if (!root.destroyed) root.destroy({ children: true });
       resolve();
     };
@@ -131,8 +86,8 @@ export function openStoryDialog(parent: Container, opts: StoryDialogOptions): Pr
     const paintLine = (): void => {
       const line = opts.lines[st.i];
       if (!line) { finish(); return; }
-      const speaking = line.who === "horse" ? horse : animal;
-      const quiet = line.who === "horse" ? animal : horse;
+      const speaking = line.who === "horse" ? view.horse : view.animal;
+      const quiet = line.who === "horse" ? view.animal : view.horse;
       name.text = line.who === "horse" ? opts.horseName : opts.animalName;
       speaking.alpha = 1;
       speaking.scale.set(SPEAKING_SCALE);
@@ -172,12 +127,15 @@ export function openStoryDialog(parent: Container, opts: StoryDialogOptions): Pr
 
     veil.on("pointertap", advance);
 
-    // 건너뛰기 — 대사를 다 읽은 사람이 매번 다섯 번 탭하지 않게 한다
+    // 건너뛰기 — 대사를 다 읽은 사람이 매번 다섯 번 탭하지 않게 한다.
+    // 자리는 코드가 정한다(영상 건너뛰기와 같은 자리) — 에디터에 열지 않는다.
     const skip = new Container();
-    skip.addChild(plate(L.skip, undefined, 0x4a3320, "건너뛰기"));
-    skip.addChild(hotspot(null, L.skip, finish));
+    skip.addChild(plate(STORY_SKIP, undefined, 0x4a3320, "건너뛰기"));
+    skip.addChild(hotspot(null, { ...STORY_SKIP, id: "skip" }, finish));
     root.addChild(skip);
 
     paintLine();
+    // 글자가 들어간 뒤에 등록한다 — 빈 Text는 크기가 0이라 에디터가 잡지 못한다
+    view.register();
   });
 }
