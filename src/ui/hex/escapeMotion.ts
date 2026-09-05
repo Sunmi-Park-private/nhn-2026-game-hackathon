@@ -55,8 +55,10 @@ export const CAGE_TOTAL_MS = CAGE_SHAKE_MS + CAGE_DROP_MS;
 // ── 동물 ────────────────────────────────────────────────────
 /** 한 창살에서 나오는 마릿수. */
 export const ANIMAL_COUNT = 4;
-/** 마리마다 나오는 간격(ms). 한꺼번에 쏟아지면 마릿수가 안 읽힌다. */
-export const ANIMAL_STAGGER_MS = 130;
+/** 마리마다 나오는 간격(ms). 한꺼번에 쏟아지면 마릿수가 안 읽힌다.
+ *  130이었는데 본선 QA에서 「우수수 떨어진다」가 나와 두 배로 벌렸다 —
+ *  네 마리면 마지막이 첫 마리보다 0.78초 늦게 나온다. */
+export const ANIMAL_STAGGER_MS = 260;
 /** 바닥까지 떨어지는 시간(ms). */
 export const FALL_MS = 620;
 /** 출발 배율. 1이면 **격자 한 칸**이다 — 창살 안에 있던 크기 그대로 나온다. */

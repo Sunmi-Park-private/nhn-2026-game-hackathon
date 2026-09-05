@@ -36,3 +36,28 @@ export function aimBlocked(bounces: ReadonlyArray<{ y: number }>): boolean {
   const first = bounces[0];
   return first !== undefined && first.y > FIRST_BOUNCE_LIMIT_Y;
 }
+
+/**
+ * 궤적에서 첫 반사가 일어난 스텝의 인덱스. 막힌 조준선을 여기까지만 그린다.
+ *
+ * simulateShot은 반사 **지점**만 돌려주고 몇 번째 스텝이었는지는 말하지 않는다 —
+ * 궤적을 훑어 그 y에 가장 가까운 점을 찾는다. 스텝 간격이 육각 반지름의 1/5이라
+ * 한두 스텝 어긋나도 눈에 띄지 않는다.
+ *
+ * 반사가 없으면 궤적 전체 길이를 돌려준다 — 자를 곳이 없다는 뜻이다.
+ */
+export function firstBounceIndex(
+  path: ReadonlyArray<{ x: number; y: number }>,
+  first: { x: number; y: number } | undefined,
+): number {
+  if (first === undefined) return path.length;
+  let best = path.length;
+  let bestD = Infinity;
+  for (let i = 0; i < path.length; i += 1) {
+    const p = path[i]!;
+    const d = Math.hypot(p.x - first.x, p.y - first.y);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  // 반사 지점 자체는 포함시킨다 — 거기서 끊겨야 「튕기는 자리」로 보인다
+  return Math.min(path.length, best + 1);
+}

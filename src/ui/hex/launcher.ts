@@ -10,7 +10,7 @@ import { editable } from "../layoutEditor";
 import type { UiSlot } from "../../data/uiLayout";
 import { fitContain } from "../skin";
 import type { Aim } from "./dragAim";
-import { aimBlocked } from "./aimRule";
+import { aimBlocked, firstBounceIndex } from "./aimRule";
 
 export interface Launcher {
   root: Container;
@@ -48,6 +48,11 @@ const TOSS_MS = 320;
 
 /** 오발로 되돌아가는 시간. 뚝 끊기면 조작 실수가 버그처럼 보인다. */
 const SETTLE_MS = 180;
+
+/** 말이 **손에 든** 타일의 배율. 판에 붙는 크기(1)보다 크게 들고 있다가 던지면서
+ *  원래 크기로 줄어든다 — 손에 있는 동안 무엇을 쥐고 있는지가 또렷해진다(QA 요구).
+ *  판에 붙는 크기 자체는 건드리지 않는다: 격자와 어긋나면 판이 깨진다. */
+const HELD_SCALE = 1.5;
 
 export interface LauncherOptions {
   /** 붉은말 시퀀스. 비면 말을 그리지 않는다 — 폴백 그림을 두면 아트가 왔을 때 겹친다. */
@@ -166,6 +171,7 @@ export function createLauncher(opts: LauncherOptions = {}): Launcher {
   function redrawLoaded(): void {
     loadedSlot.removeChildren().forEach((c) => c.destroy());
     loadedSlot.addChild(makeTileView(loadedTier, tileTex[loadedTier] ?? null));
+    loadedSlot.scale.set(HELD_SCALE); // 손에 든 동안은 크게
   }
   redrawLoaded();
 
@@ -199,11 +205,16 @@ export function createLauncher(opts: LauncherOptions = {}): Launcher {
       // 첫 반사가 판 하단 1/3이면 쏠 수 없다(aimRule). 조준선을 붉게 그어 **떼기 전에**
       // 알린다 — 손을 뗀 뒤에야 「안 나갔다」를 알면 조작 실수인지 규칙인지 모른다.
       blocked = aimBlocked(bounces);
+      // 막힌 조준은 **첫 반사까지만** 그린다. 끝까지 그리면 눕힌 각의 지그재그가
+      // 화면을 실뭉치로 덮는다 — 그걸 없애자고 만든 규칙인데 규칙이 그림을 남겨
+      // 두면 아무것도 나아지지 않는다(QA: 「아직도 각도 조절이 제대로 안 된다」).
+      // 튕기는 자리에서 선이 끊기므로 「여기서 막힌다」가 곧바로 읽힌다.
+      const stop = blocked ? firstBounceIndex(path, bounces[0]) : path.length;
       const color = blocked ? 0xff6b5a : 0xffffff;
-      const alpha = blocked ? 0.75 : 0.85;
+      const alpha = blocked ? 0.8 : 0.85;
       // 점선 — 5스텝마다 한 점씩. 중력이 들어갔으므로 자동으로 곡선이 되고,
       // 점선의 끝이 곧 사거리다. 점이 얇으면 여러 겹이 겹칠 때 실뭉치로 보인다(QA).
-      for (let i = 0; i < path.length; i += 5) {
+      for (let i = 0; i < stop; i += 5) {
         const p = path[i]!;
         guide.circle(ORIGIN.x + p.x, ORIGIN.y + p.y, 5).fill({ color, alpha });
       }
@@ -218,6 +229,7 @@ export function createLauncher(opts: LauncherOptions = {}): Launcher {
       guide.clear();
       if (!horse || horseFrames.length <= hold + 1) {
         // 토스 구간이 없다(스틸이거나 hold가 마지막 프레임) — 즉시 끝낸다
+        loadedSlot.scale.set(1);
         scrub(0);
         setTilt(0);
         return;
@@ -227,6 +239,10 @@ export function createLauncher(opts: LauncherOptions = {}): Launcher {
       await new Promise<void>((resolve) => {
         const tick = (): void => {
           if (horse.destroyed) { resolve(); return; }
+          const t = Math.min(1, (performance.now() - start) / TOSS_MS);
+          // 던지는 동안 손에 든 타일이 원래 크기로 줄어든다 — 날아가는 발사체와
+          // 같은 크기로 만나야 「그대로 날아갔다」로 읽힌다.
+          if (!loadedSlot.destroyed) loadedSlot.scale.set(HELD_SCALE + (1 - HELD_SCALE) * t);
           const i = Math.floor(((performance.now() - start) / TOSS_MS) * count);
           if (i >= count) { resolve(); return; }
           const tex = horseFrames[hold + i];
