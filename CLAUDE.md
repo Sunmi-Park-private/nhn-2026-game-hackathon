@@ -17,7 +17,7 @@
 
 ## 현재 상태
 
-- 헥사 머지 슈터 코어 동작. 빌드·테스트 통과 (**312개**)
+- 헥사 머지 슈터 코어 동작. 빌드·테스트 통과 (**178개**)
 - 아트 미도착 — `public/assets/hex/`가 비어 있어 전부 색 육각 폴백
 - 남은 작업: 터짐 연출, 결과 화면, 말굽·부스터 배선, 아트 반입
 
@@ -27,7 +27,7 @@
 npm install
 npm run dev      # localhost:5173
 npm run build    # tsc --noEmit + vite build
-npm test         # vitest — 150개
+npm test         # vitest — 178개
 ```
 
 - `README.md`는 Node 25에서 esbuild가 안 된다고 하지만 **v25.9.0에서 빌드·테스트가 통과한다.**
