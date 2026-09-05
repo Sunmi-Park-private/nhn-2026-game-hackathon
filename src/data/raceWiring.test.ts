@@ -34,7 +34,7 @@ describe("로비 RACE 교체", () => {
     const order = ["navHome", "navRace", "navAnimals", "navEvents"];
     const navs = order.map((id) => lobby.slots.find((s) => s.id === id)!);
     expect(navs.every(Boolean)).toBe(true);
-    const race = navs[1];
+    const race = navs[1]!;
     // 같은 행 · 같은 크기
     for (const n of navs) {
       expect(n.y).toBe(race.y);
