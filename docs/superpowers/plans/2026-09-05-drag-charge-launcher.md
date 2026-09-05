@@ -54,7 +54,8 @@ Task 1~4는 서로 독립이다. 5·6은 4에 기대고, 7은 3·5·6에, 8은 4
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
-`tests/hex/shot.test.ts` 맨 아래에 붙인다. 기존 `GEOM`·`makeCells`·`launchPoint`를 그대로 쓴다.
+`tests/hex/shot.test.ts` 맨 아래에 붙인다. 기존 `GEOM`·`makeCells`·`launchPoint`·
+`boardBounds`를 그대로 쓴다(넷 다 그 파일에 이미 있다).
 
 ```ts
 describe("simulateShot — 포물선", () => {
@@ -80,9 +81,20 @@ describe("simulateShot — 포물선", () => {
     expect(reach(0.5)).toBeGreaterThan(reach(0));
   });
 
-  it("좌우 대칭이다 — 같은 파워로 반대 각도면 경로 길이가 같다", () => {
-    const len = (angle: number): number => simulateShot(makeCells([]), GEOM, launchPoint(), angle, 0.5).path.length;
-    expect(len(0.7)).toBe(len(-0.7));
+  it("좌우 대칭이다 — 판 한가운데서 반대 각도로 쏘면 경로 길이가 같다", () => {
+    // launchPoint()는 판 한가운데가 아니다(중앙에서 오른쪽으로 약 39px).
+    // 대칭을 재려면 좌우 벽에서 등거리인 지점에서 쏴야 한다.
+    const { minX, maxX } = boardBounds(GEOM);
+    const mid = { x: (minX + maxX) / 2, y: launchPoint().y };
+    const len = (angle: number): number => {
+      const { path } = simulateShot(makeCells([]), GEOM, mid, angle, 0.5);
+      let d = 0;
+      for (let i = 1; i < path.length; i += 1) {
+        d += Math.hypot(path[i]!.x - path[i - 1]!.x, path[i]!.y - path[i - 1]!.y);
+      }
+      return d;
+    };
+    expect(len(0.7)).toBeCloseTo(len(-0.7), 3);
   });
 
   it("궤적이 곧지 않다 — 중력이 실제로 작용한다", () => {
@@ -261,25 +273,30 @@ git commit -m "feat: 발사체에 속도와 중력 — 파워가 사거리가 �
 
 ```ts
 describe("fireAt — 헛발", () => {
+  // 이 파일의 기존 fireAt 블록과 같은 발사 지점이다
+  const from = toPixel({ q: -2, r: 12 }, GEOM.size);
+
   it("판에 못 닿아도 한 발을 깎는다", () => {
-    const run = createRun(STAGE, () => 0);
-    const before = run.shotsLeft;
+    const run = createRun(stage({ shots: 3 }));
     // 거의 수평으로 아주 약하게 — 판에 닿지 못하고 떨어진다
     const out = fireAt(run, GEOM, from, 1.2, 0);
     expect(out.missed).toBe(true);
     expect(out.snapped).toBeNull();
-    expect(run.shotsLeft).toBe(before - 1);
+    expect(run.shotsLeft).toBe(2);
   });
 
   it("헛발도 장전을 넘긴다 — 같은 타일이 손에 남지 않는다", () => {
-    const run = createRun(STAGE, () => 0);
-    const nextBefore = run.next;
+    const run = createRun(stage({ shots: 3 }));
+    // 빈 판에서는 pickNext가 늘 0이라 「넘어갔는지」를 0끼리 비교하게 된다.
+    // 손에 든 것과 다음 것을 **다른 값으로 벌려 놓고** 확인한다.
+    run.loaded = 0;
+    run.next = 3;
     fireAt(run, GEOM, from, 1.2, 0);
-    expect(run.loaded).toBe(nextBefore);
+    expect(run.loaded).toBe(3);
   });
 
   it("발사 수가 0이면 헛발도 나지 않는다", () => {
-    const run = createRun(STAGE, () => 0);
+    const run = createRun(stage({ shots: 3 }));
     run.shotsLeft = 0;
     const out = fireAt(run, GEOM, from, 1.2, 0);
     expect(out.missed).toBe(false);
@@ -288,9 +305,9 @@ describe("fireAt — 헛발", () => {
 });
 ```
 
-`STAGE`·`from`·`GEOM`은 그 파일에 이미 있는 이름을 쓴다. 없으면 기존 테스트가
-쓰는 방식 그대로 위쪽에서 만들어 둔다. **각도 1.2 · 파워 0이 헛발이 아니면**
-각도를 1.24(MAX_ANGLE 근처)까지 올린다 — 수평에 가까울수록 짧게 떨어진다.
+`stage()`·`GEOM`·`toPixel`은 그 파일에 이미 있다 — 새로 만들지 말 것.
+**각도 1.2 · 파워 0이 헛발이 아니면** 각도를 1.24(MAX_ANGLE 근처)까지 올린다 —
+수평에 가까울수록 짧게 떨어진다.
 
 - [ ] **Step 2: 실패를 확인한다**
 
