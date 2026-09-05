@@ -2,14 +2,14 @@
 import { Assets, type Texture } from "pixi.js";
 import type { StageTextures } from "./stageScreen";
 import type { HexAssetPaths } from "../../data/hexAssets";
+import { beginLoad, endLoad } from "../loadProgress";
 
-/** 에셋 한 장을 기다리는 상한. 넘기면 폴백(색 육각)으로 간다.
+/** 상한을 두지 않는다 — `skin.ts`의 loadTexture와 같은 판단이다.
  *
- *  파일이 없으면 dev 서버가 404가 아니라 index.html을 200으로 돌려준다(SPA 폴백).
- *  Pixi는 그 HTML을 이미지로 디코드하려다 거부도 성공도 하지 않고 멈추는 경우가 있고,
- *  그러면 부팅이 여기서 영영 서서 캔버스가 빈 채로 남는다 — 터널 URL에서 실제로 관측했다.
- *  에셋 한 장이 게임 전체를 막게 두지 않는다. */
-const LOAD_TIMEOUT_MS = 4000;
+ *  전에는 4초였다. 「없는 파일에 SPA 폴백 HTML이 오면 Pixi가 디코드하다 멈춘다 —
+ *  터널 URL에서 관측했다」가 근거였는데, 다시 재 보니 HTML은 바로 거부된다. 터널에서
+ *  본 것은 멈춤이 아니라 **45MB가 느린 회선을 지나는 시간**이었을 가능성이 크다.
+ *  4초 상한은 바로 그 느린 회선에서 멀쩡한 파일을 전부 폴백으로 만들었다(QA 보고). */
 
 /** 프레임 목록을 텍스처 배열로. 없는 파일은 걸러 낸다 — 중간이 비어도 재생은 이어진다. */
 async function loadFrames(urls: readonly string[]): Promise<Texture[]> {
@@ -32,17 +32,11 @@ async function loadFrames(urls: readonly string[]): Promise<Texture[]> {
 
 async function load(url: string | undefined): Promise<Texture | null> {
   if (!url) return null;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), LOAD_TIMEOUT_MS);
-  });
+  beginLoad();
   try {
-    return await Promise.race([
-      Assets.load<Texture>(url).catch(() => null),
-      timeout,
-    ]);
+    return await Assets.load<Texture>(url).catch(() => null);
   } finally {
-    if (timer !== undefined) clearTimeout(timer);
+    endLoad();
   }
 }
 
