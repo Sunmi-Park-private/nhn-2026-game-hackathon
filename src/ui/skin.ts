@@ -140,7 +140,10 @@ export function makeButton(o: ButtonOpts): Container {
       .stroke({ width: 2, color: 0xffffff, alpha: 0.25 });
     box.addChild(g);
   }
-  if (o.label) {
+  // 라벨은 **아트가 없을 때만** 그린다. 아트 위에 덧그리면 두 개로 보인다 —
+  // 인게임 톱니가 그랬다: btn-settings.webp 위에 「⚙」 글자가 얹혀 있었다.
+  // 이 레포의 다른 화면(hotspot·ArtButton)도 같은 규칙이다.
+  if (o.label && !o.tex) {
     const t = new Text({
       text: o.label,
       style: { fontSize: Math.min(18, o.h * 0.42), fill: 0xffffff, fontWeight: "bold" },

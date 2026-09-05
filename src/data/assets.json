@@ -210,7 +210,7 @@
       "elephant": "assets/race/winner-elephant.png"
     },
     "card": {
-      "grid": "assets/race/card-grid.png",
+      "grid": "assets/race/card-grid.webp",
       "on": "assets/race/card-on.png",
       "off": "assets/race/card-off.png"
     },
