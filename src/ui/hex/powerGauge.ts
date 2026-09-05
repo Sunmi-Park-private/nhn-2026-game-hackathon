@@ -34,7 +34,7 @@ export function createPowerGauge(): PowerGauge {
   root.y = box.y;
   root.visible = false;
 
-  // 윤곽 — 왼쪽 아래가 직각, 오른쪽으로 갈수록 높아진다.
+  // 윤곽 — 오른쪽 아래가 직각, 왼쪽 낮은 변에서 오른쪽 높은 변으로 빗변이 오른다.
   const frame = new Graphics()
     .moveTo(0, box.h)
     .lineTo(box.w, box.h)
@@ -58,7 +58,7 @@ export function createPowerGauge(): PowerGauge {
       root.visible = true;
       fill.clear();
       if (t <= 0) return;
-      // 왼쪽부터 t만큼 잘라낸 사다리꼴. 빗변 위의 높이는 x에 비례한다.
+      // 윤곽과 같은 빗변을 따라 자란 닮은 삼각형 — 꼭짓점이 그 빗변 위에 얹힌다.
       const x = box.w * t;
       fill
         .moveTo(0, box.h)
