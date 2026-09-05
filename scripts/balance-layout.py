@@ -15,6 +15,19 @@ colof=lambda a:a[0]+math.floor(a[1]/2)
 inb=lambda a: 0<=a[1]<ROWS and 0<=colof(a)<COLS
 MASS=[cell(c,r) for r in range(H) for c in range(COLS)]
 
+# 바닥을 파내는 칸. 덩어리가 빈틈 없는 직사각형이면 아랫면이 판 폭 전체에 걸친
+# 평평한 벽이라 **첫 발이 어느 각도로 쏘든 같은 행에 붙는다** — 본선에서 「타일이
+# 고정 위치에 표시된다」로 올라왔다. 1판만 판다: 처음 잡는 사람이 조준이 먹는다는
+# 것을 첫 발에서 알아야 한다. 창살 둘레(rule) 칸은 절대 파지 않는다 —
+# 그 칸들이 샷 예산 계산의 근거라서, 파면 난이도 수치가 근거를 잃는다.
+NOTCH={1:[(0,H-1),(3,H-1),(8,H-1),(10,H-1),(0,H-2),(10,H-2)]}
+
+def mass_for(num, tpl):
+    """이 판의 타일이 깔릴 칸. NOTCH를 빼되 창살 body·rule은 남긴다."""
+    keep=set(p for x in tpl['I'] for p in x['body']) | set(p for x in tpl['I'] for p in x['rule'])
+    cut=set(cell(c,r) for c,r in NOTCH.get(num,[])) - keep
+    return [m for m in MASS if m not in cut]
+
 def info(ctr):
     body=[ctr]+nb(ctr); per=ring(ctr,2)
     faces=[per[i:i+2] for i in range(0,12,2)]
@@ -62,10 +75,10 @@ def comps(a):
         out.append(comp)
     return out
 
-def gen(k, tpl, want, tries=9000, skew=0.0):
+def gen(k, tpl, want, mass, tries=9000, skew=0.0):
     RU=sorted(set(p for x in tpl['I'] for p in x['rule'] if inb(p)))
     bodies=set(p for x in tpl['I'] for p in x['body'])
-    FREE=[x for x in MASS if x not in bodies]
+    FREE=[x for x in mass if x not in bodies]
     bestv=None
     for s in range(tries):
         rnd=random.Random(s*997+k*37+len(tpl['I'])*11)
@@ -107,12 +120,13 @@ PLACE={
 stages=[]
 for num,ncage,obj,k,matched,target,budget in PLAN:
     tpl=PLACE.get(num) or TPL[ncage]
+    mass=mass_for(num,tpl)
     RU=sorted(set(p for x in tpl['I'] for p in x['rule'] if inb(p)))
     cells=len(RU)
     # 색 계수는 가중 확정 전이라 근사로 2패스: 1차 생성 → idx 확정 → 필요 2연결 재계산
     want=max(1,min(cells//2, round(cells*0.25)))
     for _ in range(3):
-        seed,a,pairs,big,cnt,_=gen(k,tpl,want,skew=0.0 if matched else 0.42)
+        seed,a,pairs,big,cnt,_=gen(k,tpl,want,mass,skew=0.0 if matched else 0.42)
         p,w,idx=weights(cnt,k,matched)
         factor=(k/3.0)*idx*target
         need=(2*cells-budget/factor)/3.0
@@ -151,5 +165,6 @@ for num,ncage,obj,k,matched,target,budget in PLAN:
         'centers':[list(x['center']) for x in tpl['I']],
         'rowsUsed':tpl['rows'],'oob':tpl['oob'],
         'inv':{'S1':True,'S2':True,'S3':True,'S4':True,'S5':True},
+        'notch':[list(cell(c,r)) for c,r in NOTCH.get(num,[])],
         'grid':grid,'cages':cages,'tileCount':len(a)})
 print(json.dumps({'stages':stages,'names':['빨강','노랑','초록','파랑','보라','황금']},ensure_ascii=False))

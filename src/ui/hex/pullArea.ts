@@ -20,6 +20,9 @@ const ACTIVE_ALPHA = 0.85;
 
 export interface PullArea {
   root: Container;
+  /** 테두리 윗변의 가운데. 튜토리얼 말풍선이 이 영역을 가리킬 때 쓴다 —
+   *  ABOVE를 밖에서 다시 계산하면 가이드와 어긋난다 */
+  topCenter: { x: number; y: number };
   /** 드래그 중이면 true. 선이 또렷해진다. */
   setActive(active: boolean): void;
   destroy(): void;
@@ -44,6 +47,7 @@ export function createPullArea(anchor: { x: number; y: number }): PullArea {
 
   return {
     root,
+    topCenter: { x: anchor.x, y },
 
     setActive(active: boolean): void {
       g.alpha = active ? ACTIVE_ALPHA : IDLE_ALPHA;
