@@ -23,6 +23,10 @@ export interface SettingsTextures {
   toggleOff?: Texture;
   resume?: Texture;
   home?: Texture;
+  /** 「홈으로」가 띄우는 확인창의 아트 — 이 창이 여는 것이라 여기서 같이 받는다 */
+  confirmPanel?: Texture;
+  confirmOk?: Texture;
+  confirmCancel?: Texture;
 }
 
 /** 설정창이 닫히면서 호출자에게 넘기는 결정. */
@@ -191,7 +195,10 @@ export function openSettings(
       }
       if (asking) return;
       asking = true;
-      void openConfirm(root, { message: "판을 나가면 지금 진행은 사라집니다.\n로비로 나갈까요?" })
+      void openConfirm(root, {
+        message: "판을 나가면 지금 진행은 사라집니다.\n로비로 나갈까요?",
+        textures: { panel: tex.confirmPanel, ok: tex.confirmOk, cancel: tex.confirmCancel },
+      })
         .then((ok) => {
           asking = false;
           if (ok) finish("lobby");

@@ -88,6 +88,9 @@ async function main(): Promise<void> {
     toggleOff: uiSlots.toggleOff,
     resume: uiSlots.btnResume,
     home: uiSlots.btnHome,
+    confirmPanel: uiSlots.confirmPanel,
+    confirmOk: uiSlots.btnConfirmOk,
+    confirmCancel: uiSlots.btnConfirmCancel,
     settingsButton: uiSlots.gear,
     stageBar: uiSlots.stageBar,
   };

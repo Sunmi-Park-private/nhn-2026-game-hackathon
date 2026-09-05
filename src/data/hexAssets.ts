@@ -108,6 +108,8 @@ export const hexAssetPaths: HexAssetPaths = parse(manifestJson);
 
 export const UI_SLOT_IDS = [
   "settingsPanel", "settingsClose", "toggleOn", "toggleOff", "btnResume", "btnHome", "gear", "stageBar",
+  // 확인창 — 설정창 위에 겹쳐 뜬다. 아트가 없으면 지금처럼 색 도형으로 그린다.
+  "confirmPanel", "btnConfirmOk", "btnConfirmCancel",
 ] as const;
 export type UiSlotId = (typeof UI_SLOT_IDS)[number];
 
