@@ -46,121 +46,24 @@
 | `src/ui/race/raceResultView.ts` | 결과 패널 | 신규 |
 | `src/ui/race/raceScreen.ts` | 화면 조립 · 단계 전이 | 신규 |
 | `src/ui/lobbyScreen.ts` | `navWorld` → `navRace` | 수정 |
-| `src/ui/layoutEditor.ts` | `mergeAreas` 이식 (교체 → 병합) | 수정 `:301-315` |
+| ~~`src/ui/layoutEditor.ts`~~ | ~~`mergeAreas` 이식~~ — 버림(Task 1) | — |
 | `src/data/uiLayout.json` | `race` 영역 · uploads · audios | 수정 |
 | `src/data/assets.json` | `race` 노드 · `hex.booster` · `lobby.navRace` | 수정 |
 | `src/data/hexAssets.ts` | `AUDIO_SLOT_IDS`에 레이스 6종 | 수정 |
 
 ---
 
-## Task 1: 인게임 에디터 저장을 병합으로 바꾼다
+## Task 1: ~~인게임 에디터 저장을 병합으로 바꾼다~~ — 버림
 
-`race` 영역을 JSON에 넣기 **전에** 해야 한다. 지금 상태로 영역을 추가하면, 게임 탭을
-열어 둔 채 슬롯을 하나만 끌어도 그 영역이 통째로 사라진다. `/ui.html` 쪽은 `584dfdd`가
-이미 같은 방식으로 고쳤다.
+**실행하지 않았다.** 구현 도중 `origin/main`에 `ebfcb3a fix: 두 에디터가 같은 배치 파일을
+안전하게 나눠 쓰게`가 들어와, 같은 문제를 **병합이 아니라 리비전 검사로** 더 두껍게
+해결했다. 낡은 리비전으로 저장하면 서버가 409를 돌려주고, 저장이 성공하면 ws로 알려
+두 에디터가 따라잡는다.
 
-**Files:**
-- Modify: `src/ui/layoutEditor.ts:301-315`
-- Test: `src/ui/layoutEditor.merge.test.ts` (신규 — `vitest.config.ts`가 `src/**/*.test.ts`를 잡는다)
+`race` 영역이 저장 때마다 사라지던 시나리오는 그 검사로 막힌다. 약한 수정을 강한 수정
+위에 다시 얹을 이유가 없어 리베이스에서 이 커밋을 버렸다. 근거는 설계 §3-2.
 
-**Interfaces:**
-- Produces: `export function mergeAreas(disk: UiArea[], mine: UiArea[]): UiArea[]`
-
-- [ ] **Step 1: 실패하는 테스트를 쓴다**
-
-`src/ui/layoutEditor.merge.test.ts`:
-
-```ts
-// 에디터 저장이 디스크의 낯선 슬롯을 지우지 않는지 — 실제로 두 번 지워진 적이 있다(584dfdd)
-import { describe, expect, it } from "vitest";
-import { mergeAreas } from "./layoutEditor";
-import type { UiArea } from "../data/uiLayout";
-
-const slot = (id: string, x: number): UiArea["slots"][number] =>
-  ({ id, label: id, x, y: 0, w: 10, h: 10 });
-
-describe("mergeAreas", () => {
-  it("디스크에만 있는 슬롯을 남긴다", () => {
-    const disk: UiArea[] = [{ id: "lobby", label: "로비", slots: [slot("gear", 1), slot("navRace", 2)] }];
-    const mine: UiArea[] = [{ id: "lobby", label: "로비", slots: [slot("gear", 99)] }];
-    const out = mergeAreas(disk, mine);
-    expect(out[0]!.slots.map((s) => s.id)).toEqual(["gear", "navRace"]);
-  });
-
-  it("아는 슬롯은 내 좌표가 이긴다", () => {
-    const disk: UiArea[] = [{ id: "lobby", label: "로비", slots: [slot("gear", 1)] }];
-    const mine: UiArea[] = [{ id: "lobby", label: "로비", slots: [slot("gear", 99)] }];
-    expect(mergeAreas(disk, mine)[0]!.slots[0]!.x).toBe(99);
-  });
-
-  it("디스크에만 있는 영역을 남긴다", () => {
-    const disk: UiArea[] = [
-      { id: "lobby", label: "로비", slots: [slot("gear", 1)] },
-      { id: "race", label: "레이스", slots: [slot("run", 5)] },
-    ];
-    const mine: UiArea[] = [{ id: "lobby", label: "로비", slots: [slot("gear", 99)] }];
-    expect(mergeAreas(disk, mine).map((a) => a.id)).toEqual(["lobby", "race"]);
-  });
-
-  it("디스크를 못 읽었으면 내 것을 그대로 쓴다", () => {
-    const mine: UiArea[] = [{ id: "lobby", label: "로비", slots: [slot("gear", 99)] }];
-    expect(mergeAreas([], mine)).toBe(mine);
-  });
-});
-```
-
-- [ ] **Step 2: 실패를 확인한다**
-
-Run: `npx vitest run src/ui/layoutEditor.merge.test.ts`
-Expected: FAIL — `mergeAreas` is not exported / not a function
-
-- [ ] **Step 3: 최소 구현**
-
-`src/ui/layoutEditor.ts`, `flushSave` **바로 위**에 넣는다:
-
-```ts
-/** 디스크의 배치에 이 세션이 옮긴 좌표만 얹는다.
- *
- *  화면 코드는 뜰 때 파싱된 uiAreas를 들고 있을 뿐이라, 그 뒤에 **디스크에 추가된
- *  슬롯을 모른다**. 저장할 때 통째로 써 버리면 그 슬롯이 조용히 사라진다 —
- *  /ui.html 쪽에서 powerGauge가 다섯 번, bgPanel이 두 번 이렇게 지워졌다(584dfdd).
- *
- *  그래서 **디스크를 기준으로 삼고** 아는 슬롯의 좌표만 갈아 끼운다.
- *  에디터에는 슬롯을 지우는 기능이 없으므로 모르는 슬롯은 남기는 것이 언제나 옳다. */
-export function mergeAreas(disk: UiArea[], mine: UiArea[]): UiArea[] {
-  if (disk.length === 0) return mine; // dev 서버 밖 — 비교할 디스크가 없다
-  const byId = new Map(mine.map((a) => [a.id, new Map(a.slots.map((s) => [s.id, s]))]));
-  return disk.map((area) => {
-    const edited = byId.get(area.id);
-    if (!edited) return area;
-    return { ...area, slots: area.slots.map((s) => edited.get(s.id) ?? s) };
-  });
-}
-```
-
-그리고 `flushSave`의 body를 고친다:
-
-```ts
-    const cur = await fetch("/__uilayout").then((r) => (r.ok ? r.json() : {})) as Record<string, unknown>;
-    const diskAreas = Array.isArray(cur.areas) ? (cur.areas as UiArea[]) : [];
-    const res = await fetch("/__uilayout", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...cur, areas: mergeAreas(diskAreas, uiAreas) }),
-    });
-```
-
-- [ ] **Step 4: 통과를 확인한다**
-
-Run: `npx vitest run src/ui/layoutEditor.merge.test.ts` → 4 passed
-Run: `npm test` → 211 passed (기준선 207 + 4)
-
-- [ ] **Step 5: 커밋**
-
-```bash
-git add src/ui/layoutEditor.ts src/ui/layoutEditor.merge.test.ts
-git commit -m "fix: 인게임 에디터 저장도 교체에서 병합으로 — /ui.html과 같은 사고를 막는다"
-```
+**Task 9의 선행 조건도 함께 사라진다** — `race` 영역을 언제 JSON에 넣든 안전하다.
 
 ---
 
@@ -1317,7 +1220,7 @@ git commit -m "feat: 레이스로 번 부스터를 스테이지에 싣는다 —
 
 ## Task 9: 배치와 에셋 매니페스트
 
-여기서 `race` 영역이 JSON에 들어간다. Task 1이 끝나 있어야 한다.
+여기서 `race` 영역이 JSON에 들어간다. (Task 1을 버렸으므로 선행 조건은 없다.)
 
 **Files:**
 - Modify: `src/data/uiLayout.json`
@@ -1698,7 +1601,7 @@ git commit -m "feat: 동물 운동회 화면 — 로비 WORLD를 RACE로 바꾼�
 
 | 스펙 | Task |
 |---|---|
-| §4-2 `mergeAreas` 이식 | 1 |
+| ~~§4-2 `mergeAreas` 이식~~ | 버림 — 상류가 해결(설계 §3-2) |
 | §7-1 `Profile` 확장 | 2 |
 | §8-1 걸음 · 상수 | 3, 4 |
 | §8-2 AI 페이스 | 5 |
