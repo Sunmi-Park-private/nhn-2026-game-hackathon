@@ -13,10 +13,12 @@
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import { makeSequence, type SequenceView } from "../sequence";
 import { fitContain } from "../skin";
-import { cellToScreen, penEdges, HEX_SIZE, CELL_W, PEN } from "./geom";
+import { measureCageArt, hexArtBox, type CageArtFit } from "./cageArtFit";
+import { cellToScreen, HEX_SIZE, CELL_W, PEN } from "./geom";
 import {
+  escapeExitX,
   cageShakeX, cageDropY, cageDropRot, cageDropAlpha, CAGE_TOTAL_MS,
-  spawnEscape, stepEscape, ANIMAL_COUNT, LAND_SCALE,
+  spawnEscape, stepEscape, ANIMAL_COUNT,
   type EscapeArena,
 } from "./escapeMotion";
 import type { Cage, RunState } from "../../engine/hex/types";
@@ -199,7 +201,12 @@ function makeAnimalView(cage: Cage, tex: CageTextures, w: number, h: number): Co
   return g;
 }
 
-function makeCageBody(cage: Cage, tex: CageTextures): CageBody {
+/** 아트 캔버스를 코드가 그린 육각에 맞추는 상자. 재기를 실패하면 캔버스 그대로(기존 동작). */
+function artBox(fit: CageArtFit | null, size: number): { w: number; h: number; dy: number } {
+  return fit ? hexArtBox(fit, size) : { w: 2 * size, h: Math.sqrt(3) * size, dy: 0 };
+}
+
+function makeCageBody(cage: Cage, tex: CageTextures, fitOf: (t: Texture) => CageArtFit | null): CageBody {
   const box = new Container();
   const center = cageCenter(cage);
   const offsets = cage.cells.map((c) => {
@@ -217,8 +224,12 @@ function makeCageBody(cage: Cage, tex: CageTextures): CageBody {
   // 같은 box에 두 번째 그늘과 두 번째 동물을 겹쳐 그린다.
   const lockedFrames = tex.locked[cage.animalId] ?? [];
   // 덩어리 전체를 덮는 큰 flat-top 육각 — 가로:세로 = 2 : √3
-  const lockedSeq = lockedFrames.length > 0 ? makeSequence(lockedFrames, w, h) : null;
+  // 캔버스가 아니라 **육각의 폭**을 2·size에 맞춘다 — 캔버스에는 위 여백과 아래로
+  // 매달린 자물쇠가 함께 들어 있어, 캔버스 기준이면 육각이 남색 바탕보다 작아진다(QA).
+  const lockedBox = artBox(lockedFrames[0] ? fitOf(lockedFrames[0]) : null, size);
+  const lockedSeq = lockedFrames.length > 0 ? makeSequence(lockedFrames, lockedBox.w, lockedBox.h) : null;
   if (lockedSeq) {
+    lockedSeq.root.y = lockedBox.dy;
     // 아트가 있으면: 그늘 → 동물 → 창살 시퀀스(안쪽이 비어 있어 동물이 비쳐 보인다)
     box.addChild(new Graphics().poly(flatHexPoints(size - 1)).fill(CAGE_DARK));
     box.addChild(makeAnimalView(cage, tex, w * 0.5, h * 0.5));
@@ -297,6 +308,13 @@ export function createCageView(textures: CageTextures): CageView {
   }
   const bodies = new Map<string, Entry>();
   const animating = new Set<string>();
+  /** 텍스처 한 장당 한 번만 픽셀을 읽는다 — 케이지마다 다시 재지 않는다 */
+  const fits = new Map<Texture, CageArtFit | null>();
+  function fitOf(t: Texture): CageArtFit | null {
+    let f = fits.get(t);
+    if (f === undefined) { f = measureCageArt(t); fits.set(t, f); }
+    return f;
+  }
   let idleRaf = 0;
 
   /** 상단 면의 금을 진행도에 맞춘다. 값이 그대로면 다시 그리지 않는다.
@@ -357,7 +375,9 @@ export function createCageView(textures: CageTextures): CageView {
     if (openTex && !box.destroyed) {
       openSprite = new Sprite(openTex);
       openSprite.anchor.set(0.5);
-      fitContain(openSprite, 2 * size, Math.sqrt(3) * size); // 원본 비율 유지
+      const openBox = artBox(fitOf(openTex), size); // 잠긴 창살과 같은 기준으로 맞춘다
+      fitContain(openSprite, openBox.w, openBox.h); // 원본 비율 유지
+      openSprite.y = openBox.dy;
       openSprite.alpha = 0;
       box.addChild(openSprite);
     }
@@ -395,8 +415,8 @@ export function createCageView(textures: CageTextures): CageView {
     const arena: EscapeArena = {
       anchor,
       floorY: FLOOR_Y,
-      // 우리 오른쪽 벽을 지나 몸통 하나만큼 더 간다 — 경계에서 사라지면 잘려 보인다
-      exitX: penEdges(FLOOR_Y).right + CELL_W * LAND_SCALE,
+      // 콘텐츠 컬럼을 벗어나면 좌우 고정배경 위다 — 거기까지만 걷는다(escapeExitX)
+      exitX: escapeExitX(),
     };
 
     // 배율 1이 격자 한 칸이 되도록 한 칸 크기로 만든다. 시퀀스는 계속 돈다.
@@ -478,7 +498,7 @@ export function createCageView(textures: CageTextures): CageView {
           continue;
         }
 
-        const body = makeCageBody(cage, textures);
+        const body = makeCageBody(cage, textures, fitOf);
         const p = cageCenter(cage);
         body.box.x = p.x;
         body.box.y = p.y;

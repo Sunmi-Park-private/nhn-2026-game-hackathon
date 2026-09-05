@@ -521,6 +521,23 @@ const AREA_UPLOAD_GROUPS: Record<string, { groups: string[]; note: string }> = {
   },
 };
 
+/** 영역 탭에 함께 뜨는 **영상** 슬롯 — 「영상」 탭에도 있지만, 그 화면을 만드는 사람이
+ *  자기 탭에서 바로 올릴 수 있게 같은 항목을 여기에도 띄운다(같은 슬롯이다). */
+const AREA_VIDEO_UPLOADS: Record<string, { assets: string[]; note: string }> = {
+  intro: {
+    assets: ["video.intro"],
+    note: "게임을 열면 **가장 먼저** 재생됩니다 — 로딩 화면보다 앞입니다. 에셋은 이 영상이 끝난 뒤 로딩 화면에서 받습니다(영상 중에 받으면 버벅입니다). "
+      + "9:16 · mp4 그대로 씁니다(DOM 재생). 자동재생 정책 때문에 무음으로 시작하고 화면의 🔇 버튼으로 소리를 켭니다. "
+      + "건너뛰기 버튼은 코드가 우측 상단에 그립니다. 파일이 없으면 바로 로딩 화면으로 갑니다.",
+  },
+  loading: {
+    assets: ["video.loading"],
+    note: "에셋을 받는 동안 세로 컬럼 전체를 덮고 도는 **무음 루프**입니다. 9:16 · mp4 그대로 씁니다(DOM 재생). "
+      + "위 패널은 코드가 그립니다 — 자리·크기를 끌어 맞추고, 색은 게이지 색, 글자 크기는 제목 크기입니다. "
+      + "영상이 없으면 캔버스 바탕색 위에 패널만 뜹니다. 인물이 화면 위쪽에 서도록 찍어 주세요 — 패널이 아래를 덮습니다.",
+  },
+};
+
 function panel(note: string, items: UiUpload[], cell: number): HTMLElement {
   const wrap = $("div", "background:#241a10;border:1px solid #4a3320;border-radius:8px;padding:12px");
   wrap.appendChild($("div", "color:#a8987c;font-size:11px;margin-bottom:8px", note));
@@ -543,6 +560,13 @@ function renderExtras(): void {
       + "세 마리가 있는 장면을 올립니다. 안 올린 칸은 그 이하 중 있는 것으로 내려가고, "
       + "하나도 없으면 스틸 배경이 그대로 남습니다. mp4로 올려도 webm으로 자동 변환됩니다.",
       scenes, 130));
+  }
+
+  // 그 화면의 영상 — 「영상」 탭과 같은 슬롯이다
+  const vids = AREA_VIDEO_UPLOADS[area().id];
+  if (vids) {
+    const items = state.videos.filter((v) => vids.assets.includes(v.asset));
+    if (items.length > 0) extras.appendChild(panel(vids.note, items, 260));
   }
 
   // 자리가 코드에 고정된 에셋 — 그 화면 탭에서 바로 올린다

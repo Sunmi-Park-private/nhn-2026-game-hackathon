@@ -18,11 +18,16 @@ import { initAudioUnlock } from "./ui/audio";
 import { setStageExtra, setStageExtraX, coverBg, fitCover } from "./ui/stage";
 import { uiAreas } from "./data/uiLayout";
 import { loadProgress, onLoadProgress } from "./ui/loadProgress";
+import { openLoadingScreen } from "./ui/loadingScreen";
+import { LOADING_AREA, LOADING_FALLBACK } from "./ui/loadingLayout";
 import { stages } from "./data/stages";
 import { runStageScreen } from "./ui/hex/stageScreen";
 import { openGameOver } from "./ui/gameOverScreen";
 import { GAMEOVER_AREA } from "./ui/gameOverLayout";
 import { slot } from "./data/uiLayout";
+import { storyBeat } from "./data/story";
+import { ANIMALS } from "./data/animals";
+import { openStoryDialog } from "./ui/storyDialog";
 
 // 배경 영상은 항상 무한 루프·무음 — BGM은 오디오 시스템이 담당
 VideoSource.defaultOptions = {
@@ -101,18 +106,32 @@ async function main(): Promise<void> {
   // E2E 테스트용 씬 마커 — 현재 단계 노출 (게임 로직에선 미사용)
   const mark = (s: string): void => { (window as unknown as { __scene?: string }).__scene = s; };
 
-  // 받는 동안 숫자를 보인다. 느린 회선(터널·모바일)에서는 이 자리가 몇 분이라,
-  // 갈색 단색만 있으면 「멎었다」로 보인다 — 로더의 상한을 없앤 대신 여기서 알린다.
-  const loading = document.createElement("div");
-  loading.style.cssText = "position:fixed;left:0;right:0;bottom:12%;text-align:center;pointer-events:none;"
-    + "color:#e8dcc8;font:14px/1.4 system-ui,sans-serif;text-shadow:0 1px 2px #000";
+  // 인트로 — 파일이 없으면 그냥 지나간다. 에디터로 배치를 맞추는 중에는 방해가 되므로 건너뛴다.
+  // 에디터 「인트로」 탭에서 올린다(video.intro).
+  // **이 동안 에셋을 받지 않는다.** 뒤에서 100MB를 받으면 실제 빌드에서 영상이 버벅였다 —
+  // 에셋은 아래 로딩 화면이 뜬 뒤에 시작한다.
+  if (!new URLSearchParams(location.search).has("editor")) {
+    mark("intro");
+    await playVideo(videoAssetPaths.intro);
+  }
+
+  // 받는 동안 로딩 화면(배경 영상 + 게이지)을 보인다. 느린 회선(터널·모바일)에서는
+  // 이 자리가 몇 분이라, 갈색 단색만 있으면 「멎었다」로 보인다 — 로더의 상한을 없앤 대신 여기서 알린다.
+  // 패널 자리는 uiLayout.json의 loading 영역(에디터 「게임시작 로딩」 탭)이 정한다.
+  const loadingSlot = slot(LOADING_AREA, "panel");
+  const loadingScreen = openLoadingScreen({
+    video: videoAssetPaths.loading,
+    panel: loadingSlot ?? LOADING_FALLBACK.panel,
+    barColor: loadingSlot?.color,
+    fontSize: loadingSlot?.fontSize,
+    hidePanel: loadingSlot?.hidden === true,
+  });
   const paintLoading = (): void => {
     const p = loadProgress();
-    loading.textContent = `불러오는 중… ${p.settled} / ${p.started}`;
+    loadingScreen.update(p.settled, p.started);
   };
   const offProgress = onLoadProgress(paintLoading);
   paintLoading();
-  document.body.appendChild(loading);
 
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
@@ -136,7 +155,7 @@ async function main(): Promise<void> {
     loadSlots(collectionAssetPaths.locked),
   ]);
   offProgress();
-  loading.remove();
+  loadingScreen.close();
   // 로비의 bg 슬롯을 에디터에서 끄면 여기서도 빠진다 — 같은 아트를 두 곳에서 따로 끌 이유가 없다
   const bgOff = uiAreas.find((a) => a.id === "lobby")?.slots.find((s) => s.id === "bg")?.hidden === true;
   if (lobbySlots.bg && !bgOff) {
@@ -196,12 +215,6 @@ async function main(): Promise<void> {
     try { localStorage.setItem(PROFILE_KEY, serializeProfile(profile)); } catch { /* 무시 */ }
   };
 
-  // 인트로 — 파일이 없으면 그냥 지나간다. 에디터로 배치를 맞추는 중에는 방해가 되므로 건너뛴다.
-  if (!new URLSearchParams(location.search).has("editor")) {
-    mark("intro");
-    await playVideo(videoAssetPaths.intro);
-  }
-
   /** 게임오버 창에서 「다시 도전」을 골랐다 — 로비를 거치지 않고 같은 판을 다시 연다. */
   let retry = false;
 
@@ -219,6 +232,25 @@ async function main(): Promise<void> {
       history.replaceState(null, "", `${location.pathname}${q ? `?${q}` : ""}${location.hash}`);
     }
   }
+  /** 판 하나를 깬 뒤의 대사. 비트가 없는 판(마지막)이면 아무 일도 하지 않는다. */
+  const playStoryBeat = async (clearedIndex: number): Promise<void> => {
+    const beat = storyBeat(clearedIndex);
+    if (!beat) return;
+    mark("story");
+    // 초상은 이미 받아 둔 텍스처만 쓴다 — 여기서 새로 받으면 판 사이가 멎는다.
+    // 인게임 동물 시퀀스 첫 장이 1순위, 없으면 열린 창살 스틸, 그것도 없으면 도감 카드다.
+    const animalTex = hexTextures.animals[beat.rescuedId]?.[0]
+      ?? hexTextures.cageOpen[beat.rescuedId]
+      ?? collectionCards[beat.rescuedId];
+    await openStoryDialog(app.stage, {
+      lines: beat.lines,
+      horseTex: hexTextures.horse[0],
+      animalTex,
+      horseName: "붉은말",
+      animalName: ANIMALS.find((a) => a.id === beat.rescuedId)?.name ?? "친구",
+    });
+  };
+
   for (;;) {
     if (!retry) {
       mark("lobby");
@@ -247,13 +279,19 @@ async function main(): Promise<void> {
 
     const outcome = await runStageScreen(app, stage, profile.stageIndex, hexTextures, ui, stock);
     if (outcome.result === "cleared") {
-      const last = profile.stageIndex >= stages.length - 1;
+      const cleared = profile.stageIndex;
+      const last = cleared >= stages.length - 1;
       profile = addClear(profile, outcome.rescued, outcome.horseshoes);
       save();
-      // 마지막 스테이지를 깨면 엔딩. 파일이 없으면 그냥 로비로 돌아간다.
+      // 마지막 스테이지를 깨면 엔딩. 파일이 없으면 그냥 로비로 돌아간다 —
+      // 어느 쪽이든 이 아래로 흘러 다음 바퀴의 runLobby로 간다.
       if (last) {
         mark("ending");
         await playVideo(videoAssetPaths.ending, "닫기");
+      } else {
+        // 중간 판이면 방금 구한 동물과 붉은말이 다음 구조를 이야기한다.
+        // 대사·초상은 여기서 넣어 준다 — storyDialog는 data를 모른다(규약 2조).
+        await playStoryBeat(cleared);
       }
     }
     // failed·lobby는 프로필을 건드리지 않는다 — 다음 바퀴에서 같은 스테이지가 다시 나온다

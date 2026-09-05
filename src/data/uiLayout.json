@@ -2,6 +2,26 @@
   "_note": "UI 슬롯 배치. 좌표계는 중앙 콘텐츠 컬럼 450×800이다. /ui.html 에디터로 조정하고 저장한다.",
   "areas": [
     {
+      "id": "intro",
+      "label": "인트로",
+      "slots": []
+    },
+    {
+      "id": "loading",
+      "label": "게임시작 로딩",
+      "slots": [
+        {
+          "id": "panel",
+          "label": "로딩 패널 (제목·팁·게이지) · 색=게이지 색 · 글자=제목 크기",
+          "x": 36,
+          "y": 585,
+          "w": 378,
+          "h": 120,
+          "color": "#ff6fae"
+        }
+      ]
+    },
+    {
       "id": "lobby",
       "label": "로비",
       "slots": [
@@ -17,8 +37,8 @@
         {
           "id": "topStats",
           "label": "상단 재화 바(아트)",
-          "x": 14,
-          "y": 6,
+          "x": 10,
+          "y": -16,
           "w": 340,
           "h": 113,
           "asset": "lobby.topStats"
@@ -26,8 +46,8 @@
         {
           "id": "statCoin",
           "label": "코인 숫자",
-          "x": 67,
-          "y": 50,
+          "x": 60,
+          "y": 30,
           "w": 60,
           "h": 22,
           "fontSize": 15
@@ -35,8 +55,8 @@
         {
           "id": "statGem",
           "label": "젬 숫자",
-          "x": 178,
-          "y": 50,
+          "x": 167,
+          "y": 30,
           "w": 60,
           "h": 22,
           "fontSize": 15
@@ -44,8 +64,8 @@
         {
           "id": "statHorseshoe",
           "label": "말굽 숫자",
-          "x": 285,
-          "y": 50,
+          "x": 276,
+          "y": 30,
           "w": 60,
           "h": 22,
           "fontSize": 15
@@ -53,62 +73,63 @@
         {
           "id": "gear",
           "label": "설정",
-          "x": 400,
-          "y": 10,
+          "x": 397,
+          "y": 20,
           "w": 40,
           "h": 40,
-          "asset": "ui.gear"
+          "asset": "ui.gear",
+          "scale": 1.45
         },
         {
           "id": "play",
           "label": "PLAY",
-          "x": 128,
-          "y": 640,
+          "x": 130,
+          "y": 630,
           "w": 194,
           "h": 54,
           "asset": "lobby.play",
-          "scale": 1.5
+          "scale": 2
         },
         {
           "id": "navHome",
           "label": "HOME",
           "x": 20,
-          "y": 738,
+          "y": 729,
           "w": 96,
           "h": 50,
           "asset": "lobby.navHome",
-          "scale": 2
+          "scale": 2.3
         },
         {
           "id": "navRace",
           "label": "RACE",
           "x": 122,
-          "y": 738,
+          "y": 729,
           "w": 96,
           "h": 50,
           "asset": "lobby.navRace",
-          "scale": 2
+          "scale": 2.3
         },
         {
           "id": "navAnimals",
           "label": "ANIMALS",
           "x": 226,
-          "y": 738,
+          "y": 729,
           "w": 96,
           "h": 50,
           "asset": "lobby.navAnimals",
-          "scale": 2,
+          "scale": 2.3,
           "fontSize": 12
         },
         {
           "id": "navEvents",
           "label": "EVENTS",
           "x": 330,
-          "y": 738,
+          "y": 729,
           "w": 96,
           "h": 50,
           "asset": "lobby.navEvents",
-          "scale": 2
+          "scale": 2.3
         },
         {
           "id": "friendHorse",
@@ -236,8 +257,8 @@
         {
           "id": "cellRabbit",
           "label": "토끼",
-          "x": 91,
-          "y": 218,
+          "x": 110,
+          "y": 230,
           "w": 114,
           "h": 119,
           "asset": "collection.cards.rabbit",
@@ -250,8 +271,8 @@
         {
           "id": "cellMonkey",
           "label": "원숭이",
-          "x": 221,
-          "y": 218,
+          "x": 230,
+          "y": 230,
           "w": 114,
           "h": 119,
           "asset": "collection.cards.monkey",
@@ -264,8 +285,8 @@
         {
           "id": "cellDeer",
           "label": "사슴",
-          "x": 91,
-          "y": 346,
+          "x": 110,
+          "y": 350,
           "w": 114,
           "h": 119,
           "asset": "collection.cards.deer",
@@ -278,8 +299,8 @@
         {
           "id": "cellSheep",
           "label": "양",
-          "x": 221,
-          "y": 346,
+          "x": 230,
+          "y": 350,
           "w": 114,
           "h": 119,
           "asset": "collection.cards.sheep",
@@ -292,8 +313,8 @@
         {
           "id": "cellZebra",
           "label": "얼룩말",
-          "x": 91,
-          "y": 474,
+          "x": 110,
+          "y": 470,
           "w": 114,
           "h": 119,
           "asset": "collection.cards.zebra",
@@ -306,8 +327,8 @@
         {
           "id": "cellElephant",
           "label": "코끼리",
-          "x": 221,
-          "y": 474,
+          "x": 230,
+          "y": 470,
           "w": 114,
           "h": 119,
           "asset": "collection.cards.elephant",
@@ -349,7 +370,7 @@
           "w": 46,
           "h": 45,
           "asset": "event.close",
-          "scale": 2
+          "scale": 1.6
         },
         {
           "id": "cta",
@@ -358,7 +379,8 @@
           "y": 614,
           "w": 275,
           "h": 63,
-          "asset": "event.cta"
+          "asset": "event.cta",
+          "scale": 3
         }
       ]
     },
@@ -382,16 +404,17 @@
           "y": 28,
           "w": 220,
           "h": 41,
-          "asset": "ui.stageBar"
+          "asset": "ui.stageBar",
+          "scale": 2
         },
         {
           "id": "stageTitle",
           "label": "스테이지 이름",
-          "x": 131,
-          "y": 38,
+          "x": 128,
+          "y": 35,
           "w": 96,
           "h": 22,
-          "fontSize": 15
+          "fontSize": 20
         },
         {
           "id": "stageCounter",
@@ -400,13 +423,14 @@
           "y": 38,
           "w": 70,
           "h": 22,
-          "fontSize": 15
+          "fontSize": 15,
+          "hidden": true
         },
         {
           "id": "shots",
           "label": "남은 발사",
-          "x": 155,
-          "y": 72,
+          "x": 220,
+          "y": 39,
           "w": 140,
           "h": 20
         },
@@ -465,7 +489,8 @@
           "x": 135,
           "y": 558,
           "w": 190,
-          "h": 190
+          "h": 190,
+          "scale": 1.8
         }
       ]
     },
@@ -617,7 +642,8 @@
           "y": 290,
           "w": 300,
           "h": 220,
-          "asset": "ui.gameOverPanel"
+          "asset": "ui.gameOverPanel",
+          "scale": 1.3
         },
         {
           "id": "title",
@@ -625,7 +651,8 @@
           "x": 105,
           "y": 312,
           "w": 240,
-          "h": 44
+          "h": 44,
+          "hidden": true
         },
         {
           "id": "message",
@@ -633,7 +660,8 @@
           "x": 97,
           "y": 366,
           "w": 256,
-          "h": 56
+          "h": 56,
+          "hidden": true
         },
         {
           "id": "lobby",
@@ -642,7 +670,8 @@
           "y": 436,
           "w": 120,
           "h": 48,
-          "asset": "ui.btnGameOverLobby"
+          "asset": "ui.btnGameOverLobby",
+          "scale": 1.5
         },
         {
           "id": "retry",
@@ -651,7 +680,8 @@
           "y": 436,
           "w": 120,
           "h": 48,
-          "asset": "ui.btnGameOverRetry"
+          "asset": "ui.btnGameOverRetry",
+          "scale": 1.5
         }
       ]
     },
@@ -675,7 +705,8 @@
           "y": 22,
           "w": 58,
           "h": 42,
-          "asset": "race.ui.back"
+          "asset": "race.ui.back",
+          "scale": 1.35
         },
         {
           "id": "gear",
@@ -1246,6 +1277,10 @@
     {
       "label": "엔딩",
       "asset": "video.ending"
+    },
+    {
+      "label": "게임시작 로딩 (배경 루프 · 무음)",
+      "asset": "video.loading"
     }
   ],
   "audios": [
