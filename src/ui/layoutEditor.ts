@@ -523,7 +523,11 @@ function buildRow(e: Entry): HTMLElement {
     mkNum(e.slot.w, "w", (n) => { e.slot.w = Math.max(1, n); apply(e); commit(); scheduleSave(); }),
     mkNum(e.slot.h, "h", (n) => { e.slot.h = Math.max(1, n); apply(e); commit(); scheduleSave(); }),
   );
-  if (visual) {
+  // 배율은 **모든 슬롯**에 준다. 예전에는 hasVisual()이 true인 것만 줬는데,
+  // 그러면 글자만 그리는 슬롯(코인·젬·말굽 숫자)에 배율 칸이 없었다 — 글자 크기와
+  // 별개로 묶음째 키우고 싶을 때 손댈 방법이 없다(QA: 「배율 파라미터가 누락됐다」).
+  // 배율은 노드 전체에 걸리는 값이라 그림이 없어도 뜻이 있다.
+  {
     line2.appendChild(mkNum(e.slot.scale ?? 1, "배율", (n) => {
       if (!(n > 0)) return;
       e.slot.scale = n === 1 ? undefined : n;

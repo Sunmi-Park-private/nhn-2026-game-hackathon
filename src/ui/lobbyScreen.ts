@@ -187,7 +187,12 @@ export function runLobby(
     // 것으로 보였다(QA). 자리를 지금 잡아 둔다 — 나중에 인덱스를 세어 끼우면
     // 스틸이 없을 때 한 칸씩 밀려 테두리나 재화 바를 덮는다.
     const stillBg = tex.bg ? coverBox(tex.bg) : null;
-    if (stillBg) layer.addChild(stillBg);
+    if (stillBg) {
+      layer.addChild(stillBg);
+      // 배경도 에디터가 잡는다. 예전에는 슬롯이 uiLayout.json에 있는데 노드를 넘기지
+      // 않아 **에디터 목록에 뜨지도 않았다** — 좌표도 배율도 손댈 수 없었다(QA).
+      editable(AREA, box("bg", { x: 0, y: 0, w: BASE_W, h: 800 }), stillBg);
+    }
     const sceneLayer = new Container();
     layer.addChild(sceneLayer);
 
@@ -227,7 +232,10 @@ export function runLobby(
         if (!t) continue;
         if (layer.destroyed || sceneLayer.destroyed) return; // 그 사이 로비가 닫혔다
         stops.push(playVideoTexture(t, app.ticker)); // 영상이면 돈다. 스틸이면 아무 일도 없다
-        sceneLayer.addChild(coverBox(t)); // ② 스틸은 그대로 밑에 남는다
+        const view = coverBox(t);
+        sceneLayer.addChild(view); // ② 스틸은 그대로 밑에 남는다
+        // 배경 **영상**도 슬롯이다 — 실제로 트는 한 편만 등록된다(나머지는 노드가 없다)
+        editable(AREA, box(sceneSlotId(key), { x: 0, y: 0, w: BASE_W, h: 800 }), view);
         return;
       }
     })();

@@ -97,7 +97,13 @@ function buildBackground(bg: StageTextures["bg"]): Container {
     if (bg.panelLeft) layer.addChild(sidePanel(bg.panelLeft, left, panelW, layer));
     if (bg.panelRight) layer.addChild(sidePanel(bg.panelRight, BASE_W, panelW, layer));
   }
-  if (bg.board) layer.addChild(coverBox(bg.board));
+  if (bg.board) {
+    const board = coverBox(bg.board);
+    layer.addChild(board);
+    // 판 배경도 에디터가 잡는다 — 예전에는 노드를 슬롯에 안 넘겨 목록에 뜨지 않았다(QA)
+    const boardBox = slot("ingame", "bgBoard");
+    if (boardBox) editable("ingame", boardBox, board);
+  }
   // 인게임 배경 패널 — 판 배경 위, 게임 오브젝트 아래. 이 컨테이너가 layer에 제일 먼저
   // 붙으므로 타일·케이지·발사대·HUD는 전부 이보다 앞에 그려진다.
   //

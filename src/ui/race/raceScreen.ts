@@ -8,7 +8,7 @@
 import { Application, Container, Graphics, type Texture } from "pixi.js";
 import { coverBox, contentRect, stageHeight, stageTop } from "../stage";
 import { openSettings, type SettingsTextures } from "../settingsMenu";
-import type { UiSlot } from "../../data/uiLayout";
+import { slot, type UiSlot } from "../../data/uiLayout";
 import { RACE, RACE_LANE_ORDER } from "../../data/race";
 import { ANIMALS } from "../../data/animals";
 import { editable, clearEditable } from "../layoutEditor";
@@ -19,7 +19,7 @@ import type { RaceOutcome, RaceState } from "../../engine/race/types";
 import { createRace, isRaceOver, myTime, pickAnimal, ranking, tapRace, tickRace } from "../../engine/race/raceRun";
 import { settleRace, type RaceReward } from "../../engine/race/reward";
 import { hotspot, slotText } from "./raceChrome";
-import { RACE_AREAS, raceSlots } from "./raceSlots";
+import { RACE_AREAS, raceSlots, type RaceAreaId } from "./raceSlots";
 import { createTrackView } from "./trackView";
 import { createRunnerLayer } from "./runnerLayer";
 import { createCardPicker } from "./cardPicker";
@@ -43,11 +43,19 @@ export interface RaceTextures {
 
 const BOOSTER_KO: Record<string, string> = { bomb: "폭탄", rainbow: "레인보우", horseshoe: "말굽" };
 
-/** 배경 한 장을 콘텐츠 박스에 깐다. 없으면 단색. 좌우 블리드는 기본 배경 영상(main.ts) 자리다. */
-function scene(tex: Texture | undefined): Container {
+/** 배경 한 장을 콘텐츠 박스에 깐다. 없으면 단색. 좌우 블리드는 기본 배경 영상(main.ts) 자리다.
+ *
+ *  배경 노드를 그 화면의 bg 슬롯에 등록한다 — 예전에는 슬롯이 uiLayout.json에 있는데
+ *  노드를 안 넘겨 **에디터 목록에 뜨지도 않았다.** 좌표도 배율도 손댈 수 없었다(QA). */
+function scene(area: RaceAreaId, tex: Texture | undefined): Container {
   const c = new Container();
   c.addChild(contentRect(0x241a10));
-  if (tex) c.addChild(coverBox(tex));
+  if (tex) {
+    const view = coverBox(tex);
+    c.addChild(view);
+    const b = slot(area, "bg");
+    if (b) editable(area, b, view);
+  }
   return c;
 }
 
@@ -97,7 +105,7 @@ export function openRace(
     resultScreen.visible = false;
 
     // ── 선택 화면 ────────────────────────────
-    selectScreen.addChild(scene(tex.bg.selectScene));
+    selectScreen.addChild(scene("raceSelect", tex.bg.selectScene));
     // ANIMAL RACE 간판은 배경 아트가 그린다 — 코드가 덧그리면 두 번 나온다
 
     const picker = createCardPicker({
@@ -131,7 +139,7 @@ export function openRace(
     selectScreen.addChild(btnSelect);
 
     // ── 경주 화면 ────────────────────────────
-    trackScreen.addChild(scene(tex.bg.raceScene));
+    trackScreen.addChild(scene("raceTrack", tex.bg.raceScene));
     const track = createTrackView({
       box: B.track.trackArea,
       tex: { trackTile: tex.bg.trackTile, finish: tex.bg.finish },
@@ -195,7 +203,7 @@ export function openRace(
       }
 
       const champ = ranking(race)[0];
-      resultScreen.addChild(scene(tex.bg.resultScene));
+      resultScreen.addChild(scene("raceResult", tex.bg.resultScene));
       resultScreen.addChild(buildRaceResult({
         slots: B.result as unknown as Record<string, UiSlot>,
         tex: {
