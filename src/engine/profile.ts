@@ -12,6 +12,10 @@ export interface Profile {
   stageIndex: number;
 }
 
+/** 저장소 키. 게임과 치트 패널이 같은 자리를 봐야 해서 한곳에 둔다 —
+ *  문자열을 양쪽에 적어 두면 한쪽만 고쳐도 아무도 모른다. */
+export const PROFILE_KEY = "redhorserescue.profile";
+
 export function emptyProfile(): Profile {
   return { rescued: [], horseshoes: 0, stageIndex: 0 };
 }
