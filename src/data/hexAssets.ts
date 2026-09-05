@@ -110,6 +110,8 @@ export const UI_SLOT_IDS = [
   "settingsPanel", "settingsClose", "toggleOn", "toggleOff", "btnResume", "btnHome", "gear", "stageBar",
   // 확인창 — 설정창 위에 겹쳐 뜬다. 아트가 없으면 지금처럼 색 도형으로 그린다.
   "confirmPanel", "btnConfirmOk", "btnConfirmCancel",
+  // 게임오버 창 — 판이 바닥에 닿으면 뜬다. 확인창과 아트를 나누는 이유는 새겨진 문구가 다르기 때문.
+  "gameOverPanel", "btnGameOverLobby", "btnGameOverRetry",
 ] as const;
 export type UiSlotId = (typeof UI_SLOT_IDS)[number];
 

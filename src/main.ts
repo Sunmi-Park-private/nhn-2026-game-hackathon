@@ -20,6 +20,8 @@ import { loadProgress, onLoadProgress } from "./ui/loadProgress";
 import { stages } from "./data/stages";
 import { runStageScreen } from "./ui/hex/stageScreen";
 import { openGameOver } from "./ui/gameOverScreen";
+import { GAMEOVER_AREA } from "./ui/gameOverLayout";
+import { slot } from "./data/uiLayout";
 
 // 배경 영상은 항상 무한 루프·무음 — BGM은 오디오 시스템이 담당
 VideoSource.defaultOptions = {
@@ -235,7 +237,15 @@ async function main(): Promise<void> {
     if (outcome.result === "failed") {
       // 곧바로 로비로 튕기면 「졌다」가 화면에 없다(본선 QA). 한 번 세우고 다시 할지 묻는다.
       mark("gameover");
-      retry = await openGameOver(app.stage);
+      // 슬롯은 원본을 넘긴다 — 복사본이면 에디터에서 끌어도 저장이 안 된다
+      retry = await openGameOver(app.stage, {
+        slot: (id) => slot(GAMEOVER_AREA, id),
+        textures: {
+          panel: uiSlots.gameOverPanel,
+          lobby: uiSlots.btnGameOverLobby,
+          retry: uiSlots.btnGameOverRetry,
+        },
+      });
     }
   }
 }
