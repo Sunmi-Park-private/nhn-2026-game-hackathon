@@ -5,12 +5,13 @@ import { createRun, fireAt, isCleared, isFailed } from "../../engine/hex/stageRu
 import { simulateShot } from "../../engine/hex/shot";
 import type { Boosters, RunState, StageDef } from "../../engine/hex/types";
 import { fullRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
-import { BOARD, ROW_H, launchOrigin, launchOriginLocal } from "./geom";
+import { BOARD, ROW_H, cellToScreen, launchOrigin, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
 import { createCageView } from "./cageView";
 import { createHudView } from "./hudView";
 import { pushRow, hasReachedFailRow, failRow } from "../../engine/hex/pushRow";
 import { createFailLine } from "./failLine";
+import { playArmorHits, type ArmorHit } from "./armorFx";
 import { shakeX, slideY, slideDone } from "./pushMotion";
 import { createLauncher } from "./launcher";
 import { createDragAim } from "./dragAim";
@@ -152,6 +153,8 @@ export async function runStageScreen(
   });
   const gauge = createPowerGauge();
   const failMark = createFailLine(failRow(state));
+  /** 연출 전용 레이어. 판을 다시 그려도 살아남아야 하는 것들이 여기 붙는다. */
+  const fx = new Container();
   // 당길 수 있는 범위 — 조준선은 이미 당긴 뒤에야 나오므로 그 전에 알려줄 것이 필요하다
   const pullArea = createPullArea(launchOrigin());
   // 앵커는 붉은말의 발 밑이다 — 새총의 고정점이 눈에 보이는 자리와 같아야 한다
@@ -165,7 +168,7 @@ export async function runStageScreen(
   // 당김 가이드는 **말보다 앞**이다. 뒤에 두면 말 몸통이 가운데를 가려
   // 좌우 변만 남아 사각형으로 읽히지 않는다. 얇은 윤곽선이라 캐릭터를 해치지 않는다.
   layer.addChild(
-    failMark.root, board.root, cages.root, launcher.root, pullArea.root, hud.root, gauge.root,
+    failMark.root, board.root, cages.root, fx, launcher.root, pullArea.root, hud.root, gauge.root,
   );
   app.stage.addChild(layer);
 
@@ -271,6 +274,7 @@ export async function runStageScreen(
       };
       cancelAnimationFrame(pushFrame);
       failMark.destroy();
+      fx.destroy({ children: true });
       input.off("pointerdown", onDown);
       input.off("pointermove", onMove);
       input.off("globalpointermove", onMove);
@@ -330,7 +334,25 @@ export async function runStageScreen(
 
         const outcome = fireAt(state, BOARD, launchOriginLocal(), aim.angle, aim.power);
         if (outcome.steps.length > 0) playSfx("audio.sfxPop");
-        redrawExceptCages(); // 타일·HUD는 즉시 반영 — 케이지는 아직 건드리지 않는다
+
+        // 말발굽이 벗겨진 칸은 **다시 그리기 전에** 흔든다 — 다시 그리면 이미 벗겨진
+        // 그림이라 「버텼다」가 보이지 않는다. 표시 객체를 먼저 붙잡아 둔다.
+        const hits: ArmorHit[] = outcome.steps
+          .flatMap((st) => st.damaged)
+          .map((a) => {
+            const cell = state.cells.get(`${a.q},${a.r}`);
+            const p = cellToScreen(a);
+            return {
+              x: p.x,
+              y: p.y,
+              armorLeft: cell?.kind === "tile" ? (cell.armor ?? 0) : 0,
+              view: board.viewAt(a),
+            };
+          });
+
+        // 흔들림 → 다시 그리기 → 말발굽 낙하 순서다. 다시 그리기가 먼저면
+        // 붙잡아 둔 표시 객체가 파괴돼 흔들 것이 없어진다.
+        await playArmorHits(fx, hits, redrawExceptCages);
 
         for (const cage of outcome.rescued) {
           playSfx("audio.sfxRescue");

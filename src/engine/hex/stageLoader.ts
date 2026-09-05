@@ -23,6 +23,11 @@ function asInt(v: unknown, what: string): number {
   return v;
 }
 
+function asNumber(v: unknown, what: string): number {
+  if (typeof v !== "number" || !Number.isFinite(v)) fail(`${what}가 유한한 수가 아니다`);
+  return v;
+}
+
 function asArray(v: unknown, what: string): unknown[] {
   if (!Array.isArray(v)) fail(`${what}가 배열이 아니다`);
   return v;
@@ -47,9 +52,11 @@ export function parseStage(raw: unknown): StageDef {
   const rows = asInt(o.rows, "rows");
   const objective = asInt(o.objective, "objective");
   const pushSeconds = asInt(o.pushSeconds, "pushSeconds");
+  const armorChance = o.armorChance === undefined ? 0 : asNumber(o.armorChance, "armorChance");
 
   if (cols <= 0 || rows <= 0) fail("cols/rows는 1 이상이어야 한다");
   if (pushSeconds <= 0) fail("pushSeconds는 1 이상이어야 한다");
+  if (armorChance < 0 || armorChance > 1) fail(`armorChance는 0~1이어야 한다 (${armorChance})`);
 
   const occupied = new Map<string, string>();
   const claim = (a: Axial, what: string): void => {
@@ -90,5 +97,5 @@ export function parseStage(raw: unknown): StageDef {
     return a;
   });
 
-  return { id, cols, rows, objective, pushSeconds, cages, tiles, horseshoes };
+  return { id, cols, rows, objective, pushSeconds, armorChance, cages, tiles, horseshoes };
 }

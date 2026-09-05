@@ -17,6 +17,7 @@ function stage(over: Partial<StageDef> = {}): StageDef {
     rows: 12,
     objective: 1,
     pushSeconds: 15,
+    armorChance: 0,
     cages: [],
     tiles: [],
     horseshoes: [],

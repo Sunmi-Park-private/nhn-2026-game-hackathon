@@ -9,7 +9,7 @@ import {
 import type { Cell, StageDef, Tier } from "../../src/engine/hex/types";
 
 function stage(): StageDef {
-  return { id: "t", cols: 7, rows: 12, objective: 1, pushSeconds: 15, cages: [], tiles: [], horseshoes: [] };
+  return { id: "t", cols: 7, rows: 12, objective: 1, pushSeconds: 15, armorChance: 0, cages: [], tiles: [], horseshoes: [] };
 }
 
 function makeCells(entries: Array<[number, number, Tier]>): Map<string, Cell> {

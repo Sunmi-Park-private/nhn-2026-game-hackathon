@@ -24,6 +24,26 @@ export const DEAD_ZONE = 16;
 /** 파워가 1에 닿는 당김 거리. 더 끌어도 파워는 그대로, 각도만 정밀해진다. */
 export const MAX_PULL = 170;
 
+const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
+
+/**
+ * 조준 민감도 완화 계수(expo). 0이면 선형, 1이면 완전 세제곱.
+ *
+ * 선형이면 손끝이 조금만 움직여도 조준선과 말이 확 돌아 겨냥이 안 됐다.
+ * 그렇다고 각도에 0.5를 곱하면 **최대 각도까지 못 간다** — 넓은 뱅크 샷이 죽는다.
+ *
+ * 그래서 RC 조종기의 expo 커브를 쓴다: `(1-e)·u + e·u³`.
+ * 0.5에서 **중앙 기울기가 정확히 절반**(2배 더 끌어야 같은 각)이고, 끝(u=±1)에서는
+ * 0.5 + 0.5 = 1이라 **최대 각도가 그대로 닿는다.** 둔해지는 것은 조준의 정밀한 구간뿐이다.
+ */
+export const AIM_EXPO = 0.5;
+
+/** 정규화된 조준 입력(-1~1)에 expo를 먹인다. */
+export function applyExpo(u: number): number {
+  const c = clamp(u, -1, 1);
+  return (1 - AIM_EXPO) * c + AIM_EXPO * c * c * c;
+}
+
 export interface DragAim {
   down(p: Point): void;
   move(p: Point): void;
@@ -32,8 +52,6 @@ export interface DragAim {
   current(): Aim | null;
   cancel(): void;
 }
-
-const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
 
 export function createDragAim(anchor: Point): DragAim {
   let aim: Aim | null = null;
@@ -47,7 +65,8 @@ export function createDragAim(anchor: Point): DragAim {
     if (dist < 1e-6) return null;
     // 발사 방향 = -v. 각도 규약이 (x=sin, y=-cos)이므로 atan2(-vx, vy)다.
     // vy가 음수(앵커 위를 끌었다)면 아래를 향하는 각이 나오지만 클램프가 잡는다.
-    const angle = clamp(Math.atan2(-vx, vy), -MAX_ANGLE, MAX_ANGLE);
+    const raw = clamp(Math.atan2(-vx, vy), -MAX_ANGLE, MAX_ANGLE);
+    const angle = applyExpo(raw / MAX_ANGLE) * MAX_ANGLE;
     const power = clamp((dist - DEAD_ZONE) / (MAX_PULL - DEAD_ZONE), 0, 1);
     return { angle, power };
   }

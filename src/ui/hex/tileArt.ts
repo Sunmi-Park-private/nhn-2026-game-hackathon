@@ -41,8 +41,36 @@ export function drawTileFallback(color: number): Graphics {
   return g;
 }
 
-/** 타일 하나의 표시 객체. 텍스처가 있으면 스프라이트, 없으면 색 육각. */
-export function makeTileView(tier: Tier, tex: Texture | null): Container {
+/** 말발굽 색 — 쇠붙이다. 타일 색 위에서도 눈에 띄어야 한다. */
+const ARMOR_STROKE = 0x3b3630;
+const ARMOR_SHINE = 0xb9a88f;
+
+/**
+ * 타일 위에 얹는 말발굽. 아트가 아직 없어 코드로 그린다.
+ *
+ * U자 두께를 육각 반지름에 비례로 잡는다 — 셀 크기가 바뀌어도 같은 그림이다.
+ * 못 자국 두 개를 찍어 「얹힌 쇠」로 읽히게 한다. 색만으로는 그림자와 구분이 안 된다.
+ */
+export function makeArmorOverlay(): Container {
+  const g = new Graphics();
+  const r = HEX_SIZE * 0.46;
+  const w = HEX_SIZE * 0.26;
+  // 아래가 트인 U — 시작·끝 각도는 화면 좌표계(y 아래로 증가) 기준이다
+  g.arc(0, HEX_SIZE * 0.06, r, Math.PI * 0.82, Math.PI * 0.18)
+    .stroke({ width: w, color: ARMOR_STROKE, cap: "round" });
+  g.arc(0, HEX_SIZE * 0.06, r, Math.PI * 0.82, Math.PI * 0.18)
+    .stroke({ width: w * 0.34, color: ARMOR_SHINE, alpha: 0.55, cap: "round" });
+  for (const a of [Math.PI * 1.25, Math.PI * 1.75]) {
+    g.circle(Math.cos(a) * r, HEX_SIZE * 0.06 + Math.sin(a) * r, w * 0.17)
+      .fill({ color: ARMOR_SHINE, alpha: 0.8 });
+  }
+  return g;
+}
+
+/** 타일 하나의 표시 객체. 텍스처가 있으면 스프라이트, 없으면 색 육각.
+ *  `armor`가 남아 있으면 말발굽을 얹는다. */
+export function makeTileView(tier: Tier, tex: Texture | null, armor = 0): Container {
+  const base = ((): Container => {
   if (tex) {
     const s = new Sprite(tex);
     s.anchor.set(0.5);
@@ -55,6 +83,12 @@ export function makeTileView(tier: Tier, tex: Texture | null): Container {
     return s;
   }
   return drawTileFallback(TIER_COLORS[tier] ?? 0x888888);
+  })();
+
+  if (armor <= 0) return base;
+  const wrap = new Container();
+  wrap.addChild(base, makeArmorOverlay());
+  return wrap;
 }
 
 export function makeHorseshoeView(tex: Texture | null): Container {

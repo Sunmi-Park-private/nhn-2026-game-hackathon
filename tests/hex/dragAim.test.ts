@@ -1,6 +1,6 @@
 // tests/hex/dragAim.test.ts — 새총 조준: 당긴 반대로 날아간다
 import { describe, it, expect } from "vitest";
-import { createDragAim, MAX_ANGLE, DEAD_ZONE, MAX_PULL } from "../../src/ui/hex/dragAim";
+import { createDragAim, MAX_ANGLE, DEAD_ZONE, MAX_PULL, applyExpo } from "../../src/ui/hex/dragAim";
 
 const ANCHOR = { x: 225, y: 700 };
 
@@ -102,5 +102,53 @@ describe("createDragAim", () => {
     // 왼쪽 위로 당기면(vx<0) 오른쪽 한계에 붙는다
     d.move({ x: ANCHOR.x - 50, y: ANCHOR.y - 100 });
     expect(d.current()!.angle).toBe(MAX_ANGLE);
+  });
+});
+
+describe("조준 민감도 — expo 커브", () => {
+  // 선형이면 손끝이 조금만 움직여도 조준선과 말이 확 돈다. 각도에 0.5를 곱하면
+  // 둔해지긴 하지만 최대 각도까지 못 가 넓은 뱅크 샷이 죽는다. expo는 둘을 같이 만족한다.
+  it("중앙 기울기가 정확히 절반이다 — 같은 각을 내려면 두 배로 끌어야 한다", () => {
+    const h = 1e-6;
+    expect((applyExpo(h) - applyExpo(-h)) / (2 * h)).toBeCloseTo(0.5, 4);
+  });
+
+  it("최대 각도는 그대로 닿는다", () => {
+    expect(applyExpo(1)).toBeCloseTo(1, 12);
+    expect(applyExpo(-1)).toBeCloseTo(-1, 12);
+  });
+
+  it("가운데는 가운데다", () => {
+    expect(applyExpo(0)).toBe(0);
+  });
+
+  it("단조 증가한다 — 끌수록 각이 커져야 손이 헷갈리지 않는다", () => {
+    let prev = -Infinity;
+    for (let u = -1; u <= 1.0001; u += 0.02) {
+      const v = applyExpo(u);
+      expect(v).toBeGreaterThan(prev);
+      prev = v;
+    }
+  });
+
+  it("어디서도 선형보다 둔하다 — 끝을 빼면 항상 덜 돈다", () => {
+    for (let u = 0.05; u < 0.99; u += 0.05) expect(applyExpo(u)).toBeLessThan(u);
+  });
+
+  it("범위를 벗어난 입력은 잘린다", () => {
+    expect(applyExpo(2)).toBeCloseTo(1, 12);
+    expect(applyExpo(-9)).toBeCloseTo(-1, 12);
+  });
+
+  it("실제 조준에 걸린다 — 옆으로 끌 때 예전보다 덜 돈다", () => {
+    const anchor = { x: 100, y: 100 };
+    const a = createDragAim(anchor);
+    a.down(anchor);
+    // 앵커 아래로 100, 오른쪽으로 40 — 왼쪽을 겨눈다
+    a.move({ x: 140, y: 200 });
+    const aim = a.current()!;
+    const raw = Math.atan2(-40, 100); // 선형이었다면 이 값
+    expect(Math.abs(aim.angle)).toBeLessThan(Math.abs(raw));
+    expect(Math.sign(aim.angle)).toBe(Math.sign(raw));
   });
 });

@@ -14,9 +14,13 @@ export interface Axial {
   r: number;
 }
 
-/** 셀 내용. 빈 칸은 Map에 키가 없는 것으로 표현한다(별도 empty 종류를 두지 않는다). */
+/** 셀 내용. 빈 칸은 Map에 키가 없는 것으로 표현한다(별도 empty 종류를 두지 않는다).
+ *
+ *  타일의 `armor`는 얹힌 말발굽 겹수다. 없거나 0이면 보통 타일이다.
+ *  같은 색 덩어리가 터질 때 말발굽이 있는 칸은 **사라지지 않고 한 겹만 벗겨진다** —
+ *  2겹으로 시작하므로 세 번 맞아야 없어진다(버팀 → 말발굽 떨어짐 → 제거). */
 export type Cell =
-  | { kind: "tile"; tier: Tier }
+  | { kind: "tile"; tier: Tier; armor?: number }
   | { kind: "horseshoe" }
   | { kind: "cage"; cageId: string };
 
@@ -36,6 +40,8 @@ export interface StageDef {
   objective: number;
   /** 새 줄이 한 칸 내려오는 주기(초). 실패 조건이 여기서 나온다. */
   pushSeconds: number;
+  /** 새 줄의 타일이 말발굽을 얹고 나올 확률(0~1). 0이면 강화 타일이 없다. */
+  armorChance: number;
   cages: Cage[];
   tiles: Array<{ at: Axial; tier: Tier }>;
   horseshoes: Axial[];

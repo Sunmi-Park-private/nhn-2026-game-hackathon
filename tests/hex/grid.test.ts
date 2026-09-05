@@ -87,6 +87,7 @@ describe("buildCells", () => {
     rows: 10,
     objective: 1,
     pushSeconds: 15,
+    armorChance: 0,
     cages: [{ id: "c1", animalId: "sheep", cells: [{ q: 2, r: 2 }, { q: 3, r: 2 }] }],
     tiles: [{ at: { q: 0, r: 0 }, tier: 0 }, { at: { q: 1, r: 0 }, tier: 4 }],
     horseshoes: [{ q: 5, r: 1 }],

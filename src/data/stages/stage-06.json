@@ -4,6 +4,7 @@
   "rows": 20,
   "objective": 3,
   "pushSeconds": 15,
+  "armorChance": 0.25,
   "cages": [
     {
       "id": "c1",

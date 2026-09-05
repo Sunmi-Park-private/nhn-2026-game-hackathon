@@ -6,6 +6,7 @@
 // 내려오는 것은 타일만이 아니다. **창살도 같이 내려간다** — 그래서 RunState가
 // 창살의 현재 자리를 따로 들고 있다(stage.cages는 고정 정의라 쓸 수 없다).
 import { key, parseKey } from "./coords";
+import { ARMOR_LAYERS } from "./pop";
 import type { Cage, Cell, RunState, Tier } from "./types";
 
 /** 셀 하나를 한 칸 아래로. */
@@ -62,8 +63,18 @@ export function pushRow(state: RunState, rand: () => number = Math.random): bool
   );
 
   // 새 천장 — 오프셋 열 c의 축좌표는 q = c - floor(r/2)이고 여기서는 r = 0이다.
+  //
+  // 말발굽은 **여기서만** 얹는다. 시작 배치에 두면 창살 둘레에 걸려 비용이 세 배가
+  // 되면서 못 깨는 판이 나올 수 있다(배치 불변식 S4 참조). 내려오는 줄에만 두면
+  // 판이 계속 움직이므로 막히지 않는다.
+  const chance = Math.min(1, Math.max(0, state.stage.armorChance));
   for (let c = 0; c < state.stage.cols; c += 1) {
-    next.set(key({ q: c, r: 0 }), { kind: "tile", tier: pickFromPalette(state.palette, rand) });
+    const tier = pickFromPalette(state.palette, rand);
+    const armored = chance > 0 && rand() < chance;
+    next.set(
+      key({ q: c, r: 0 }),
+      armored ? { kind: "tile", tier, armor: ARMOR_LAYERS } : { kind: "tile", tier },
+    );
   }
 
   state.cells = next;
