@@ -5,11 +5,13 @@ import { createRun, fireAt, isCleared, isFailed } from "../../engine/hex/stageRu
 import { simulateShot } from "../../engine/hex/shot";
 import type { Boosters, RunState, StageDef } from "../../engine/hex/types";
 import { fullRect, coverBox, stageLeft, stageTop, stageHeight, BASE_W, BASE_H } from "../stage";
-import { BOARD, launchOrigin, launchOriginLocal } from "./geom";
+import { BOARD, ROW_H, launchOrigin, launchOriginLocal } from "./geom";
 import { createBoardView } from "./boardView";
 import { createCageView } from "./cageView";
 import { createHudView } from "./hudView";
-import { pushRow, hasReachedFailRow } from "../../engine/hex/pushRow";
+import { pushRow, hasReachedFailRow, failRow } from "../../engine/hex/pushRow";
+import { createFailLine } from "./failLine";
+import { shakeX, slideY, slideDone } from "./pushMotion";
 import { createLauncher } from "./launcher";
 import { createDragAim } from "./dragAim";
 import { createPowerGauge } from "./powerGauge";
@@ -144,6 +146,7 @@ export async function runStageScreen(
   const hud = createHudView(stageIndex, { stageBar: ui.stageBar, tiles: textures.tiles });
   const launcher = createLauncher(textures.horse, textures.horseHold, textures.tiles);
   const gauge = createPowerGauge();
+  const failMark = createFailLine(failRow(state));
   // 당길 수 있는 범위 — 조준선은 이미 당긴 뒤에야 나오므로 그 전에 알려줄 것이 필요하다
   const pullArea = createPullArea(launchOrigin());
   // 앵커는 붉은말의 발 밑이다 — 새총의 고정점이 눈에 보이는 자리와 같아야 한다
@@ -156,7 +159,9 @@ export async function runStageScreen(
   // 발사체(launcher)는 케이지보다 위다 — 창살 앞을 지나가는 것이 맞다.
   // 당김 가이드는 **말보다 앞**이다. 뒤에 두면 말 몸통이 가운데를 가려
   // 좌우 변만 남아 사각형으로 읽히지 않는다. 얇은 윤곽선이라 캐릭터를 해치지 않는다.
-  layer.addChild(board.root, cages.root, launcher.root, pullArea.root, hud.root, gauge.root);
+  layer.addChild(
+    failMark.root, board.root, cages.root, launcher.root, pullArea.root, hud.root, gauge.root,
+  );
   app.stage.addChild(layer);
 
   /** 케이지를 뺀 나머지 갱신. 구출 연출 전에는 이것만 부른다 —
@@ -166,6 +171,17 @@ export async function runStageScreen(
     board.sync(state.cells);
     hud.sync(state);
     launcher.setLoaded(state.loaded);
+    failMark.sync(lowestOccupiedRow());
+  }
+
+  /** 점유 칸 중 가장 아래 행. 바닥까지 얼마나 남았는지를 재는 값이다. */
+  function lowestOccupiedRow(): number | null {
+    let low: number | null = null;
+    for (const k of state.cells.keys()) {
+      const r = Number(k.slice(k.indexOf(",") + 1));
+      if (low === null || r > low) low = r;
+    }
+    return low;
   }
 
   function redraw(): void {
@@ -194,6 +210,24 @@ export async function runStageScreen(
     let sinceLastPush = 0;
     let lastTick = performance.now();
 
+    /** 슬라이드 시작 시각. -1이면 슬라이드 중이 아니다. */
+    let slideStart = -1;
+
+    /** 판 전체(타일·창살)에 걸리는 오프셋. 바닥 눈금과 발사대는 따라가지 않는다. */
+    function applyBoardOffset(now: number): void {
+      const x = busy ? 0 : shakeX(pushMs - sinceLastPush, now);
+      let y = 0;
+      if (slideStart >= 0) {
+        const elapsed = now - slideStart;
+        y = slideY(elapsed);
+        if (slideDone(elapsed)) slideStart = -1;
+      }
+      board.root.x = x;
+      board.root.y = y;
+      cages.root.x = x;
+      cages.root.y = y;
+    }
+
     function tick(): void {
       const now = performance.now();
       const dt = now - lastTick;
@@ -206,6 +240,7 @@ export async function runStageScreen(
         sinceLastPush -= pushMs;
         pushRow(state);
         redraw();
+        slideStart = now; // 새 줄이 위에서 내려앉는다(SLIDE_MS 동안)
         playSfx("audio.sfxTap");
         if (hasReachedFailRow(state) && !isCleared(state)) {
           playSfx("audio.sfxFail");
@@ -213,6 +248,9 @@ export async function runStageScreen(
           return;
         }
       }
+
+      applyBoardOffset(now);
+      failMark.tick(now);
       pushFrame = requestAnimationFrame(tick);
     }
     let pushFrame = requestAnimationFrame(tick);
@@ -227,6 +265,7 @@ export async function runStageScreen(
         horseshoes: state.horseshoes,
       };
       cancelAnimationFrame(pushFrame);
+      failMark.destroy();
       input.off("pointerdown", onDown);
       input.off("pointermove", onMove);
       input.off("globalpointermove", onMove);
