@@ -146,6 +146,9 @@
 **동물** — 구출 대상. **이미지 시퀀스** 🎞 로 올린다(갇혀 있는 동안 계속 돈다).
 토끼 · 원숭이 · 사슴 · 양 · 얼룩말 · 코끼리 (**6종. 이 6종이 전부다** — 도감·창살·로비 친구가 모두 같은 목록을 쓴다)
 
+> 로비 시안에 있는 **펭귄은 구조 동물이 아니다.** 배경 그림의 일부로만 남고
+> 슬롯을 두지 않는다. 붉은말도 발사대라 구조 대상이 아니다. 근거는 GDD §7 참조.
+
 도감은 **첫 프레임**을 정지 그림으로 쓰므로, 첫 장이 대표 포즈가 되게 그린다.
 
 ---
@@ -310,7 +313,7 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 | `bg.png` | **시안 전체를 담은 한 장** (9:16). 배경·간판·동물·버튼 그림이 다 들어간다 |
 | `btn-play.png` | PLAY 버튼 |
 | `nav-home.png` · `nav-world.png` · `nav-animals.png` · `nav-events.png` | 하단 4종 — **이 순서다**(HOME·WORLD·ANIMALS·EVENTS) |
-| `friend-rabbit.png` · `friend-monkey.png` · `friend-deer.png` · `friend-sheep.png` · `friend-zebra.png` · `friend-elephant.png` | 구출한 동물이 로비 **좌우**에 서는 그림. 스테이지를 깨야 나타난다. 배경을 지우고 동물만(투명 PNG) |
+| `friend-rabbit.png` · `friend-monkey.png` · `friend-deer.png` · `friend-sheep.png` · `friend-zebra.png` · `friend-elephant.png` | 구출한 동물이 로비 **좌우**에 서는 그림. 스테이지를 깨야 나타난다. 배경을 지우고 동물만(투명 PNG). **펭귄은 없다** — 구조 동물이 아니라 `bg.png`에 그대로 둔다 |
 
 > **슬롯마다 따로 판단한다.** 그 슬롯의 파일이 있으면 그걸 그리고, 없으면 코드가
 > 임시 버튼을 그린다. 배경에 버튼이 이미 그려져 있다면 **그 슬롯에도 같은 그림을
