@@ -1,39 +1,24 @@
 // ui/hex/launcher.ts — 조준선, 장전 표시, 발사 비행 연출.
-// 입력 처리는 stageScreen이 맡고 여기는 그리기와 각도 계산만 한다.
-import { Container, Graphics, type Texture } from "pixi.js";
+// 입력 처리는 stageScreen과 dragAim이 맡고 여기는 그리기와 스크럽만 한다.
+import { Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { simulateShot } from "../../engine/hex/shot";
 import type { Cell, Tier } from "../../engine/hex/types";
 import { BOARD, ORIGIN, launchOrigin, launchOriginLocal } from "./geom";
 import { TIER_COLORS, drawTileFallback } from "./tileArt";
-import { makeSequence } from "../sequence";
-
-/** 조준 각도 한계 — 수평 근처로 쏘면 판이 성립하지 않는다. */
-const MAX_ANGLE = 1.25; // 약 72°
-
-/** 조준선이 포인터를 따라가는 최대 각속도(라디안/ms).
- *
- *  예전엔 포인터 각도를 그대로 대입해 조준선이 순간이동했다 — 발사대 근처에서
- *  손을 조금만 움직여도 화면을 가로질러 휙 돌아가 눈으로 따라갈 수가 없었다.
- *  감도(각도÷입력거리)를 줄이는 방법은 쓰지 않았다. 절반으로 낮추면 화면 구석에서도
- *  약 53°까지밖에 안 닿아 MAX_ANGLE(72°)의 넓은 뱅크 샷이 통째로 사라진다.
- *  겨냥할 수 있는 범위는 그대로 두고 따라오는 속도에만 상한을 건다.
- *
- *  6 rad/s — 최대 폭(±72°, 2.5rad)을 끝에서 끝까지 도는 데 약 0.4초. */
-const AIM_RATE_PER_MS = 6 / 1000;
+import { fitContain } from "../skin";
+import type { Aim } from "./dragAim";
 
 export interface Launcher {
   root: Container;
   setLoaded(tier: Tier): void;
-  /** 포인터 위치로 조준하고 궤적 점선을 그린다.
-   *  조준선은 목표 각도로 즉시 튀지 않고 상한 속도로 따라간다.
-   *  `snap`은 새 터치의 첫 접촉용 — 그 순간만 각도를 즉시 맞춘다. */
-  aimAt(x: number, y: number, cells: Map<string, Cell>, snap?: boolean): void;
-  clearAim(): void;
-  angle(): number;
+  /** 드래그 중 매 프레임. null이면 조준을 지운다. */
+  setAim(aim: Aim | null, cells: Map<string, Cell>): void;
+  /** 손을 뗐다 — 발사. 말이 던지는 동작을 재생하고 첫 프레임으로 돌아간다. */
+  playToss(): Promise<void>;
+  /** 오발 — 쏘지 않고 제자리로 되돌린다. */
+  settleBack(): void;
   playFlight(path: Array<{ x: number; y: number }>, tier: Tier): Promise<void>;
-  /** 조준선이 굴러가던 중이면 그 자리에 세운다. */
   pause(): void;
-  /** 아직 목표에 닿지 않았으면 다시 굴린다. */
   resume(): void;
   destroy(): void;
 }
@@ -43,20 +28,52 @@ export interface Launcher {
 const HORSE_W = 190;
 const HORSE_H = 190;
 
-export function createLauncher(horseFrames: readonly Texture[] = []): Launcher {
+/** 조준각을 몸 기울기로 옮기는 비율. 1이면 몸이 조준각 그대로 눕는다 — 과하다. */
+const TILT_RATIO = 0.35;
+
+/** 토스 재생 속도(프레임/초). */
+const TOSS_FPS = 24;
+
+/** 오발로 되돌아가는 시간. 뚝 끊기면 조작 실수가 버그처럼 보인다. */
+const SETTLE_MS = 180;
+
+export function createLauncher(
+  horseFrames: readonly Texture[] = [],
+  horseHold = 0,
+): Launcher {
   const root = new Container();
   const guide = new Graphics();
   root.addChild(guide);
 
-  // 붉은말 — 발사 지점 뒤에 선다. 장전된 타일이 앞발 위에 놓이도록 조금 아래로 내린다.
-  // 시퀀스가 없으면 아무것도 그리지 않는다 — 폴백 그림을 두면 아트가 왔을 때 겹친다.
   const origin = launchOrigin();
-  const horse = makeSequence(horseFrames, HORSE_W, HORSE_H);
+
+  // 붉은말 — 발사 지점 뒤에 선다. 시퀀스가 없으면 아무것도 그리지 않는다:
+  // 폴백 그림을 두면 아트가 왔을 때 겹친다.
+  //
+  // 앵커는 (0.5, 1) — **하단 중앙**이다. 회전축이 곧 발 밑이라야 몸이 좌우로
+  // 기울 때 정수리만 움직이고 발이 제자리에 남는다. 컨테이너 오프셋으로
+  // 흉내내면 회전이 세로 이동으로 새어 나온다.
+  const horse: Sprite | null = horseFrames.length > 0 ? new Sprite(horseFrames[0]) : null;
   if (horse) {
-    horse.root.x = origin.x;
-    horse.root.y = origin.y + HORSE_H * 0.28;
-    root.addChild(horse.root);
-    void horse.play({ fps: 12, loop: true });
+    horse.anchor.set(0.5, 1);
+    fitContain(horse, HORSE_W, HORSE_H);
+    horse.x = origin.x;
+    horse.y = origin.y + HORSE_H * 0.28 + HORSE_H / 2;
+    root.addChild(horse);
+  }
+
+  /** 시퀀스에서 「당김」 구간의 마지막 프레임. 뒤는 토스 구간이다. */
+  const hold = Math.min(Math.max(0, horseHold), Math.max(0, horseFrames.length - 1));
+
+  /** 파워(0~1)를 당김 구간의 프레임으로 옮긴다. */
+  function scrub(power: number): void {
+    if (!horse || horseFrames.length === 0) return;
+    const i = Math.min(hold, Math.round(power * hold));
+    const tex = horseFrames[i];
+    if (tex && horse.texture !== tex) {
+      horse.texture = tex;
+      fitContain(horse, HORSE_W, HORSE_H);
+    }
   }
 
   const loadedSlot = new Container();
@@ -68,10 +85,7 @@ export function createLauncher(horseFrames: readonly Texture[] = []): Launcher {
   root.addChild(flight);
 
   let currentAngle = 0;
-  let targetAngle = 0;
-  let aimCells: Map<string, Cell> | null = null;
-  let aimRaf = 0;
-  let lastTick = 0;
+  let currentPower = 0;
   let loadedTier: Tier = 0;
 
   function redrawLoaded(): void {
@@ -79,45 +93,6 @@ export function createLauncher(horseFrames: readonly Texture[] = []): Launcher {
     loadedSlot.addChild(drawTileFallback(TIER_COLORS[loadedTier] ?? 0x888888));
   }
   redrawLoaded();
-
-  function drawGuide(): void {
-    if (!aimCells) return;
-    const { path } = simulateShot(aimCells, BOARD, launchOriginLocal(), currentAngle);
-    guide.clear();
-    // 점선 — 4스텝마다 한 점씩 찍는다
-    for (let i = 0; i < path.length; i += 4) {
-      const p = path[i]!;
-      guide.circle(ORIGIN.x + p.x, ORIGIN.y + p.y, 3).fill({ color: 0xffffff, alpha: 0.55 });
-    }
-  }
-
-  function stopAimLoop(): void {
-    if (aimRaf !== 0) cancelAnimationFrame(aimRaf);
-    aimRaf = 0;
-  }
-
-  /** 조준선을 목표 각도 쪽으로 상한 속도만큼 굴린다. 도착하면 스스로 멈춘다. */
-  function startAimLoop(): void {
-    if (aimRaf !== 0) return;
-    lastTick = performance.now();
-    const tick = (): void => {
-      aimRaf = 0;
-      if (guide.destroyed) return; // 화면이 내려간 뒤에는 아무것도 하지 않는다
-      const now = performance.now();
-      const step = (now - lastTick) * AIM_RATE_PER_MS;
-      lastTick = now;
-      const diff = targetAngle - currentAngle;
-      if (Math.abs(diff) <= step) {
-        currentAngle = targetAngle;
-        drawGuide();
-        return; // 목표에 붙었다 — 루프를 놓아준다
-      }
-      currentAngle += Math.sign(diff) * step;
-      drawGuide();
-      aimRaf = requestAnimationFrame(tick);
-    };
-    aimRaf = requestAnimationFrame(tick);
-  }
 
   return {
     root,
@@ -127,27 +102,76 @@ export function createLauncher(horseFrames: readonly Texture[] = []): Launcher {
       redrawLoaded();
     },
 
-    aimAt(x: number, y: number, cells: Map<string, Cell>, snap = false): void {
-      const dx = x - origin.x;
-      const dy = y - origin.y;
-      // 위쪽으로만 쏜다 — 아래를 가리키면 수평 한계로 잘라낸다
-      const raw = Math.atan2(dx, -dy);
-      targetAngle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, raw));
-      aimCells = cells;
-      // 새 터치의 첫 접촉은 즉시 맞춘다 — 그러지 않으면 탭한 곳이 아니라
-      // 직전 조준 각도로 날아간다(탭으로 쏘는 조작이 어긋난다).
-      if (snap) currentAngle = targetAngle;
-      drawGuide();
-      startAimLoop();
-    },
+    /** 드래그 중 매 프레임. null이면 조준을 지운다. */
+    setAim(aim: Aim | null, cells: Map<string, Cell>): void {
+      if (aim === null) {
+        guide.clear();
+        scrub(0);
+        if (horse) horse.rotation = 0;
+        return;
+      }
+      currentAngle = aim.angle;
+      currentPower = aim.power;
+      scrub(aim.power);
+      if (horse) horse.rotation = aim.angle * TILT_RATIO;
 
-    clearAim(): void {
-      stopAimLoop();
+      const { path } = simulateShot(cells, BOARD, launchOriginLocal(), aim.angle, aim.power);
       guide.clear();
+      // 점선 — 4스텝마다 한 점씩. 중력이 들어갔으므로 자동으로 곡선이 되고,
+      // 점선의 끝이 곧 사거리다.
+      for (let i = 0; i < path.length; i += 4) {
+        const p = path[i]!;
+        guide.circle(ORIGIN.x + p.x, ORIGIN.y + p.y, 3).fill({ color: 0xffffff, alpha: 0.55 });
+      }
     },
 
-    angle(): number {
-      return currentAngle;
+    /** 손을 뗐다. 최대 장전 프레임부터 끝까지 재생하고 첫 프레임으로 돌아간다. */
+    async playToss(): Promise<void> {
+      guide.clear();
+      if (!horse || horseFrames.length <= hold + 1) {
+        // 토스 구간이 없다(스틸이거나 hold가 마지막 프레임) — 즉시 끝낸다
+        scrub(0);
+        if (horse) horse.rotation = 0;
+        return;
+      }
+      const start = performance.now();
+      const count = horseFrames.length - hold;
+      await new Promise<void>((resolve) => {
+        const tick = (): void => {
+          if (horse.destroyed) { resolve(); return; }
+          const i = Math.floor(((performance.now() - start) / 1000) * TOSS_FPS);
+          if (i >= count) { resolve(); return; }
+          const tex = horseFrames[hold + i];
+          if (tex && horse.texture !== tex) {
+            horse.texture = tex;
+            fitContain(horse, HORSE_W, HORSE_H);
+          }
+          requestAnimationFrame(tick);
+        };
+        tick();
+      });
+      if (!horse.destroyed) {
+        scrub(0);
+        horse.rotation = 0;
+      }
+    },
+
+    /** 오발 — 쏘지 않고 제자리로 되돌린다. */
+    settleBack(): void {
+      guide.clear();
+      const fromPower = currentPower;
+      const fromRot = horse ? horse.rotation : 0;
+      const t0 = performance.now();
+      const tick = (): void => {
+        if (!horse || horse.destroyed) return;
+        const t = Math.min(1, (performance.now() - t0) / SETTLE_MS);
+        const e = 1 - (1 - t) * (1 - t); // easeOut
+        scrub(fromPower * (1 - e));
+        horse.rotation = fromRot * (1 - e);
+        if (t < 1) requestAnimationFrame(tick);
+      };
+      if (horse) requestAnimationFrame(tick);
+      currentPower = 0;
     },
 
     async playFlight(path: Array<{ x: number; y: number }>, tier: Tier): Promise<void> {
@@ -183,19 +207,12 @@ export function createLauncher(horseFrames: readonly Texture[] = []): Launcher {
       }
     },
 
-    /** 일시정지 — 조준선이 목표로 굴러가던 중이면 그 자리에 세운다. */
-    pause(): void {
-      stopAimLoop();
-    },
-
-    /** 재개. 아직 목표에 닿지 않았을 때만 다시 굴린다.
-     *  startAimLoop이 lastTick을 지금으로 맞추므로 멈춰 있던 시간만큼 튀지 않는다. */
-    resume(): void {
-      if (currentAngle !== targetAngle) startAimLoop();
-    },
+    /** 설정창이 열렸다. 조준선은 정적이라 멈출 것이 없다 —
+     *  드래그 중이었다면 stageScreen이 dragAim.cancel()로 끊는다. */
+    pause(): void {},
+    resume(): void {},
 
     destroy(): void {
-      stopAimLoop(); // rAF가 살아 있으면 파괴된 Graphics를 계속 만진다
       root.destroy({ children: true });
     },
   };
