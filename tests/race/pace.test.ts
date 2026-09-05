@@ -69,8 +69,9 @@ describe("AI 페이스", () => {
       const p = makeAiPace(seq([v, 0.5, 0]));
       let t = 0;
       while (r.x < RACE.DISTANCE && t < 60) { advanceAi(r, p, t, 1 / 60); t += 1 / 60; }
-      expect(t).toBeGreaterThan(12);
-      expect(t).toBeLessThan(28);
+      // 페이스 띠(6.5~9.5 m/s)에서 나오는 100m 완주 시간 — 스퍼트가 붙어 조금 빨라진다
+      expect(t).toBeGreaterThan(9);
+      expect(t).toBeLessThan(17);
     }
   });
 });
