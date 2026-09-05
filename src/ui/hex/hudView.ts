@@ -4,13 +4,19 @@ import { Container, Graphics, Text, type Texture } from "pixi.js";
 import { slot } from "../../data/uiLayout";
 import { fitSprite } from "../skin";
 import { editable, clearEditable } from "../layoutEditor";
-import { TIER_COLORS, drawTileFallback } from "./tileArt";
+import { makeTileView } from "./tileArt";
+import { HEX_SIZE } from "./geom";
 import type { RunState } from "../../engine/hex/types";
 
 /** HUD가 쓰는 아트. 없으면 코드가 그린 판으로 대신한다. */
 export interface HudTextures {
   stageBar?: Texture;
+  /** 색 순서대로 놓인 타일 아트. NEXT 칩이 판의 타일과 같은 그림이라야 읽힌다. */
+  tiles?: Array<Texture | null>;
 }
+
+/** NEXT 칩의 목표 가로폭. 슬롯(폭 56) 안에서 답답하지 않은 크기다. */
+const NEXT_CHIP_W = 34;
 
 export interface HudView {
   root: Container;
@@ -153,8 +159,15 @@ export function createHudView(stageIndex: number, tex: HudTextures = {}): HudVie
 
       if (state.next !== lastNextTier) {
         nextSlot.removeChildren().forEach((c) => c.destroy());
-        const chip = drawTileFallback(TIER_COLORS[state.next] ?? 0x888888);
-        chip.scale.set(0.6);
+        // 칩 크기는 격자가 아니라 **NEXT 판**이 정한다. 판을 우리 안으로 줄이면서
+        // 육각 반지름이 23% 작아졌는데, 그걸 그대로 쓰면 칩만 덩그러니 작아 보인다.
+        //
+        // 배율은 **감싼 컨테이너에** 건다. makeTileView가 스프라이트에 이미
+        // fitContain 배율을 넣어 두므로, 스프라이트에 직접 scale.set을 하면
+        // 그 값을 덮어써서 원본 크기(409px)가 그대로 나온다.
+        const chip = new Container();
+        chip.addChild(makeTileView(state.next, tex.tiles?.[state.next] ?? null));
+        chip.scale.set(NEXT_CHIP_W / (Math.sqrt(3) * HEX_SIZE));
         nextSlot.addChild(chip);
         lastNextTier = state.next;
       }

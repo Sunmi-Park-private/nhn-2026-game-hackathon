@@ -4,7 +4,7 @@ import { Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { simulateShot } from "../../engine/hex/shot";
 import type { Cell, Tier } from "../../engine/hex/types";
 import { BOARD, ORIGIN, launchOrigin, launchOriginLocal } from "./geom";
-import { TIER_COLORS, drawTileFallback } from "./tileArt";
+import { makeTileView } from "./tileArt";
 import { fitContain } from "../skin";
 import type { Aim } from "./dragAim";
 
@@ -46,6 +46,9 @@ const SETTLE_MS = 180;
 export function createLauncher(
   horseFrames: readonly Texture[] = [],
   horseHold = 0,
+  /** 색 순서대로 놓인 타일 아트. 말이 든 타일과 날아가는 발사체가 이걸 쓴다 —
+   *  판에 붙는 순간 같은 그림이라야 「내가 쏜 그것」으로 읽힌다. */
+  tileTex: ReadonlyArray<Texture | null> = [],
 ): Launcher {
   const root = new Container();
   const guide = new Graphics();
@@ -113,7 +116,7 @@ export function createLauncher(
 
   function redrawLoaded(): void {
     loadedSlot.removeChildren().forEach((c) => c.destroy());
-    loadedSlot.addChild(drawTileFallback(TIER_COLORS[loadedTier] ?? 0x888888));
+    loadedSlot.addChild(makeTileView(loadedTier, tileTex[loadedTier] ?? null));
   }
   redrawLoaded();
 
@@ -204,7 +207,7 @@ export function createLauncher(
     async playFlight(path: Array<{ x: number; y: number }>, tier: Tier): Promise<void> {
       if (path.length === 0) return;
 
-      const chip = drawTileFallback(TIER_COLORS[tier] ?? 0x888888);
+      const chip = makeTileView(tier, tileTex[tier] ?? null);
       flight.addChild(chip);
 
       // 절반 속도 — 예전 값(상한 420ms, 60 + 길이×1.2)의 두 배다.

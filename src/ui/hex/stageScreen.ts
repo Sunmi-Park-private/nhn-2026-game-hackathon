@@ -140,8 +140,8 @@ export async function runStageScreen(
     open: textures.cageOpen,
     animals: textures.animals,
   });
-  const hud = createHudView(stageIndex, { stageBar: ui.stageBar });
-  const launcher = createLauncher(textures.horse, textures.horseHold);
+  const hud = createHudView(stageIndex, { stageBar: ui.stageBar, tiles: textures.tiles });
+  const launcher = createLauncher(textures.horse, textures.horseHold, textures.tiles);
   const gauge = createPowerGauge();
   // 당길 수 있는 범위 — 조준선은 이미 당긴 뒤에야 나오므로 그 전에 알려줄 것이 필요하다
   const pullArea = createPullArea(launchOrigin());
