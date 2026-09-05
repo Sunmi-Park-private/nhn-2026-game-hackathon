@@ -19,14 +19,15 @@ describe("레이스 매니페스트", () => {
     expect(Object.keys(raceAssetPaths.winner).sort()).toEqual(ids);
   });
 
-  it("카드 6종이 한 장으로 온다", () => {
+  it("카드 6종과 순위 6행이 각각 한 장으로 온다", () => {
     expect(raceAssetPaths.card.grid).toBeTruthy();
     expect(raceAssetPaths.card.on).toBeTruthy();   // 선택 테두리
+    expect(raceAssetPaths.row.list).toBeTruthy();  // 판과 메달이 구워진 6행
   });
 
   it("카드·행 판·메달·깃발이 다 있다", () => {
     expect(Object.keys(raceAssetPaths.card)).toHaveLength(3); // grid · on · off
-    expect(Object.keys(raceAssetPaths.row)).toHaveLength(2);
+    expect(Object.keys(raceAssetPaths.row)).toHaveLength(3); // list · first · rest
     expect(Object.keys(raceAssetPaths.medal)).toHaveLength(3);
     expect(Object.keys(raceAssetPaths.flags)).toHaveLength(6);
     expect(Object.keys(raceAssetPaths.booster)).toHaveLength(3);

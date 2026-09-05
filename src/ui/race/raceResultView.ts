@@ -21,6 +21,8 @@ export interface ResultRow {
 
 export interface ResultTextures {
   podium?: Texture;
+  /** 6행 판 한 장 — 판과 메달이 구워져 있다. 있으면 낱장 판·메달을 안 그린다 */
+  rowList?: Texture;
   rowFirst?: Texture;
   rowRest?: Texture;
   medal: Partial<Record<"gold" | "silver" | "bronze", Texture>>;
@@ -89,70 +91,78 @@ function button(b: UiSlot, text: string, tex: Texture | undefined, fill: number,
   return c;
 }
 
-/** 순위 한 줄 — 메달/번호 · 얼굴 · 이름 · 기록. 1위만 판이 다르다(시안). */
-function row(b: UiSlot, y: number, h: number, r: ResultRow, tex: ResultTextures): Container {
+/** 순위 한 줄에 얹는 것 — 얼굴 · 이름 · 기록.
+ *
+ *  판과 메달은 **순위별로 자리가 고정**이라 6행 판 한 장에 구워 온다(`race.row.list`).
+ *  얼굴·이름·기록만 순위에 따라 바뀌므로 코드가 채운다.
+ *  판 이미지가 없을 때만 낱장 판과 메달을 직접 그린다. */
+function rowContent(
+  list: UiSlot, face: UiSlot, r: ResultRow, tex: ResultTextures, plated: boolean,
+): Container {
   const c = new Container();
-  const plate = r.rank === 1 ? tex.rowFirst : tex.rowRest;
-  if (plate) {
-    const s = fitSprite(plate, b.w, h);
-    s.x = b.w / 2;
-    s.y = h / 2;
-    c.addChild(s);
-  } else {
-    const g = new Graphics().roundRect(0, 0, b.w, h - 4, 8)
-      .fill(r.rank === 1 ? 0xe0a94a : 0xb98a55);
-    g.roundRect(3, 3, b.w - 6, h - 10, 6).stroke({ width: 2, color: 0x7a5228, alpha: 0.7 });
-    c.addChild(g);
+  const h = face.h;
+  const cy = face.y + h / 2;
+
+  if (!plated) {
+    // 낱장 폴백 — 판과 메달을 직접 그린다
+    const plate = r.rank === 1 ? tex.rowFirst : tex.rowRest;
+    if (plate) {
+      const sp = fitSprite(plate, list.w, h + 8);
+      sp.x = list.x + list.w / 2;
+      sp.y = cy;
+      c.addChild(sp);
+    } else {
+      const g = new Graphics().roundRect(list.x, face.y - 4, list.w, h + 8, 8)
+        .fill(r.rank === 1 ? 0xe0a94a : 0xb98a55);
+      g.roundRect(list.x + 3, face.y - 1, list.w - 6, h + 2, 6)
+        .stroke({ width: 2, color: 0x7a5228, alpha: 0.7 });
+      c.addChild(g);
+    }
+
+    const medalTex = r.rank <= 3 ? tex.medal[MEDAL_KEY[r.rank - 1]!] : undefined;
+    const mx = list.x + (face.x - list.x) / 2;
+    if (medalTex) {
+      const sp = fitSprite(medalTex, h * 0.8, h * 0.8);
+      sp.x = mx;
+      sp.y = cy;
+      c.addChild(sp);
+    } else {
+      c.addChild(new Graphics().circle(mx, cy, h * 0.32)
+        .fill(r.rank <= 3 ? MEDAL_COLOR[r.rank - 1]! : 0x4a3320));
+      const n = new Text({ text: String(r.rank), style: { fontSize: h * 0.38, fill: 0xffffff, fontWeight: "bold" } });
+      n.anchor.set(0.5);
+      n.x = mx;
+      n.y = cy;
+      c.addChild(n);
+    }
   }
 
-  const medalTex = r.rank <= 3 ? tex.medal[MEDAL_KEY[r.rank - 1]!] : undefined;
-  if (medalTex) {
-    const s = fitSprite(medalTex, h * 0.8, h * 0.8);
-    s.x = h * 0.55;
-    s.y = h / 2;
-    c.addChild(s);
-  } else {
-    const g = new Graphics().circle(h * 0.55, h / 2, h * 0.32)
-      .fill(r.rank <= 3 ? MEDAL_COLOR[r.rank - 1]! : 0x4a3320);
-    c.addChild(g);
-    const n = new Text({
-      text: String(r.rank),
-      style: { fontSize: h * 0.38, fill: 0xffffff, fontWeight: "bold" },
-    });
-    n.anchor.set(0.5);
-    n.x = h * 0.55;
-    n.y = h / 2;
-    c.addChild(n);
-  }
-
+  // 얼굴 — 슬롯이 자리를 정한다. 순위가 바뀌면 다른 동물이 이 자리에 온다.
   if (r.face) {
-    const s = fitSprite(r.face, h * 0.85, h * 0.85);
-    s.x = h * 1.5;
-    s.y = h / 2;
-    c.addChild(s);
+    const sp = fitSprite(r.face, face.w, face.h);
+    sp.x = face.x + face.w / 2;
+    sp.y = cy;
+    c.addChild(sp);
   } else {
-    const t = new Text({ text: r.glyph, style: { fontSize: h * 0.5 } });
+    const t = new Text({ text: r.glyph, style: { fontSize: h * 0.62 } });
     t.anchor.set(0.5);
-    t.x = h * 1.5;
-    t.y = h / 2;
+    t.x = face.x + face.w / 2;
+    t.y = cy;
     c.addChild(t);
   }
 
-  const style = { fontSize: Math.min(19, h * 0.4), fill: 0x3b2410, fontWeight: "bold" as const };
+  const style = { fontSize: Math.min(19, h * 0.42), fill: 0x3b2410, fontWeight: "bold" as const };
   const name = new Text({ text: r.name, style });
   name.anchor.set(0, 0.5);
-  name.x = h * 2.1;
-  name.y = h / 2;
-  c.addChild(name);
+  name.x = face.x + face.w + 10;
+  name.y = cy;
 
   const time = new Text({ text: fmt(r.time), style });
   time.anchor.set(1, 0.5);
-  time.x = b.w - h * 0.4;
-  time.y = h / 2;
-  c.addChild(time);
+  time.x = list.x + list.w - h * 0.4;
+  time.y = cy;
 
-  c.x = b.x;
-  c.y = y;
+  c.addChild(name, time);
   return c;
 }
 
@@ -186,9 +196,16 @@ export function buildRaceResult(o: {
     }
   }
 
+  // 6행 판은 한 장으로 온다 — 판과 메달이 구워져 있다
   const list = s.resultList!;
-  const rowH = list.h / Math.max(1, rows.length);
-  for (const r of rows) root.addChild(row(list, list.y + rowH * (r.rank - 1), rowH, r, o.tex));
+  const plated = art(list, o.tex.rowList, root);
+
+  // 순위 자리마다 슬롯이 있다. **1위 자리에 1등 동물이 온다** — 순위가 자리를 정한다.
+  for (const r of rows) {
+    const face = s[`rank${r.rank}Face`];
+    if (!face) continue; // 슬롯을 지웠으면 그 줄은 그리지 않는다
+    root.addChild(rowContent(list, face, r, o.tex, plated));
+  }
 
   // 보상 — 갱신했을 때만 뜬다. 시안에 두 줄 자리가 없어 한 줄로 합쳤다.
   // 이 줄이 없으면 부스터를 받은 것을 유저가 알 길이 없다.

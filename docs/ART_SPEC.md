@@ -418,7 +418,8 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 | 파일 | 내용 |
 |---|---|
 | `card-off.png` · `card-on.png` | 선택 카드 판 — 기본 / 노란 테두리(선택됨) |
-| `row-first.png` · `row-rest.png` | 순위 행 판 — 1위(금색) / 나머지 |
+| `row-list.png` | **순위 6행 판 한 장.** 판과 **메달까지 구워서** 준다 — 1~3위 메달과 4~6위 번호는 자리가 고정이다. 얼굴·이름·기록만 코드가 채운다 |
+| `row-first.png` · `row-rest.png` | 낱장 행 판 — `row-list`를 쓰면 필요 없다(폴백용) |
 | `medal-gold.png` · `medal-silver.png` · `medal-bronze.png` | 1~3위 메달 |
 | `flag-1.png` … `flag-6.png` | 레인 번호 깃발. 시안 색 순서 **빨강·노랑·파랑·초록·주황·보라** |
 
@@ -432,6 +433,18 @@ public/assets/hex/bg-panel-right.png   우 패널      (175:288)
 | `btn-race.png` | 「RACE!」 버튼 | 경주 |
 | `ui-podium.png` | 시상대 | 결과 |
 | `btn-retry.png` · `btn-close.png` | 다시하기 · 닫기 | 결과 |
+
+#### 순위 6행이 놓이는 방식
+
+`row-list.png` 한 장에 **6행이 위에서 아래로** 들어간다. 그 위에 코드가 순위대로 채운다.
+
+| 슬롯 | 무엇이 오나 |
+|---|---|
+| `rank1Face` … `rank6Face` | **그 순위 동물의 얼굴**(`face-<동물>.png`). 1위 자리에 1등이 온다 |
+| (슬롯 없음) | 이름과 기록은 얼굴 슬롯의 줄에 맞춰 자동으로 놓인다 — 얼굴 슬롯을 옮기면 함께 움직인다 |
+
+행 높이가 이미지와 어긋나면 `/ui.html`의 「레이스 · 결과」 탭에서 `rank1Face`~`rank6Face`를
+끌어 맞춘다. 여섯 자리가 곧 여섯 줄의 기준이다.
 
 #### 레인·카드 순서 — 도감과 다르다
 

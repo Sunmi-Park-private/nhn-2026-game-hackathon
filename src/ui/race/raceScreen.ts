@@ -211,7 +211,7 @@ export function openRace(
         slots: B.result as unknown as Record<string, UiSlot>,
         tex: {
           podium: tex.ui.podium,
-          rowFirst: tex.row.first, rowRest: tex.row.rest,
+          rowList: tex.row.list, rowFirst: tex.row.first, rowRest: tex.row.rest,
           medal: tex.medal, winner: champ ? tex.winner[champ.id] : undefined,
           btnRetry: tex.ui.btnRetry, btnClose: tex.ui.btnClose,
         },

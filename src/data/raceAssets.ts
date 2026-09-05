@@ -10,7 +10,7 @@ export const RACE_UI_IDS = [
   "podium", "btnRetry", "btnClose",
 ] as const;
 export const RACE_CARD_IDS = ["grid", "off", "on"] as const;
-export const RACE_ROW_IDS = ["first", "rest"] as const;
+export const RACE_ROW_IDS = ["list", "first", "rest"] as const;
 export const RACE_MEDAL_IDS = ["gold", "silver", "bronze"] as const;
 export const RACE_FLAG_IDS = ["lane1", "lane2", "lane3", "lane4", "lane5", "lane6"] as const;
 export const BOOSTER_IDS = ["bomb", "rainbow", "horseshoe"] as const;
@@ -30,7 +30,8 @@ export interface RaceAssetPaths {
   winner: Record<string, string>;
   /** grid = 6종 타일 한 장 · on = 선택 테두리 · off = 낱장 판(격자를 쓰면 안 쓴다) */
   card: Partial<Record<"grid" | "off" | "on", string>>;
-  row: Partial<Record<"first" | "rest", string>>;
+  /** list = 6행 판 한 장(메달까지 구워서) · first/rest = 낱장 판(폴백) */
+  row: Partial<Record<"list" | "first" | "rest", string>>;
   medal: Partial<Record<"gold" | "silver" | "bronze", string>>;
   /** 레인 번호 깃발 — lane1..lane6 */
   flags: Partial<Record<string, string>>;

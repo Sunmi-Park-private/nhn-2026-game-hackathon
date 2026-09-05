@@ -216,6 +216,7 @@
       "off": "assets/race/card-off.png"
     },
     "row": {
+      "list": "assets/race/row-list.png",
       "first": "assets/race/row-first.png",
       "rest": "assets/race/row-rest.png"
     },
