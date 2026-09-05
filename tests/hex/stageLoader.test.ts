@@ -69,8 +69,9 @@ describe("parseStage — 거부", () => {
     expect(() => parseStage({ ...good, rows: 0 })).toThrow(/cols\/rows/);
   });
 
-  it("pushSeconds가 0 이하면 던진다", () => {
-    expect(() => parseStage({ ...good, pushSeconds: 0 })).toThrow(/pushSeconds/);
+  it("pushSeconds 0은 「줄이 내려오지 않음」으로 통과하고, 음수만 던진다", () => {
+    expect(parseStage({ ...good, pushSeconds: 0 }).pushSeconds).toBe(0);
+    expect(() => parseStage({ ...good, pushSeconds: -1 })).toThrow(/pushSeconds/);
   });
 
   it("objective가 음수면 던진다", () => {

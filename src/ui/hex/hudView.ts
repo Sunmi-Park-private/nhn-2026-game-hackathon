@@ -22,7 +22,8 @@ export interface HudView {
   root: Container;
   sync(state: RunState): void;
   /** 다음 줄이 내려올 때까지 남은 초. UI가 타이머를 소유하므로 밖에서 넣어 준다. */
-  setCountdown(seconds: number): void;
+  /** 다음 줄까지 남은 초. null이면 이 판은 줄이 내려오지 않는다 — 표시를 비운다. */
+  setCountdown(seconds: number | null): void;
   destroy(): void;
 }
 
@@ -183,9 +184,10 @@ export function createHudView(stageIndex: number, tex: HudTextures = {}): HudVie
       }
     },
 
-    setCountdown(seconds: number): void {
+    setCountdown(seconds: number | null): void {
       // 발사 제한이 사라진 자리에 이게 들어간다 — 압박의 근원이 바뀌었으니 표시도 바뀐다.
-      shots.text = `다음 줄 ${Math.max(0, Math.ceil(seconds))}초`;
+      // null이면 이 판은 줄이 내려오지 않는다(pushSeconds 0) — 없는 시계를 보여 주지 않는다.
+      shots.text = seconds === null ? "" : `다음 줄 ${Math.max(0, Math.ceil(seconds))}초`;
     },
 
     destroy(): void {

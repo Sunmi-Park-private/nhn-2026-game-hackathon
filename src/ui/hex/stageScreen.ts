@@ -239,6 +239,9 @@ export async function runStageScreen(
     // **발사 연출 중에는 시계가 멈춘다.** 내 발이 날아가는 도중에 줄이 내려와
     // 지는 것은 불공정하고, 착탄과 푸시가 같은 프레임에 겹치면 스냅 좌표가
     // 방금 밀린 판과 어긋난다.
+    // pushSeconds 0 = 이 판은 줄이 내려오지 않는다(첫 판 — 시간 압박 없이 규칙만 익힌다).
+    // 시계·카운트다운·자글거림이 전부 꺼진다. 발사로 판이 바닥에 닿는 실패는 그대로 산다.
+    const pushEnabled = state.stage.pushSeconds > 0;
     const pushMs = Math.max(1, state.stage.pushSeconds) * 1000;
     let sinceLastPush = 0;
     let lastTick = performance.now();
@@ -252,7 +255,7 @@ export async function runStageScreen(
 
     /** 판 전체(타일·창살)에 걸리는 오프셋. 바닥 눈금과 발사대는 따라가지 않는다. */
     function applyBoardOffset(now: number): void {
-      const x = busy || paused ? 0 : shakeX(pushMs - sinceLastPush, now);
+      const x = busy || paused || !pushEnabled ? 0 : shakeX(pushMs - sinceLastPush, now);
       let y = 0;
       if (slideStart >= 0) {
         const elapsed = now - slideStart;
@@ -271,10 +274,10 @@ export async function runStageScreen(
       const dt = now - lastTick;
       lastTick = now;
       if (finished) return;
-      if (!busy && !paused) sinceLastPush += dt;
-      hud.setCountdown((pushMs - sinceLastPush) / 1000);
+      if (pushEnabled && !busy && !paused) sinceLastPush += dt;
+      hud.setCountdown(pushEnabled ? (pushMs - sinceLastPush) / 1000 : null);
 
-      if (!busy && !paused && sinceLastPush >= pushMs) {
+      if (pushEnabled && !busy && !paused && sinceLastPush >= pushMs) {
         sinceLastPush -= pushMs;
         pushRow(state);
         redraw();
@@ -292,7 +295,7 @@ export async function runStageScreen(
       pushFrame = requestAnimationFrame(tick);
     }
     let pushFrame = requestAnimationFrame(tick);
-    hud.setCountdown(state.stage.pushSeconds);
+    hud.setCountdown(pushEnabled ? state.stage.pushSeconds : null);
 
     function finish(result: StageResult): void {
       if (finished) return;
