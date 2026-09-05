@@ -1,34 +1,38 @@
 // data/raceAssets.ts — 레이스가 쓰는 에셋 경로. assets.json을 필드별로 검증한다(규약 3조).
 //
 // 파일이 public/ 아래 없으면 화면이 폴백을 그린다 — **아트 0장으로도 레이스는 끝까지 돈다.**
+// 구조는 디자이너 시안 3화면(선택·경주·결과)을 그대로 따른다.
 import manifestJson from "./assets.json";
 
-export const RACE_UI_ASSET_IDS = [
-  "back", "titleBanner", "pick", "distBar", "run", "runPressed",
-  "resultPanel", "bestTag", "retry", "close",
+export const RACE_BG_IDS = ["selectScene", "raceScene", "resultScene", "trackTile", "finish"] as const;
+export const RACE_UI_IDS = [
+  "back", "gear", "title", "prompt", "btnSelect", "btnRace", "startSign",
+  "resultTitle", "podium", "signLeft", "signRight", "btnRetry", "btnClose",
 ] as const;
-export type RaceUiAssetId = (typeof RACE_UI_ASSET_IDS)[number];
+export const RACE_CARD_IDS = ["off", "on"] as const;
+export const RACE_ROW_IDS = ["first", "rest"] as const;
+export const RACE_MEDAL_IDS = ["gold", "silver", "bronze"] as const;
+export const RACE_FLAG_IDS = ["lane1", "lane2", "lane3", "lane4", "lane5", "lane6"] as const;
+export const BOOSTER_IDS = ["bomb", "rainbow", "horseshoe"] as const;
 
-const RACE_BG_IDS = ["sky", "mid", "track", "startGate", "finish"] as const;
-type RaceBgId = (typeof RACE_BG_IDS)[number];
-
-/** 화면이 좌표를 찾을 때 쓰는 슬롯 id. uiLayout.json의 race 영역과 같아야 한다. */
-export const RACE_SLOT_IDS = [
-  "back", "gear", "titleBanner", "myRunnerTag", "trackArea", "rosterHint", "pick",
-  "countdown", "hudRank", "hudTime", "distBar", "run",
-  "resultPanel", "resultTitle", "resultList", "bestTag", "rewardIcon", "rewardLabel", "retry", "close",
-] as const;
-export type RaceSlotId = (typeof RACE_SLOT_IDS)[number];
-
-export type BoosterAssetId = "bomb" | "rainbow" | "horseshoe";
-const BOOSTER_IDS: readonly BoosterAssetId[] = ["bomb", "rainbow", "horseshoe"];
+export type RaceBgId = (typeof RACE_BG_IDS)[number];
+export type RaceUiId = (typeof RACE_UI_IDS)[number];
+export type BoosterAssetId = (typeof BOOSTER_IDS)[number];
 
 export interface RaceAssetPaths {
-  /** 배경 3층과 게이트·결승선. 3층은 가로로 이어 붙여 무한 스크롤한다 */
   bg: Partial<Record<RaceBgId, string>>;
-  /** 동물 id → 달리기 시퀀스. 한 장만 넣으면 스틸로 동작한다 */
+  ui: Partial<Record<RaceUiId, string>>;
+  /** 동물 id → 달리기 시퀀스(옆모습). 한 장만 넣으면 스틸로 돈다 */
   runners: Record<string, string[]>;
-  ui: Partial<Record<RaceUiAssetId, string>>;
+  /** 동물 id → 정면 얼굴. 선택 카드와 순위 행이 쓴다 */
+  faces: Record<string, string>;
+  /** 동물 id → 1위 축하 포즈. 없으면 얼굴을 크게 쓴다 */
+  winner: Record<string, string>;
+  card: Partial<Record<"off" | "on", string>>;
+  row: Partial<Record<"first" | "rest", string>>;
+  medal: Partial<Record<"gold" | "silver" | "bronze", string>>;
+  /** 레인 번호 깃발 — lane1..lane6 */
+  flags: Partial<Record<string, string>>;
   /** 부스터 아이콘 — 인게임(hex)이 소유하고 레이스가 참조한다 */
   booster: Partial<Record<BoosterAssetId, string>>;
 }
@@ -55,6 +59,16 @@ function pick<K extends string>(src: Record<string, unknown>, keys: readonly K[]
   return out;
 }
 
+/** 동물 id → 파일 한 장. 값이 비면 키가 빠진다 — 화면이 유무로 폴백을 정한다. */
+function byAnimal(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [id, v] of Object.entries(obj(raw))) {
+    const one = str(v);
+    if (one) out[id] = one;
+  }
+  return out;
+}
+
 export function parseRaceAssets(raw: unknown): RaceAssetPaths {
   const root = obj(raw);
   const race = obj(root.race);
@@ -68,8 +82,14 @@ export function parseRaceAssets(raw: unknown): RaceAssetPaths {
 
   return {
     bg: pick(obj(race.bg), RACE_BG_IDS),
+    ui: pick(obj(race.ui), RACE_UI_IDS),
     runners,
-    ui: pick(obj(race.ui), RACE_UI_ASSET_IDS),
+    faces: byAnimal(race.faces),
+    winner: byAnimal(race.winner),
+    card: pick(obj(race.card), RACE_CARD_IDS),
+    row: pick(obj(race.row), RACE_ROW_IDS),
+    medal: pick(obj(race.medal), RACE_MEDAL_IDS),
+    flags: pick(obj(race.flags), RACE_FLAG_IDS),
     booster: pick(obj(obj(root.hex).booster), BOOSTER_IDS),
   };
 }

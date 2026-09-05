@@ -25,8 +25,9 @@ export const RACE = {
   SPURT: 0.15,
   /** 화면 배율 — 450px 폭이 약 17m 시야가 된다 */
   PX_PER_M: 26,
-  /** 내 러너가 서는 화면 x */
-  CAMERA_X: 90,
+  /** 내 러너가 서는 자리 — 트랙 상자 왼쪽에서 이만큼 안쪽(px).
+   *  화면 절대 좌표로 두면 트랙을 옮길 때마다 러너가 상자 밖으로 나간다 */
+  CAMERA_INSET: 44,
   /** 배경 3층 스크롤 계수 */
   PARALLAX: { sky: 0.15, mid: 0.45, track: 1 },
   /** 카운트다운 길이 (s) */
@@ -38,3 +39,8 @@ export const RACE = {
   /** 랜덤 뽑기 가중 — 구출한 동물 : 못 구한 동물 */
   PICK_WEIGHT: { rescued: 3, locked: 1 },
 } as const;
+
+/** 레인과 선택 카드의 순서. **도감 순서와 다르다** — 디자이너 시안이
+ *  1토끼·2양·3원숭이·4얼룩말·5사슴·6코끼리로 그려져 있고, 레인 깃발 색도 그 순서다.
+ *  도감(ANIMALS)의 순서를 바꾸면 도감 화면이 함께 흔들리므로 여기서만 다시 세운다. */
+export const RACE_LANE_ORDER: readonly string[] = ["rabbit", "sheep", "monkey", "zebra", "deer", "elephant"];

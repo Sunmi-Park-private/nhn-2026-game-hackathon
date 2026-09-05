@@ -1,15 +1,15 @@
 // ui/race/raceScreen.ts — 동물 운동회. 로비 하단 RACE로 들어온다.
 //
-// **ui/race/ 중 이 파일만 ../../data를 읽는다**(규약 2조). 나머지 일곱은 좌표와 텍스처를
-// 인자로 받으므로, 스키마가 바뀔 때 깨질 자리가 여기 하나뿐이다.
+// 디자이너 시안대로 **화면 셋**이 각자 배경을 가진다 — 선택 · 경주 · 결과.
+// 셋은 uiLayout의 raceSelect·raceTrack·raceResult 영역에 각각 대응한다.
 //
-// 상태는 클로저 안 객체 하나에 담고(규약 4조), 닫을 때 ticker를 명시적으로 끊는다 —
-// 부모 노드가 붙어 있는지로 살아 있는지를 추측하지 않는다(규약 4조).
+// **ui/race/ 중 이 파일만 ../../data를 읽는다**(규약 2조).
+// 상태는 클로저 안 객체 하나에 담고(규약 4조), 닫을 때 ticker를 명시적으로 끊는다.
 import { Application, Container, Graphics, type Texture } from "pixi.js";
 import { coverBox, fullRect, stageHeight, stageLeft, stageTop, stageWidth } from "../stage";
 import { openSettings, type SettingsTextures } from "../settingsMenu";
 import type { UiSlot } from "../../data/uiLayout";
-import { RACE } from "../../data/race";
+import { RACE, RACE_LANE_ORDER } from "../../data/race";
 import { ANIMALS } from "../../data/animals";
 import { editable, clearEditable } from "../layoutEditor";
 import { buzz } from "../settings";
@@ -18,27 +18,40 @@ import type { Profile } from "../../engine/profile";
 import type { RaceOutcome, RaceState } from "../../engine/race/types";
 import { createRace, isRaceOver, myTime, pickAnimal, ranking, tapRace, tickRace } from "../../engine/race/raceRun";
 import { settleRace, type RaceReward } from "../../engine/race/reward";
-import { hotspot } from "./raceChrome";
-import { raceSlots } from "./raceSlots";
+import { hotspot, slotText } from "./raceChrome";
+import { RACE_AREAS, raceSlots } from "./raceSlots";
 import { createTrackView } from "./trackView";
 import { createRunnerLayer } from "./runnerLayer";
-import { createRoster } from "./rosterView";
+import { createLaneFlags } from "./laneFlags";
+import { createCardPicker } from "./cardPicker";
 import { createRaceHud } from "./raceHud";
-import { createRaceIntro } from "./raceIntro";
 import { buildRaceResult } from "./raceResultView";
 
-const AREA = "race";
-
 export interface RaceTextures {
-  bg: { sky?: Texture; mid?: Texture; track?: Texture; startGate?: Texture; finish?: Texture };
-  runners: Record<string, Texture[]>;
+  bg: Partial<Record<string, Texture>>;
   ui: Partial<Record<string, Texture>>;
+  runners: Record<string, Texture[]>;
+  /** 동물 id → 정면 얼굴. 파일이 없는 동물은 키가 빠진다 */
+  faces: Partial<Record<string, Texture>>;
+  /** 동물 id → 1위 축하 포즈. 없으면 얼굴을 크게 쓴다 */
+  winner: Partial<Record<string, Texture>>;
+  card: Partial<Record<string, Texture>>;
+  row: Partial<Record<string, Texture>>;
+  medal: Partial<Record<string, Texture>>;
+  flags: Partial<Record<string, Texture>>;
   booster: Partial<Record<string, Texture>>;
-  gear?: Texture;
   settings: SettingsTextures;
 }
 
 const BOOSTER_KO: Record<string, string> = { bomb: "폭탄", rainbow: "레인보우", horseshoe: "말굽" };
+
+/** 배경 한 장을 화면에 깐다. 없으면 단색 — 캔버스가 비지 않게. */
+function scene(tex: Texture | undefined): Container {
+  const c = new Container();
+  c.addChild(fullRect(0x241a10));
+  if (tex) c.addChild(coverBox(tex));
+  return c;
+}
 
 /** 레이스를 띄우고 닫힐 때까지 기다린다. 프로필이 바뀌면 onProfile로 알린다 —
  *  저장은 호출자(main)가 한다. 레이스가 localStorage를 알 이유가 없다. */
@@ -50,19 +63,18 @@ export function openRace(
   onProfile: (p: Profile) => void,
 ): Promise<RaceOutcome> {
   return new Promise<RaceOutcome>((resolve) => {
-    const ids = ANIMALS.map((a) => a.id);
     const byId = new Map(ANIMALS.map((a) => [a.id, a]));
-
+    // 레인·카드 순서는 시안이 정한다 — 도감 순서와 다르다
+    const order = RACE_LANE_ORDER.filter((id) => byId.has(id));
+    const ids = [...order];
+    const lineup = order.map((id) => byId.get(id)!);
     const B = raceSlots();
-    const reg = (b: UiSlot, node: Container): void => editable(AREA, b, node);
 
-    // ── 상태는 여기 하나뿐이다(규약 4조) ──
     const S = {
       race: null as RaceState | null,
       lastTapAt: 0,
       reward: null as RaceReward | null,
       profile,
-      result: null as Container | null,
       closed: false,
     };
 
@@ -70,67 +82,94 @@ export function openRace(
     parent.addChild(root);
     const veil = new Graphics().rect(stageLeft(), stageTop(), stageWidth(), stageHeight()).fill(0x120c06);
     veil.eventMode = "static";
-    root.addChild(veil, fullRect(0x241a10));
-    if (tex.bg.startGate) root.addChild(coverBox(tex.bg.startGate));
+    root.addChild(veil);
     playBgm("audio.bgmRace");
 
-    const trackBox = B.trackArea;
-    const track = createTrackView({
-      box: trackBox,
-      tex: tex.bg,
-      tuning: { pxPerM: RACE.PX_PER_M, distance: RACE.DISTANCE, parallax: RACE.PARALLAX },
-    });
-    const runners = createRunnerLayer({
-      animals: ANIMALS,
-      frames: tex.runners,
-      box: { x: trackBox.x, w: trackBox.w, y: track.runway.y, h: track.runway.h },
-      laneY: track.laneY,
-      // 레인보다 조금 크게 — 6줄이 겹쳐 보이는 편이 달리기처럼 보인다
-      size: Math.min(52, track.laneH * 1.5),
-      cameraX: RACE.CAMERA_X,
-      pxPerM: RACE.PX_PER_M,
-    });
-    const roster = createRoster({ laneY: track.laneY, x: trackBox.x, w: trackBox.w, h: trackBox.h / 6 });
-    const hud = createRaceHud({
-      hudRank: B.hudRank, hudTime: B.hudTime, distBar: B.distBar, countdown: B.countdown,
-    });
-    const intro = createRaceIntro({
-      slots: {
-        titleBanner: B.titleBanner, myRunnerTag: B.myRunnerTag, rosterHint: B.rosterHint,
-      },
-      banner: tex.ui.titleBanner,
-      hint: "버튼을 누르면 선수가 정해집니다",
-    });
-    root.addChild(track.node, roster.node, runners.node, hud.node, hud.countdown, intro.node);
-    roster.node.visible = false;
+    const reg = (area: string) => (b: UiSlot, node: Container): void => editable(area, b, node);
+    const regSelect = reg("raceSelect");
+    const regTrack = reg("raceTrack");
 
-    // 뽑기 전에도 6마리가 출발선에 서 있어야 한다. 아직 내 선수가 없으므로 표식은 없다.
-    // 트랙도 한 번 그려 둔다 — 안 그리면 결승선이 좌표 0(출발선 왼쪽)에 남는다.
-    const LINEUP = ANIMALS.map((a, lane) => ({
-      id: a.id, lane, x: 0, targetX: 0,
-      lastGap: RACE.GAP_DEAD, sinceTap: RACE.GAP_DEAD, spm: 0, finishedAt: null,
-    }));
-    runners.build("");
-    track.update(0);
+    // ── 화면 셋 ──────────────────────────────
+    const selectScreen = new Container();
+    const trackScreen = new Container();
+    const resultScreen = new Container();
+    root.addChild(selectScreen, trackScreen, resultScreen);
+    trackScreen.visible = false;
+    resultScreen.visible = false;
 
-    // ── 조작 ──
-    const pickBtn = hotspot(B.pick, tex.ui.pick, 0x3faa48, () => {
+    // ── 선택 화면 ────────────────────────────
+    selectScreen.addChild(scene(tex.bg.selectScene));
+    const title = B.select.title;
+    if (tex.ui.title) {
+      const s = new Container();
+      s.addChild(hotspot(title, tex.ui.title, 0x00000000, () => {}, regSelect));
+      selectScreen.addChild(s);
+    } else {
+      const t = slotText(title, 30, 0xffd66b);
+      t.text = "ANIMAL RACE";
+      selectScreen.addChild(t);
+    }
+    if (tex.ui.prompt) {
+      selectScreen.addChild(hotspot(B.select.prompt, tex.ui.prompt, 0x8a5a2b, () => {}, regSelect));
+    } else {
+      const t = slotText(B.select.prompt, 17, 0xfff3dc);
+      t.text = "달릴 동물을 선택하세요!";
+      selectScreen.addChild(t);
+    }
+
+    const picker = createCardPicker({
+      box: B.select.cardGrid,
+      animals: lineup,
+      faces: tex.faces,
+      frameOff: tex.card.off,
+      frameOn: tex.card.on,
+    });
+    selectScreen.addChild(picker.node);
+
+    const btnSelect = hotspot(B.select.btnSelect, tex.ui.btnSelect, 0x3faa48, () => {
       if (S.race) return;
       buzz();
-      pickBtn.visible = false;
+      btnSelect.visible = false;
       const target = pickAnimal(ids, S.profile.rescued, Math.random);
-      roster.spin(ids.indexOf(target), () => playSfx("audio.sfxRouletteTick"), () => {
-        roster.node.visible = false;
+      picker.spin(ids.indexOf(target), () => playSfx("audio.sfxRouletteTick"), () => {
         playSfx("audio.sfxWhistle");
-        intro.setRunner(byId.get(target)?.name ?? target);
         S.race = createRace(ids, target, Math.random);
         runners.build(target);
+        selectScreen.visible = false;
+        trackScreen.visible = true;
         hud.setRunning(true);
-        runBtn.visible = true;
       });
-    }, reg);
+    }, regSelect);
+    selectScreen.addChild(btnSelect);
 
-    const runBtn = hotspot(B.run, tex.ui.run, 0x3faa48, () => {
+    // ── 경주 화면 ────────────────────────────
+    trackScreen.addChild(scene(tex.bg.raceScene));
+    const track = createTrackView({
+      box: B.track.trackArea,
+      tex: { trackTile: tex.bg.trackTile, finish: tex.bg.finish },
+      tuning: { pxPerM: RACE.PX_PER_M, distance: RACE.DISTANCE },
+    });
+    const runners = createRunnerLayer({
+      animals: lineup,
+      frames: tex.runners,
+      box: { x: B.track.trackArea.x, w: B.track.trackArea.w, y: B.track.trackArea.y, h: B.track.trackArea.h },
+      laneY: track.laneY,
+      size: Math.min(52, track.laneH * 1.2),
+      cameraX: B.track.trackArea.x + RACE.CAMERA_INSET,
+      pxPerM: RACE.PX_PER_M,
+    });
+    const hud = createRaceHud({
+      hudRank: B.track.hudRank,
+      hudTime: B.track.hudTime,
+      distBar: B.track.distBar,
+      countdown: B.track.countdown,
+    });
+    trackScreen.addChild(track.node, runners.node);
+    trackScreen.addChild(createLaneFlags({ box: B.track.laneFlags, laneY: track.laneY, tex: tex.flags }));
+    trackScreen.addChild(hotspot(B.track.startSign, tex.ui.startSign, 0x8a5a2b, () => {}, regTrack));
+    trackScreen.addChild(hud.node, hud.countdown);
+
+    const btnRace = hotspot(B.track.btnRace, tex.ui.btnRace, 0x3faa48, () => {
       const race = S.race;
       if (!race || race.phase !== "running") return;
       const now = performance.now() / 1000;
@@ -139,19 +178,26 @@ export function openRace(
       S.lastTapAt = now;
       tapRace(race, gap);
       playSfx("audio.sfxStep");
-    }, reg);
-    runBtn.visible = false;
+    }, regTrack);
+    trackScreen.addChild(btnRace);
+    runners.build("");
+    track.update(0);
 
-    root.addChild(pickBtn, runBtn);
-    root.addChild(hotspot(B.back, tex.ui.back, 0x6b4626, () => close("back"), reg));
-    root.addChild(hotspot(B.gear, tex.gear, 0x4a3320, () => {
-      void openSettings(root, tex.settings).then((r) => { if (r === "lobby") close("lobby"); });
-    }, reg));
+    // 돌아가기·설정은 두 화면에 같은 자리로 얹는다(시안)
+    for (const [screen, slots, r] of [
+      [selectScreen, B.select, regSelect] as const,
+      [trackScreen, B.track, regTrack] as const,
+    ]) {
+      screen.addChild(hotspot(slots.back, tex.ui.back, 0x8a5a2b, () => close("back"), r));
+      screen.addChild(hotspot(slots.gear, tex.ui.gear, 0x8a5a2b, () => {
+        void openSettings(root, tex.settings).then((x) => { if (x === "lobby") close("lobby"); });
+      }, r));
+    }
 
-    // ── 결과 ──
+    // ── 결과 화면 ────────────────────────────
     function showResult(): void {
       const race = S.race;
-      if (!race || S.result) return;
+      if (!race || resultScreen.children.length > 0) return;
 
       const t = myTime(race);
       if (t !== null && race.myId) {
@@ -162,56 +208,64 @@ export function openRace(
         playSfx(out.reward.improved ? "audio.sfxRecord" : "audio.sfxFinish");
       }
 
-      S.result = buildRaceResult({
-        slots: {
-          resultPanel: B.resultPanel, resultTitle: B.resultTitle, resultList: B.resultList,
-          bestTag: B.bestTag, rewardIcon: B.rewardIcon, rewardLabel: B.rewardLabel,
-          retry: B.retry, close: B.close,
-        },
+      const champ = ranking(race)[0];
+      resultScreen.addChild(scene(tex.bg.resultScene));
+      resultScreen.addChild(buildRaceResult({
+        slots: B.result as unknown as Record<string, UiSlot>,
         tex: {
-          panel: tex.ui.resultPanel, bestTag: tex.ui.bestTag,
-          retry: tex.ui.retry, close: tex.ui.close,
-          reward: S.reward?.booster ? tex.booster[S.reward.booster] : undefined,
+          title: tex.ui.resultTitle, podium: tex.ui.podium,
+          signLeft: tex.ui.signLeft, signRight: tex.ui.signRight,
+          rowFirst: tex.row.first, rowRest: tex.row.rest,
+          medal: tex.medal, winner: champ ? tex.winner[champ.id] : undefined,
+          btnRetry: tex.ui.btnRetry, btnClose: tex.ui.btnClose,
         },
         race,
-        animalOf: (id) => ({ name: byId.get(id)?.name ?? id, glyph: byId.get(id)?.glyph ?? "?" }),
+        animalOf: (id) => ({
+          name: byId.get(id)?.name ?? id,
+          glyph: byId.get(id)?.glyph ?? "?",
+          face: tex.faces[id],
+        }),
         reward: S.reward,
         boosterName: (id) => BOOSTER_KO[id] ?? null,
         onRetry: () => { buzz(); restart(); },
         onClose: () => { buzz(); close("back"); },
-      });
-      root.addChild(S.result);
+      }));
+      for (const b of Object.values(B.result)) {
+        // 결과 화면은 통째로 다시 그려지므로 개별 노드를 잡히게 두지 않는다 —
+        // 대신 배치는 에디터의 결과 탭에서 좌표로 조정한다
+        void b;
+      }
+      trackScreen.visible = false;
+      resultScreen.visible = true;
       hud.setRunning(false);
-      runBtn.visible = false;
     }
 
     function restart(): void {
-      S.result?.destroy({ children: true });
-      S.result = null;
+      resultScreen.removeChildren();
+      resultScreen.visible = false;
       S.race = null;
       S.reward = null;
       S.lastTapAt = 0;
-      runners.build(""); // 다시 출발선 정렬로 되돌린다
-      intro.reset();
-      hud.setCountdown(null);
-      pickBtn.visible = true;
+      runners.build("");
       track.update(0);
+      hud.setCountdown(null);
+      picker.reset();
+      btnSelect.visible = true;
+      selectScreen.visible = true;
     }
 
-    // ── 루프 ──
+    // ── 루프 ──────────────────────────────────
     const tick = (): void => {
       if (S.closed) return;
       // 탭이 백그라운드에 있다가 돌아오면 deltaMS가 크게 튄다 — 순간이동하지 않게 자른다
       const dt = Math.min(0.05, app.ticker.deltaMS / 1000);
-      roster.update(dt);
+      picker.update(dt);
 
       const race = S.race;
-      if (!race) {
-        runners.update(LINEUP, 0, dt); // 출발선에 선 채로 숨은 쉰다
-        return;
-      }
-      // 내가 들어오면 남은 선수를 배속으로 굴린다. 안 그러면 꼴찌가 들어올 때까지
-      // 10초 가까이 할 일 없이 보게 된다 — 실제로 플레이해 보고 나서야 드러난 문제다.
+      if (!race) return;
+
+      // 내가 들어오면 남은 선수를 배속으로 굴린다 — 꼴찌를 10초씩 기다리지 않게.
+      // 시뮬레이션이 시간의 함수라 빨리 감아도 기록은 실시간과 같다.
       const meDone = race.runners.find((r) => r.id === race.myId)?.finishedAt !== null;
       tickRace(race, meDone ? dt * RACE.TAIL_SPEED : dt);
 
@@ -234,8 +288,8 @@ export function openRace(
     function close(exit: "back" | "lobby"): void {
       if (S.closed) return;
       S.closed = true;
-      app.ticker.remove(tick);  // 명시적으로 끊는다 — parent 존재로 추측하지 않는다
-      clearEditable(AREA);      // 파괴된 노드를 에디터가 잡고 있으면 죽는다
+      app.ticker.remove(tick);            // 명시적으로 끊는다 — parent 존재로 추측하지 않는다
+      for (const a of RACE_AREAS) clearEditable(a);
       root.destroy({ children: true });
       playBgm("audio.bgmLobby");
       resolve({ exit });

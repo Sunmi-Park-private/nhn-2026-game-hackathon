@@ -44,6 +44,8 @@ export function hotspot(
   c.addChild(new Graphics().rect(0, 0, b.w, b.h).fill({ color: 0xffffff, alpha: 0 }));
   register?.(b, c); // 레이아웃 에디터가 이 노드를 잡는다
 
+  // 에디터에서 끈 슬롯은 그리지도 않고 누를 수도 없다
+  c.visible = b.hidden !== true;
   c.eventMode = "static";
   c.cursor = "pointer";
   c.on("pointerdown", () => { c.alpha = 0.8; onDown(); });
@@ -68,5 +70,6 @@ export function slotText(b: UiSlot, size: number, color: number): Text {
   t.anchor.set(0.5);
   t.x = b.x + b.w / 2;
   t.y = b.y + b.h / 2;
+  t.visible = b.hidden !== true;
   return t;
 }

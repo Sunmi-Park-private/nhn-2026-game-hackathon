@@ -30,6 +30,8 @@ export function createRaceHud(slots: {
   const bg = new Graphics().roundRect(b.x, b.y, b.w, b.h, b.h / 2)
     .fill({ color: 0x000000, alpha: 0.35 });
   const fill = new Graphics();
+  // 시안에는 주행 HUD가 없다 — 슬롯은 남기되 꺼 두고, 에디터에서 켤 수 있게 한다
+  bg.visible = fill.visible = b.hidden !== true;
   node.addChild(bg, fill, rank, time);
 
   const count = slotText(slots.countdown, 96, 0xffd66b);

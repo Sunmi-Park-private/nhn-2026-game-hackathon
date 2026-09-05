@@ -1,42 +1,69 @@
-// ui/race/raceResultView.ts — 레이스 결과 패널.
+// ui/race/raceResultView.ts — 경주 결과. 시안에서는 패널이 아니라 **화면 한 장**이다.
+// 간판 · 1위 동물 · 시상대 · 순위 6행(메달·얼굴·이름·기록) · 다시하기/닫기.
 //
-// 스테이지 결과 화면과 다른 것이다(이름이 raceResultView인 이유).
-// 좌표와 텍스처는 주입받는다 — 이 파일은 ../../data를 모른다(규약 2조).
+// 좌표와 텍스처는 주입받는다(규약 2조) — 이 파일은 ../../data를 모른다.
 import { Container, Graphics, Text, type Texture } from "pixi.js";
 import { fitSprite } from "../skin";
 import { ranking } from "../../engine/race/raceRun";
 import type { RaceState } from "../../engine/race/types";
 import type { RaceReward } from "../../engine/race/reward";
-
-export interface ResultBox { x: number; y: number; w: number; h: number }
+import type { UiSlot } from "../../data/uiLayout";
 
 export interface ResultRow {
-  /** 1부터 */
   rank: number;
   name: string;
   glyph: string;
+  face?: Texture;
   /** 초. 못 들어왔으면 null */
   time: number | null;
   mine: boolean;
 }
 
-export interface RaceResultOpts {
-  slots: Record<string, ResultBox>;
-  tex: { panel?: Texture; bestTag?: Texture; retry?: Texture; close?: Texture; reward?: Texture };
-  rows: ResultRow[];
-  /** 갱신했을 때만 배지와 보상이 켜진다 */
-  improved: boolean;
-  previous: number | null;
-  rewardName: string | null;
-  onRetry: () => void;
-  onClose: () => void;
+export interface ResultTextures {
+  title?: Texture;
+  podium?: Texture;
+  signLeft?: Texture;
+  signRight?: Texture;
+  rowFirst?: Texture;
+  rowRest?: Texture;
+  medal: Partial<Record<"gold" | "silver" | "bronze", Texture>>;
+  winner?: Texture;
+  btnRetry?: Texture;
+  btnClose?: Texture;
 }
 
-const fmt = (s: number | null): string => (s === null ? "—" : `${s.toFixed(2)}초`);
+/** 00:28.41 — 시안의 표기 그대로 */
+function fmt(sec: number | null): string {
+  if (sec === null) return "--:--.--";
+  const m = Math.floor(sec / 60);
+  const s = sec - m * 60;
+  return `${String(m).padStart(2, "0")}:${s.toFixed(2).padStart(5, "0")}`;
+}
 
-function button(
-  b: ResultBox, label: string, tex: Texture | undefined, fill: number, onTap: () => void,
-): Container {
+const MEDAL_KEY = ["gold", "silver", "bronze"] as const;
+const MEDAL_COLOR = [0xf0c040, 0xc8ccd4, 0xc8834a];
+
+function art(b: UiSlot, tex: Texture | undefined, into: Container): boolean {
+  if (!tex) return false;
+  const s = fitSprite(tex, b.w, b.h);
+  s.x = b.x + b.w / 2;
+  s.y = b.y + b.h / 2;
+  into.addChild(s);
+  return true;
+}
+
+function label(b: UiSlot, text: string, size: number, color: number): Text {
+  const t = new Text({
+    text,
+    style: { fontSize: b.fontSize ?? size, fill: color, fontWeight: "bold", stroke: { color: 0x2a1d10, width: 4 } },
+  });
+  t.anchor.set(0.5);
+  t.x = b.x + b.w / 2;
+  t.y = b.y + b.h / 2;
+  return t;
+}
+
+function button(b: UiSlot, text: string, tex: Texture | undefined, fill: number, onTap: () => void): Container {
   const c = new Container();
   c.x = b.x;
   c.y = b.y;
@@ -46,12 +73,12 @@ function button(
     s.y = b.h / 2;
     c.addChild(s);
   } else {
-    const g = new Graphics().roundRect(0, 0, b.w, b.h, 10).fill(fill);
-    g.roundRect(2, 2, b.w - 4, b.h - 4, 8).stroke({ width: 2, color: 0xffffff, alpha: 0.18 });
+    const g = new Graphics().roundRect(0, 0, b.w, b.h, 12).fill(fill);
+    g.roundRect(3, 3, b.w - 6, b.h - 6, 9).stroke({ width: 2, color: 0xffffff, alpha: 0.22 });
     c.addChild(g);
     const t = new Text({
-      text: label,
-      style: { fontSize: Math.min(15, b.h * 0.34), fill: 0xfff3dc, fontWeight: "bold" },
+      text,
+      style: { fontSize: Math.min(20, b.h * 0.42), fill: 0xfff3dc, fontWeight: "bold" },
     });
     t.anchor.set(0.5);
     t.x = b.w / 2;
@@ -65,119 +92,121 @@ function button(
   return c;
 }
 
-function label(b: ResultBox, text: string, size: number, color: number): Text {
-  const t = new Text({
-    text,
-    style: { fontSize: size, fill: color, fontWeight: "bold", stroke: { color: 0x1a1108, width: 3 } },
-  });
-  t.anchor.set(0.5);
-  t.x = b.x + b.w / 2;
-  t.y = b.y + b.h / 2;
-  return t;
-}
-
-export function createRaceResult(o: RaceResultOpts): Container {
-  const root = new Container();
-  const s = o.slots;
-
-  const panel = s.resultPanel!;
-  if (o.tex.panel) {
-    const spr = fitSprite(o.tex.panel, panel.w, panel.h);
-    spr.x = panel.x + panel.w / 2;
-    spr.y = panel.y + panel.h / 2;
-    root.addChild(spr);
+/** 순위 한 줄 — 메달/번호 · 얼굴 · 이름 · 기록. 1위만 판이 다르다(시안). */
+function row(b: UiSlot, y: number, h: number, r: ResultRow, tex: ResultTextures): Container {
+  const c = new Container();
+  const plate = r.rank === 1 ? tex.rowFirst : tex.rowRest;
+  if (plate) {
+    const s = fitSprite(plate, b.w, h);
+    s.x = b.w / 2;
+    s.y = h / 2;
+    c.addChild(s);
   } else {
-    const g = new Graphics().roundRect(panel.x, panel.y, panel.w, panel.h, 16)
-      .fill({ color: 0x2b1f13, alpha: 0.96 });
-    g.roundRect(panel.x + 3, panel.y + 3, panel.w - 6, panel.h - 6, 13)
-      .stroke({ width: 2, color: 0xc98a3c });
-    root.addChild(g);
+    const g = new Graphics().roundRect(0, 0, b.w, h - 4, 8)
+      .fill(r.rank === 1 ? 0xe0a94a : 0xb98a55);
+    g.roundRect(3, 3, b.w - 6, h - 10, 6).stroke({ width: 2, color: 0x7a5228, alpha: 0.7 });
+    c.addChild(g);
   }
 
-  const mine = o.rows.find((r) => r.mine);
-  root.addChild(label(s.resultTitle!, mine ? `${mine.rank}위` : "결과", 34, 0xffd66b));
-
-  // 순위 6행 — 영역을 균등 분할한다. 행마다 슬롯을 두면 트랙처럼 6개를 따로 끌어야 한다.
-  const list = s.resultList!;
-  const rowH = list.h / Math.max(1, o.rows.length);
-  for (const r of o.rows) {
-    const y = list.y + rowH * (r.rank - 1);
-    if (r.mine) {
-      root.addChild(new Graphics().roundRect(list.x - 4, y + 2, list.w + 8, rowH - 4, 6)
-        .fill({ color: 0xc98a3c, alpha: 0.22 }));
-    }
-    const style = { fontSize: 17, fill: r.mine ? 0xffd66b : 0xfff3dc, fontWeight: "bold" as const };
-    const left = new Text({ text: `${r.rank}  ${r.glyph}  ${r.name}`, style });
-    left.x = list.x + 8;
-    left.y = y + rowH / 2;
-    left.anchor.set(0, 0.5);
-    const right = new Text({ text: fmt(r.time), style: { ...style, fontSize: 15 } });
-    right.x = list.x + list.w - 8;
-    right.y = y + rowH / 2;
-    right.anchor.set(1, 0.5);
-    root.addChild(left, right);
+  const medalTex = r.rank <= 3 ? tex.medal[MEDAL_KEY[r.rank - 1]!] : undefined;
+  if (medalTex) {
+    const s = fitSprite(medalTex, h * 0.8, h * 0.8);
+    s.x = h * 0.55;
+    s.y = h / 2;
+    c.addChild(s);
+  } else {
+    const g = new Graphics().circle(h * 0.55, h / 2, h * 0.32)
+      .fill(r.rank <= 3 ? MEDAL_COLOR[r.rank - 1]! : 0x4a3320);
+    c.addChild(g);
+    const n = new Text({
+      text: String(r.rank),
+      style: { fontSize: h * 0.38, fill: 0xffffff, fontWeight: "bold" },
+    });
+    n.anchor.set(0.5);
+    n.x = h * 0.55;
+    n.y = h / 2;
+    c.addChild(n);
   }
 
-  // 갱신했을 때만 배지·보상이 산다
-  if (o.improved) {
-    const tag = s.bestTag!;
-    if (o.tex.bestTag) {
-      const spr = fitSprite(o.tex.bestTag, tag.w, tag.h);
-      spr.x = tag.x + tag.w / 2;
-      spr.y = tag.y + tag.h / 2;
-      root.addChild(spr);
-    } else {
-      root.addChild(new Graphics().roundRect(tag.x, tag.y, tag.w, tag.h, 8).fill(0x3faa48));
-      root.addChild(label(tag, "최고기록 갱신!", 15, 0xffffff));
-    }
-
-    const icon = s.rewardIcon!;
-    if (o.tex.reward) {
-      const spr = fitSprite(o.tex.reward, icon.w, icon.h);
-      spr.x = icon.x + icon.w / 2;
-      spr.y = icon.y + icon.h / 2;
-      root.addChild(spr);
-    } else {
-      root.addChild(new Graphics().roundRect(icon.x, icon.y, icon.w, icon.h, 10).fill(0x4a3320));
-    }
-    root.addChild(label(s.rewardLabel!, `${o.rewardName ?? "부스터"} +1`, 17, 0xfff3dc));
-  } else if (o.previous !== null) {
-    // 못 깼으면 얼마나 모자랐는지가 다시 달릴 이유가 된다
-    const gap = (mine?.time ?? 0) - o.previous;
-    root.addChild(label(s.bestTag!, `최고 ${fmt(o.previous)} (+${gap.toFixed(2)})`, 15, 0xb39b78));
+  if (r.face) {
+    const s = fitSprite(r.face, h * 0.85, h * 0.85);
+    s.x = h * 1.5;
+    s.y = h / 2;
+    c.addChild(s);
+  } else {
+    const t = new Text({ text: r.glyph, style: { fontSize: h * 0.5 } });
+    t.anchor.set(0.5);
+    t.x = h * 1.5;
+    t.y = h / 2;
+    c.addChild(t);
   }
 
-  root.addChild(button(s.retry!, "다시 달리기", o.tex.retry, 0x3faa48, o.onRetry));
-  root.addChild(button(s.close!, "로비로", o.tex.close, 0x6b4626, o.onClose));
-  return root;
+  const style = { fontSize: Math.min(19, h * 0.4), fill: 0x3b2410, fontWeight: "bold" as const };
+  const name = new Text({ text: r.name, style });
+  name.anchor.set(0, 0.5);
+  name.x = h * 2.1;
+  name.y = h / 2;
+  c.addChild(name);
+
+  const time = new Text({ text: fmt(r.time), style });
+  time.anchor.set(1, 0.5);
+  time.x = b.w - h * 0.4;
+  time.y = h / 2;
+  c.addChild(time);
+
+  c.x = b.x;
+  c.y = y;
+  return c;
 }
 
-/** 레이스 한 판을 결과 화면으로 만든다.
- *
- *  「순위를 어떻게 행으로 펴는가」는 결과 화면의 일이다 — 화면 조립부가 알 필요가 없다. */
 export function buildRaceResult(o: {
-  slots: Record<string, ResultBox>;
-  tex: RaceResultOpts["tex"];
+  slots: Record<string, UiSlot>;
+  tex: ResultTextures;
   race: RaceState;
-  /** 동물 id → 이름과 글리프 */
-  animalOf: (id: string) => { name: string; glyph: string };
+  animalOf: (id: string) => { name: string; glyph: string; face?: Texture };
   reward: RaceReward | null;
-  /** 부스터 id → 사람이 읽는 이름 */
   boosterName: (id: string) => string | null;
   onRetry: () => void;
   onClose: () => void;
 }): Container {
-  return createRaceResult({
-    slots: o.slots,
-    tex: o.tex,
-    rows: ranking(o.race).map((r, i) => {
-      const a = o.animalOf(r.id);
-      return { rank: i + 1, name: a.name, glyph: a.glyph, time: r.finishedAt, mine: r.id === o.race.myId };
-    }),
-    improved: o.reward?.improved ?? false,
-    previous: o.reward?.previous ?? null,
-    rewardName: o.reward?.booster ? o.boosterName(o.reward.booster) : null,
-    onRetry: o.onRetry,
-    onClose: o.onClose,
+  const root = new Container();
+  const s = o.slots;
+
+  const rows: ResultRow[] = ranking(o.race).map((r, i) => {
+    const a = o.animalOf(r.id);
+    return { rank: i + 1, name: a.name, glyph: a.glyph, face: a.face, time: r.finishedAt, mine: r.id === o.race.myId };
   });
+
+  if (!art(s.title!, o.tex.title, root)) root.addChild(label(s.title!, "경주 결과", 34, 0xffd66b));
+  art(s.signLeft!, o.tex.signLeft, root);
+  art(s.signRight!, o.tex.signRight, root);
+  art(s.podium!, o.tex.podium, root);
+
+  // 1위 동물 — 축하 아트가 없으면 얼굴을 크게 쓴다
+  const champ = rows[0];
+  if (champ) {
+    const w = o.tex.winner ?? champ.face;
+    if (!art(s.winner!, w, root)) {
+      root.addChild(label(s.winner!, champ.glyph, 84, 0xffffff));
+    }
+  }
+
+  const list = s.resultList!;
+  const rowH = list.h / Math.max(1, rows.length);
+  for (const r of rows) root.addChild(row(list, list.y + rowH * (r.rank - 1), rowH, r, o.tex));
+
+  // 보상 — 갱신했을 때만 뜬다. 시안에 두 줄 자리가 없어 한 줄로 합쳤다.
+  // 이 줄이 없으면 부스터를 받은 것을 유저가 알 길이 없다.
+  if (o.reward?.improved) {
+    const name = o.reward.booster ? o.boosterName(o.reward.booster) : null;
+    const tag = label(s.bestTag!, `최고기록 갱신!  ${name ?? "부스터"} +1`, 17, 0x8fdc8f);
+    tag.visible = s.bestTag!.hidden !== true;
+    root.addChild(tag);
+    // 나뉜 표기를 원하면 rewardLabel 슬롯을 에디터에서 켜면 된다
+    if (s.rewardLabel!.hidden !== true) root.addChild(label(s.rewardLabel!, `${name ?? "부스터"} +1`, 16, 0xfff3dc));
+  }
+
+  root.addChild(button(s.btnRetry!, "다시하기", o.tex.btnRetry, 0x3faa48, o.onRetry));
+  root.addChild(button(s.btnClose!, "닫기", o.tex.btnClose, 0x8a5a2b, o.onClose));
+  return root;
 }

@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { uiAreas, uiUploads, uiAudios } from "./uiLayout";
 import { LOBBY_SLOT_IDS, AUDIO_SLOT_IDS } from "./hexAssets";
-import { RACE_SLOT_IDS, raceAssetPaths } from "./raceAssets";
+import { raceAssetPaths } from "./raceAssets";
+import { RACE_AREAS, RACE_SLOT_IDS } from "../ui/race/raceSlots";
 import { ANIMALS } from "./animals";
 
 const manifest = JSON.parse(readFileSync(join(__dirname, "assets.json"), "utf8")) as Record<string, any>;
@@ -48,9 +49,11 @@ describe("로비 RACE 교체", () => {
 });
 
 describe("레이스 슬롯과 에셋", () => {
-  it("코드의 슬롯 목록과 JSON의 race 영역이 정확히 같다", () => {
-    const inJson = uiAreas.find((a) => a.id === "race")!.slots.map((s) => s.id);
-    expect([...inJson].sort()).toEqual([...RACE_SLOT_IDS].sort());
+  it("코드의 슬롯 목록과 JSON의 세 영역이 정확히 같다", () => {
+    for (const area of RACE_AREAS) {
+      const inJson = uiAreas.find((a) => a.id === area)!.slots.map((s) => s.id);
+      expect([...inJson].sort(), area).toEqual([...RACE_SLOT_IDS[area]].sort());
+    }
   });
 
   it("슬롯이 가리키는 asset 경로가 매니페스트에 실재한다", () => {

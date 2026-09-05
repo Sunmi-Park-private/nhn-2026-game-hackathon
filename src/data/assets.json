@@ -170,31 +170,71 @@
   },
   "race": {
     "bg": {
-      "sky": "assets/race/bg-sky.webp",
-      "mid": "assets/race/bg-mid.webp",
-      "track": "assets/race/bg-track.webp",
-      "startGate": "assets/race/start-gate.png",
+      "selectScene": "assets/race/bg-select.webp",
+      "raceScene": "assets/race/bg-race.webp",
+      "resultScene": "assets/race/bg-result.webp",
+      "trackTile": "assets/race/track-tile.webp",
       "finish": "assets/race/finish.png"
-    },
-    "runners": {
-      "rabbit": "assets/race/run-rabbit.png",
-      "monkey": "assets/race/run-monkey.png",
-      "deer": "assets/race/run-deer.png",
-      "sheep": "assets/race/run-sheep.png",
-      "zebra": "assets/race/run-zebra.png",
-      "elephant": "assets/race/run-elephant.png"
     },
     "ui": {
       "back": "assets/race/ui-back.png",
-      "titleBanner": "assets/race/ui-title.png",
-      "pick": "assets/race/ui-pick.png",
-      "distBar": "assets/race/ui-distbar.png",
-      "run": "assets/race/ui-run.png",
-      "runPressed": "assets/race/ui-run-pressed.png",
-      "resultPanel": "assets/race/ui-result.png",
-      "bestTag": "assets/race/ui-best.png",
-      "retry": "assets/race/ui-retry.png",
-      "close": "assets/race/ui-close.png"
+      "gear": "assets/race/ui-gear.png",
+      "title": "assets/race/ui-title.png",
+      "prompt": "assets/race/ui-prompt.png",
+      "btnSelect": "assets/race/btn-select.png",
+      "btnRace": "assets/race/btn-race.png",
+      "startSign": "assets/race/ui-start.png",
+      "resultTitle": "assets/race/ui-result-title.png",
+      "podium": "assets/race/ui-podium.png",
+      "signLeft": "assets/race/ui-sign-left.png",
+      "signRight": "assets/race/ui-sign-right.png",
+      "btnRetry": "assets/race/btn-retry.png",
+      "btnClose": "assets/race/btn-close.png"
+    },
+    "runners": {
+      "rabbit": "assets/race/run-rabbit.png",
+      "sheep": "assets/race/run-sheep.png",
+      "monkey": "assets/race/run-monkey.png",
+      "zebra": "assets/race/run-zebra.png",
+      "deer": "assets/race/run-deer.png",
+      "elephant": "assets/race/run-elephant.png"
+    },
+    "faces": {
+      "rabbit": "assets/race/face-rabbit.png",
+      "sheep": "assets/race/face-sheep.png",
+      "monkey": "assets/race/face-monkey.png",
+      "zebra": "assets/race/face-zebra.png",
+      "deer": "assets/race/face-deer.png",
+      "elephant": "assets/race/face-elephant.png"
+    },
+    "winner": {
+      "rabbit": "assets/race/winner-rabbit.png",
+      "sheep": "assets/race/winner-sheep.png",
+      "monkey": "assets/race/winner-monkey.png",
+      "zebra": "assets/race/winner-zebra.png",
+      "deer": "assets/race/winner-deer.png",
+      "elephant": "assets/race/winner-elephant.png"
+    },
+    "card": {
+      "off": "assets/race/card-off.png",
+      "on": "assets/race/card-on.png"
+    },
+    "row": {
+      "first": "assets/race/row-first.png",
+      "rest": "assets/race/row-rest.png"
+    },
+    "flags": {
+      "lane1": "assets/race/flag-1.png",
+      "lane2": "assets/race/flag-2.png",
+      "lane3": "assets/race/flag-3.png",
+      "lane4": "assets/race/flag-4.png",
+      "lane5": "assets/race/flag-5.png",
+      "lane6": "assets/race/flag-6.png"
+    },
+    "medal": {
+      "gold": "assets/race/medal-gold.png",
+      "silver": "assets/race/medal-silver.png",
+      "bronze": "assets/race/medal-bronze.png"
     }
   }
 }
