@@ -15,6 +15,7 @@ import { mountCheatPanel } from "./ui/cheatPanel";
 import { playVideo } from "./ui/videoScreen";
 import { initAudioUnlock } from "./ui/audio";
 import { setStageExtra, setStageExtraX } from "./ui/stage";
+import { loadProgress, onLoadProgress } from "./ui/loadProgress";
 import { stages } from "./data/stages";
 import { runStageScreen } from "./ui/hex/stageScreen";
 
@@ -79,6 +80,19 @@ async function main(): Promise<void> {
   // E2E 테스트용 씬 마커 — 현재 단계 노출 (게임 로직에선 미사용)
   const mark = (s: string): void => { (window as unknown as { __scene?: string }).__scene = s; };
 
+  // 받는 동안 숫자를 보인다. 느린 회선(터널·모바일)에서는 이 자리가 몇 분이라,
+  // 갈색 단색만 있으면 「멎었다」로 보인다 — 로더의 상한을 없앤 대신 여기서 알린다.
+  const loading = document.createElement("div");
+  loading.style.cssText = "position:fixed;left:0;right:0;bottom:12%;text-align:center;pointer-events:none;"
+    + "color:#e8dcc8;font:14px/1.4 system-ui,sans-serif;text-shadow:0 1px 2px #000";
+  const paintLoading = (): void => {
+    const p = loadProgress();
+    loading.textContent = `불러오는 중… ${p.settled} / ${p.started}`;
+  };
+  const offProgress = onLoadProgress(paintLoading);
+  paintLoading();
+  document.body.appendChild(loading);
+
   // 로비 ⇄ 스테이지. 클리어하면 다음 스테이지, 실패·재시작이면 같은 스테이지를 다시 준다.
   mark("game");
   const [hexTextures, uiSlots, lobbySlots, raceBg, raceUi, raceBooster, raceRunners, raceFaces, raceWinner, raceCard, raceRow, raceMedal, eventSlots, collectionSlots, collectionCards, collectionLocked]
@@ -100,6 +114,8 @@ async function main(): Promise<void> {
     loadSlots(collectionAssetPaths.cards),
     loadSlots(collectionAssetPaths.locked),
   ]);
+  offProgress();
+  loading.remove();
   // 에셋을 다 받은 뒤에 얹는다 — 먼저 얹으면 빈 캔버스 위에 격자만 뜬다
   mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다
   mountCheatPanel();            // 같은 조건 + devMode. 화면 왼쪽, 배치 패널 반대편이다

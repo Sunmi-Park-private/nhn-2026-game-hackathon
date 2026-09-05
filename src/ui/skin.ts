@@ -3,11 +3,20 @@
 // 헥사 타일과 같은 원칙이다: **아트가 하나도 없어도 화면이 성립하고, 일부만 도착해도 정상 동작한다.**
 // 디자이너는 경로에 파일만 드롭한다.
 import { Assets, Container, Graphics, Sprite, Text, VideoSource, type Ticker, type Texture } from "pixi.js";
+import { beginLoad, endLoad } from "./loadProgress";
 
-/** 에셋 한 장을 기다리는 상한. 넘기면 폴백으로 간다.
- *  파일이 없을 때 서버가 404가 아니라 index.html을 200으로 돌려주면
- *  Pixi가 그 HTML을 이미지로 디코드하려다 멈출 수 있다 — 화면 전체를 막지 않는다. */
-const LOAD_TIMEOUT_MS = 4000;
+/** 스틸 한 장에는 **상한을 두지 않는다.**
+ *
+ *  전에는 4초였다. 「파일이 없을 때 서버가 index.html을 200으로 돌려주면 Pixi가 그
+ *  HTML을 이미지로 디코드하다 멈춘다」는 걱정이었는데, 재 보니 그 경우 Pixi는 바로
+ *  거부한다(preview 서버에서 없는 파일 여러 장을 두고 부팅 0.4초).
+ *
+ *  반면 4초 상한은 느린 회선에서 **멀쩡한 파일을 전부 폴백으로** 만들었다. 부트가
+ *  ~100MB를 한꺼번에 받으므로 터널·모바일에서는 4초 안에 오는 장이 거의 없다.
+ *  QA가 본 「첫 접속은 깨진 화면, 새로고침하면 정상」이 이것이다 — 새로고침 때는
+ *  뒤에서 계속 받던 파일이 캐시에 있어 4초 안에 온다. 없는 파일은 상한 없이도
+ *  바로 실패하고, 느린 파일은 기다려야 한다. 기다리는 동안은 main.ts가 진행률을 보인다. */
+const LOAD_TIMEOUT_MS = 0;
 
 /** 에셋 경로는 그대로 쓴다.
  *
@@ -27,14 +36,18 @@ export const VIDEO_LOAD_TIMEOUT_MS = 60_000;
 
 export async function loadTexture(url: string | undefined, timeoutMs = LOAD_TIMEOUT_MS): Promise<Texture | null> {
   if (!url) return null;
+  beginLoad();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), timeoutMs);
-  });
+  const load = Assets.load<Texture>(url).catch(() => null);
   try {
-    return await Promise.race([Assets.load<Texture>(url).catch(() => null), timeout]);
+    if (timeoutMs <= 0) return await load; // 0 = 상한 없음
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), timeoutMs);
+    });
+    return await Promise.race([load, timeout]);
   } finally {
     if (timer !== undefined) clearTimeout(timer);
+    endLoad();
   }
 }
 
