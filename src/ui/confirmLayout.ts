@@ -15,7 +15,7 @@ export interface Box { x: number; y: number; w: number; h: number }
 /** 슬롯이 없을 때 쓰는 자리. uiLayout.json의 confirm 영역과 **같아야 한다**. */
 export const CONFIRM_FALLBACK = {
   /** 창 바탕 */
-  panel: { x: 75, y: 310, w: 300, h: 180 },
+  panel: { x: 75, y: 256, w: 300, h: 289 },
   /** 묻는 말 — 가운데 정렬이라 폭이 곧 줄바꿈 폭이다 */
   message: { x: 97, y: 340, w: 256, h: 60 },
   /** 취소가 왼쪽. 사고로 눌렸을 때 아무 일도 없는 쪽이다 */
