@@ -431,11 +431,21 @@ export async function runStageScreen(
         // 흔들림 → 다시 그리기 → 말발굽 낙하 순서다. 다시 그리기가 먼저면
         // 붙잡아 둔 표시 객체가 파괴돼 흔들 것이 없어진다.
         // 파편은 이 흔들림과 나란히 굴러간다 — 이미 판을 떠났으므로 서로 안 기다린다.
-        await playArmorHits(fx, hits, redrawExceptCages);
+        // 연출은 **판정을 막지 못한다.** 아래 판정(클리어·실패)은 연출이 터져도
+        // 반드시 돌아야 한다 — 예전에는 이 자리에 catch가 없어서, 파편이나 구출
+        // 연출 하나가 예외를 던지면 그 아래 판정이 통째로 건너뛰어졌다.
+        // 비동기 핸들러라 오류도 조용히 묻혀서, 화면에는 「깼는데 안 끝난다」로만
+        // 보였다(QA: 3판을 성공해도 무한 플레이). 연출은 눈요기고 판정은 규칙이다.
+        try {
+          await playArmorHits(fx, hits, redrawExceptCages);
 
-        for (const cage of outcome.rescued) {
-          playSfx("audio.sfxRescue");
-          await cages.playRescue(cage); // 몸체가 아직 살아 있다
+          for (const cage of outcome.rescued) {
+            playSfx("audio.sfxRescue");
+            await cages.playRescue(cage); // 몸체가 아직 살아 있다
+          }
+        } catch (err) {
+          // 삼키지 않는다 — 조용히 넘어가면 다음에 또 같은 자리에서 헤맨다
+          console.error("[stage] 구출 연출이 실패했다 — 판정은 그대로 진행한다", err);
         }
         redraw(); // 연출이 끝난 뒤 케이지 정리
 
