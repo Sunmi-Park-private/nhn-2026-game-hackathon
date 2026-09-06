@@ -332,6 +332,13 @@ async function main(): Promise<void> {
       // 마지막 스테이지를 깨면 엔딩. 파일이 없으면 그냥 로비로 돌아간다 —
       // 어느 쪽이든 이 아래로 흘러 다음 바퀴의 runLobby로 간다.
       if (last) {
+        // 마지막 판에도 대사가 있다 — 코끼리까지 구하고 아무 말 없이 영상으로 넘어가면
+        // 마지막에 구한 동물만 인사를 못 한다(QA). 대사 → 엔딩 영상 → 로비 순서다.
+        try {
+          await playStoryBeat(cleared);
+        } catch (err) {
+          console.error("[story] 마지막 대사가 실패했다 — 엔딩으로 넘어간다", err);
+        }
         mark("ending");
         await playVideo(videoAssetPaths.ending, "닫기");
       } else {

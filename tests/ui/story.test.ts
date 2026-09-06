@@ -13,8 +13,8 @@ function stageAnimal(i: number): string | undefined {
 }
 
 describe("스토리 비트", () => {
-  it("마지막 스테이지를 뺀 판마다 하나씩 있다", () => {
-    expect(STORY_BEATS.length).toBe(stages.length - 1);
+  it("판마다 하나씩 있다 — 마지막 판도 대사를 갖는다", () => {
+    expect(STORY_BEATS.length).toBe(stages.length);
   });
 
   it("각 비트는 2~3줄이다", () => {
@@ -45,21 +45,30 @@ describe("스토리 비트", () => {
     });
   });
 
-  it("마지막 비트는 코끼리를 가리킨다 — 그 판을 깨면 엔딩이다", () => {
-    expect(STORY_BEATS[STORY_BEATS.length - 1]?.nextId).toBe("elephant");
+  it("마지막 비트는 코끼리를 **구한** 비트다 — 다음이 없으므로 nextId도 없다", () => {
+    const last = STORY_BEATS[STORY_BEATS.length - 1];
+    expect(last?.rescuedId).toBe("elephant");
+    expect(last?.nextId).toBeUndefined();
+  });
+
+  it("nextId가 없는 비트는 마지막 하나뿐이다 — 중간 판이 길을 잃으면 안 된다", () => {
+    const without = STORY_BEATS.filter((b) => b.nextId === undefined);
+    expect(without).toHaveLength(1);
+    expect(without[0]).toBe(STORY_BEATS[STORY_BEATS.length - 1]);
   });
 
   it("쓰는 동물 id가 모두 도감에 있다", () => {
     const known = new Set(ANIMALS.map((a) => a.id));
     for (const b of STORY_BEATS) {
       expect(known.has(b.rescuedId)).toBe(true);
-      expect(known.has(b.nextId)).toBe(true);
+      if (b.nextId !== undefined) expect(known.has(b.nextId)).toBe(true);
     }
   });
 
   it("다음 동물 이름이 대사 어딘가에 나온다 — 어디로 가는지 말하지 않으면 대사가 아니다", () => {
     const nameOf = new Map(ANIMALS.map((a) => [a.id, a.name]));
     for (const b of STORY_BEATS) {
+      if (b.nextId === undefined) continue; // 마지막 비트는 갈 곳이 없다
       const name = nameOf.get(b.nextId) ?? "";
       const all = b.lines.map((l) => l.text).join(" ");
       expect(all).toContain(name);
@@ -73,8 +82,12 @@ describe("storyBeat", () => {
     expect(storyBeat(4)).toBe(STORY_BEATS[4]);
   });
 
-  it("마지막 판을 깨면 없다 — 그 자리는 엔딩 영상이다", () => {
-    expect(storyBeat(stages.length - 1)).toBeNull();
+  it("마지막 판을 깨면 코끼리 비트가 나온다 — 그 뒤가 엔딩 영상이다", () => {
+    expect(storyBeat(stages.length - 1)?.rescuedId).toBe("elephant");
+  });
+
+  it("판 수를 넘어서면 없다", () => {
+    expect(storyBeat(stages.length)).toBeNull();
   });
 
   it("범위를 벗어난 값에도 터지지 않는다", () => {
