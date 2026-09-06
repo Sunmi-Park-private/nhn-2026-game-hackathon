@@ -273,6 +273,25 @@ async function main(): Promise<void> {
     });
   };
 
+  // `?story=N`이면 N번 판을 깬 직후의 대사를 **지금 한 번** 띄운다(규약 5조: dev 모드만).
+  //
+  // 「판을 깨도 대사가 안 나온다」를 확인하는 데 판을 실제로 깨야 하면 확인 한 번에
+  // 몇 분이 든다. 치트 패널은 ?editor=1을 요구해서 에디터를 띄우지 않으면 못 쓴다.
+  // 주소 하나로 대사창만 열면 **어디가 끊겼는지 두 갈래로 좁혀진다** —
+  // 여기서 뜨면 대사 화면은 멀쩡하고 클리어 경로가 문제고, 안 뜨면 대사 화면이 문제다.
+  //
+  // `?stage=N`과 같은 규칙이다: 한 번 쓰고 주소에서 지운다.
+  if (isDevMode()) {
+    const params = new URLSearchParams(location.search);
+    const n = Number(params.get("story"));
+    if (Number.isInteger(n) && n >= 1) {
+      params.delete("story");
+      const q = params.toString();
+      history.replaceState(null, "", `${location.pathname}${q ? `?${q}` : ""}${location.hash}`);
+      await playStoryBeat(n - 1);
+    }
+  }
+
   for (;;) {
     if (!retry) {
       mark("lobby");
