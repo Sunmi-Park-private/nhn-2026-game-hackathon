@@ -247,7 +247,13 @@ async function main(): Promise<void> {
   /** 판 하나를 깬 뒤의 대사. 비트가 없는 판(마지막)이면 아무 일도 하지 않는다. */
   const playStoryBeat = async (clearedIndex: number): Promise<void> => {
     const beat = storyBeat(clearedIndex);
-    if (!beat) return;
+    if (!beat) {
+      // 대사가 없는 판은 마지막 판뿐이다(그 자리는 엔딩). 그 외에서 여기로 오면
+      // 판 수와 비트 수가 어긋난 것이다 — 조용히 넘어가면 「대사가 안 나온다」로만
+      // 보이고 원인을 찾을 데가 없다.
+      console.warn(`[story] ${clearedIndex}번 판의 대사 비트가 없다 — 대사를 건너뛴다`);
+      return;
+    }
     mark("story");
     // 초상은 이미 받아 둔 텍스처만 쓴다 — 여기서 새로 받으면 판 사이가 멎는다.
     // **대사 전용 아트가 1순위**(에디터 「대사」 탭에서 올린다). 없으면 인게임 동물 시퀀스
@@ -312,7 +318,13 @@ async function main(): Promise<void> {
       } else {
         // 중간 판이면 방금 구한 동물과 붉은말이 다음 구조를 이야기한다.
         // 대사·초상은 여기서 넣어 준다 — storyDialog는 data를 모른다(규약 2조).
-        await playStoryBeat(cleared);
+        // 대사가 터져도 게임은 로비로 이어져야 한다. 예전에는 여기서 예외가 나면
+        // 이 `for(;;)` 루프가 통째로 죽어 화면이 그대로 멎었다.
+        try {
+          await playStoryBeat(cleared);
+        } catch (err) {
+          console.error("[story] 대사 화면이 실패했다 — 로비로 넘어간다", err);
+        }
       }
     }
     // failed·lobby는 프로필을 건드리지 않는다 — 다음 바퀴에서 같은 스테이지가 다시 나온다
