@@ -8,6 +8,7 @@
 //
 // 규약 6조 — 치트는 devMode 게이트 뒤에만 산다. 제출 빌드에서는 뜨지 않는다.
 import { isDevMode } from "./devMode";
+import { endingRehearsal } from "./endingRehearsal";
 import { ANIMALS } from "../data/animals";
 import { sceneCandidates, SCENE_KEYS } from "../data/lobbyScene";
 import { stages } from "../data/stages";
@@ -55,6 +56,8 @@ export interface CheatOptions {
   /** 「대사 보기」를 누르면 그 판(0-based)의 대사를 띄운다. 없으면 그 묶음이 안 뜬다 —
    *  패널은 Pixi를 모른다: 화면을 여는 일은 넘겨받은 이 함수가 한다. */
   onPlayStory?: (clearedIndex: number) => void;
+  /** 「엔딩 영상만」을 누르면 엔딩 영상을 지금 띄운다. 진행도는 바뀌지 않는다. */
+  onPlayEnding?: () => void;
 }
 
 export function mountCheatPanel(opts: CheatOptions = {}): void {
@@ -112,6 +115,41 @@ export function mountCheatPanel(opts: CheatOptions = {}): void {
       storyRows.append(btn);
     });
     body.append(storyRows);
+  }
+
+  // ── 엔딩 흐름 보기 ──
+  // 엔딩은 마지막 판을 깨야만 나온다. 그 하나를 보려고 다섯 판을 다시 깨지 않게 한다.
+  //
+  // 두 가지를 나눠 둔다. 「6판만 남기기」는 **실제 흐름**을 보는 쪽이다 —
+  // 마지막 판을 깨면 addClear → save → 엔딩 영상 → 로비까지 그대로 흐른다.
+  // 「엔딩 영상만」은 영상 자체를 확인하는 쪽이라 진행도를 건드리지 않는다.
+  if (stages.length > 0) {
+    body.append(el("div", CSS.state,
+      `엔딩 흐름 — ${stages.length}판을 깬 직후의 흐름을 본다. `
+      + "「6판만 남기기」는 진행도를 바꾸고, 「엔딩 영상만」은 바꾸지 않는다."));
+    const endRows = el("div", CSS.row);
+
+    const setup = el("button", "");
+    paintRadio(setup, false, `${stages.length}판만 남기기 — ${ANIMALS.length - 1}마리 구출 · 마지막 판 진입`);
+    setup.onclick = (): void => {
+      const p = read();
+      const next = endingRehearsal(p, ANIMALS.map((a) => a.id), stages.length);
+      try { localStorage.setItem(PROFILE_KEY, serializeProfile(next)); } catch { /* 무시 */ }
+      const url = new URL(location.href);
+      url.searchParams.set("editor", "1");
+      url.searchParams.set("stage", String(stages.length));
+      location.href = url.toString();
+    };
+    endRows.append(setup);
+
+    if (opts.onPlayEnding) {
+      const only = el("button", "");
+      paintRadio(only, false, "엔딩 영상만 — 진행도 그대로");
+      only.onclick = (): void => { opts.onPlayEnding?.(); };
+      endRows.append(only);
+    }
+
+    body.append(endRows);
   }
 
   panel.append(body);

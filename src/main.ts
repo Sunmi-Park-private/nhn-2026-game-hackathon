@@ -171,7 +171,18 @@ async function main(): Promise<void> {
   mountLayoutEditor(app.stage); // ?editor=1 일 때만 산다 — 게임 화면 위에서 배치를 고친다
   // 치트 패널이 「대사 보기」를 누르면 이 함수를 부른다 — 판을 깨지 않고 다섯 편을 본다.
   // 패널은 DOM이라 Pixi를 모른다: 여는 일은 여기서 하고 패널은 번호만 넘긴다.
-  mountCheatPanel({ onPlayStory: (i) => { void playStoryBeat(i); } });
+  mountCheatPanel({
+    onPlayStory: (i) => { void playStoryBeat(i); },
+    // 엔딩 영상만 따로 본다. 지금 떠 있는 화면 위에 겹쳐 뜨고, 끝나면 그 화면으로
+    // 돌아온다 — 로비에서 눌렀다면 로비다. 진행도는 건드리지 않는다.
+    onPlayEnding: () => {
+      void (async () => {
+        mark("ending");
+        await playVideo(videoAssetPaths.ending, "닫기");
+        mark("lobby");
+      })();
+    },
+  });
 
   // 설정창이 쓰는 묶음. 스테이지 화면도 같은 것을 그대로 넘겨받는다.
   const ui = {
